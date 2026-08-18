@@ -1,0 +1,107 @@
+name: Deploy Belema
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout frontend (Belemaweb)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout backend (BelemaApi)
+        uses: actions/checkout@v4
+        with:
+          repository: solaoluwa123/BelemaApi
+          ref: main
+          path: belema_backend
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Build frontend dist
+        run: |
+          npm ci
+          npx vite build
+
+      - name: Copy dist into Spring wrapper
+        run: |
+          STATIC_DIR="spring-wrapper/src/main/resources/static"
+          rm -rf "$STATIC_DIR"
+          mkdir -p "$STATIC_DIR"
+          cp -r dist/* "$STATIC_DIR/"
+
+      - name: Build frontend WAR (spring-wrapper)
+        run: |
+          chmod +x belema_backend/mvnw
+          belema_backend/mvnw -f "spring-wrapper/pom.xml" -DskipTests package
+
+      - name: Build backend jar
+        run: |
+          chmod +x belema_backend/mvnw
+          belema_backend/mvnw -DskipTests package
+
+      - name: Prepare SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BELEMA_SSH_KEY }}
+
+      - name: Backup & SCP artifacts to Belema
+        env:
+          BELEMA_HOST: ${{ secrets.BELEMA_SSH_HOST }}
+          BELEMA_USER: ${{ secrets.BELEMA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          DATE_TAG="$(date +%Y%m%d_%H%M%S)"
+
+          BACKEND_JAR="belema_backend/target/sparkpayapi.jar"
+          FRONTEND_WAR="spring-wrapper/target/spring-wrapper-0.0.1-SNAPSHOT.war"
+
+          ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" "set -e
+            cp -f /home/${BELEMA_USER}/supersoft/belemaApi/releases/sparkpayapi.jar \
+                  /home/${BELEMA_USER}/supersoft/belemaApi/releases/sparkpayapi.jar.bak.${DATE_TAG} || true
+            cp -f /home/${BELEMA_USER}/supersoft/belema_frontend/releases/belema_frontend.war \
+                  /home/${BELEMA_USER}/supersoft/belema_frontend/releases/belema_frontend.war.bak.${DATE_TAG} || true"
+
+          scp -o StrictHostKeyChecking=no "$BACKEND_JAR" "$BELEMA_USER@$BELEMA_HOST:/home/${BELEMA_USER}/supersoft/belemaApi/releases/sparkpayapi.jar"
+          scp -o StrictHostKeyChecking=no "$FRONTEND_WAR" "$BELEMA_USER@$BELEMA_HOST:/home/${BELEMA_USER}/supersoft/belema_frontend/releases/belema_frontend.war"
+
+      - name: Restart Belema services
+        env:
+          BELEMA_HOST: ${{ secrets.BELEMA_SSH_HOST }}
+          BELEMA_USER: ${{ secrets.BELEMA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" "set -e
+            API_PID=\$(cat /home/${BELEMA_USER}/supersoft/belemaApi/run/belemaApi.pid 2>/dev/null || true)
+            FE_PID=\$(cat /home/${BELEMA_USER}/supersoft/belema_frontend/run/belema_frontend.pid 2>/dev/null || true)
+            if [ -n \"\$API_PID\" ]; then kill \$API_PID 2>/dev/null || true; sleep 2; kill -9 \$API_PID 2>/dev/null || true; fi
+            if [ -n \"\$FE_PID\" ]; then kill \$FE_PID 2>/dev/null || true; sleep 2; kill -9 \$FE_PID 2>/dev/null || true; fi
+
+            /home/${BELEMA_USER}/supersoft/belemaApi/run/start-belemaApi.sh
+            /home/${BELEMA_USER}/supersoft/belema_frontend/run/start-belema_frontend.sh
+
+            sleep 10
+            ss -lntp | grep -E '(:8077|:18080)' || true"
+

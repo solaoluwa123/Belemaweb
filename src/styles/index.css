@@ -1,0 +1,12 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Cursor pointer for all interactive elements */
+button,
+a,
+[role="button"],
+[type="submit"],
+[type="button"] {
+  cursor: pointer;
+}

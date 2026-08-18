@@ -1,0 +1,10 @@
+node_modules/
+dist/
+spring-wrapper/target/
+spring-wrapper/src/main/resources/static/
+.env
+.env.*
+*.local
+ROOT.war
+build.log
+build_utf8.log

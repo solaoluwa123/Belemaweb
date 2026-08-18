@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.idea
+.vscode
+
+spring-wrapper/target
+spring-wrapper/.mvn
+
+*.log
+*.tmp
+*.swp
