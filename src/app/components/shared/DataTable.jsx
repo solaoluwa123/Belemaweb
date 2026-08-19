@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, isValidElement } from "react";
 import {
   Table,
   TableBody,
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { formatEmptyCell } from "../../utils/formatters";
 
 export function DataTable({
   data,
@@ -208,9 +209,13 @@ export function DataTable({
                   )}
                   {columns.map((column) => (
                     <TableCell key={column.key} className={column.cellClassName}>
-                      {column.render
-                        ? column.render((row)[column.key], row)
-                        : (row)[column.key]}
+                      {(() => {
+                        const rendered = column.render
+                          ? column.render((row)[column.key], row)
+                          : (row)[column.key];
+                        if (isValidElement(rendered)) return rendered;
+                        return formatEmptyCell(rendered);
+                      })()}
                     </TableCell>
                   ))}
                   {actions && (

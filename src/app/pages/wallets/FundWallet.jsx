@@ -291,7 +291,7 @@ export default function FundWallet() {
       <p className="text-sm text-muted-foreground">
         Wallet balances and registry are managed under{" "}
         <Link to="/wallets" className="text-primary underline-offset-2 hover:underline">
-          View wallets
+          Wallets
         </Link>
         .
       </p>

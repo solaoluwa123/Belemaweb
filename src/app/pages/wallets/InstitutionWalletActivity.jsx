@@ -6,17 +6,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Loader2, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
 import { fetchInstitutionWalletAggregates } from "../../services/wallets";
-import { formatBackendDate, getBackendDateTime, parseBackendDate } from "../../utils/formatters";
-
-const POLL_MS = 15000;
+import { formatBackendDate, getBackendDateTime, parseBackendDate, formatLocalYmd } from "../../utils/formatters";
 
 export default function InstitutionWalletActivity() {
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [filterInstitution, setFilterInstitution] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => formatLocalYmd());
+  const [dateTo, setDateTo] = useState(() => formatLocalYmd());
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setIsLoading(true);
@@ -48,11 +46,6 @@ export default function InstitutionWalletActivity() {
 
   useEffect(() => {
     load();
-  }, [load]);
-
-  useEffect(() => {
-    const t = setInterval(() => load({ silent: true }), POLL_MS);
-    return () => clearInterval(t);
   }, [load]);
 
   const institutionOptions = useMemo(() => {

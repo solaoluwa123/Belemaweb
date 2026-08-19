@@ -37,8 +37,6 @@ export default function LiveTransactions() {
 
   useEffect(() => {
     loadTransactions();
-    const intervalId = window.setInterval(loadTransactions, 15000);
-    return () => window.clearInterval(intervalId);
   }, []);
 
   const columns = useMemo(
@@ -46,7 +44,7 @@ export default function LiveTransactions() {
       {
         key: "dateTime",
         label: "Time",
-        render: (value) => formatBackendTime(value, { fallback: "–" }),
+        render: (value) => formatBackendTime(value),
       },
       { key: "sessionId", label: "Transaction ID" },
       { key: "sourceAccountName", label: "From" },

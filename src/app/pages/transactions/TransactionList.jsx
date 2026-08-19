@@ -41,11 +41,11 @@ import {
   endOfMonth,
   subMonths,
 } from "date-fns";
-import { parseBackendDate, getBackendDateTime } from "../../utils/formatters";
+import { parseBackendDate, getBackendDateTime, formatEmptyCell } from "../../utils/formatters";
 
 function formatDate(d) {
   const parsed = parseBackendDate(d);
-  if (!parsed) return "–";
+  if (!parsed) return "empty";
   return parsed.toLocaleString("en-GB", {
     year: "numeric",
     month: "2-digit",
@@ -63,7 +63,7 @@ function formatAmount(n) {
 
 function formatDuration(ms) {
   const n = Number(ms);
-  if (!Number.isFinite(n)) return "–";
+  if (!Number.isFinite(n)) return "empty";
   if (n < 1000) return `${Math.round(n)}ms`;
   return `${(n / 1000).toFixed(2)}s`;
 }
@@ -870,13 +870,13 @@ export default function TransactionList() {
                   className="hover:bg-slate-50"
                 >
                   <TableCell className="text-slate-700">{recordsFrom + idx}</TableCell>
-                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{row.sessionId || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.channelCode || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.sourceAccountName || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.sourceBank || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.beneficiaryAccountName || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.beneficiaryBank || "–"}</TableCell>
-                  <TableCell className="text-slate-800 whitespace-nowrap">{row.destinationNode || "–"}</TableCell>
+                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{formatEmptyCell(row.sessionId)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.channelCode)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.sourceAccountName)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.sourceBank)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.beneficiaryAccountName)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.beneficiaryBank)}</TableCell>
+                  <TableCell className="text-slate-800 whitespace-nowrap">{formatEmptyCell(row.destinationNode)}</TableCell>
                   <TableCell className="text-slate-800 font-medium whitespace-nowrap">{formatAmount(row.amount)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     <span
@@ -890,16 +890,16 @@ export default function TransactionList() {
                               : "text-red-600 font-medium"
                       }
                     >
-                      {row.status}
+                      {formatEmptyCell(row.status)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{row.responseCode || "–"}</TableCell>
-                  <TableCell className="text-slate-700 text-xs max-w-[220px] truncate" title={row.responseMessage || ""}>
-                    {row.responseMessage || "–"}
+                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{formatEmptyCell(row.responseCode)}</TableCell>
+                  <TableCell className="text-slate-700 text-xs max-w-[220px] truncate" title={formatEmptyCell(row.responseMessage)}>
+                    {formatEmptyCell(row.responseMessage)}
                   </TableCell>
                   <TableCell className="text-slate-700 whitespace-nowrap">{formatDuration(row.ftDurationMs)}</TableCell>
                   <TableCell className="text-slate-700 text-sm whitespace-nowrap">{formatDate(row.dateTime)}</TableCell>
-                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{row.paymentReferenceNo || "–"}</TableCell>
+                  <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{formatEmptyCell(row.paymentReferenceNo)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     <div className="flex items-center justify-center gap-3">
                       <button

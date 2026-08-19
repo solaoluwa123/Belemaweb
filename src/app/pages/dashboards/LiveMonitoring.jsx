@@ -138,12 +138,6 @@ export default function LiveMonitoring() {
 
   useEffect(() => {
     loadMonitoring();
-    const intervalId = setInterval(() => {
-      // Avoid overlapping requests; `loadMonitoring` has a guard.
-      loadMonitoring();
-    }, 15000);
-
-    return () => clearInterval(intervalId);
   }, []);
 
   if (isThirdPartyVendor()) {

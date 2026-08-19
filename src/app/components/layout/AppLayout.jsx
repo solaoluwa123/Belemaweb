@@ -119,16 +119,7 @@ export default function AppLayout() {
     if (pathname.startsWith("/admin/audit-logs")) return isAdmin();
     if (pathname.startsWith("/admin/")) return isOperator() || isAdmin();
 
-    if (pathname.startsWith("/approvals/change-requests")) {
-      return isApprover() || isOperator();
-    }
-    if (
-      pathname.startsWith("/approvals/transactions-accounts") ||
-      pathname.startsWith("/approvals/institutions")
-    ) {
-      return isApprover() || isOperator();
-    }
-    if (pathname.startsWith("/approvals/")) return isApprover();
+    if (pathname.startsWith("/approvals/")) return isApprover() || isAdmin();
 
     if (pathname.startsWith("/disputes/arbitrated")) {
       return isApprover() || isOperator();
@@ -240,8 +231,8 @@ export default function AppLayout() {
       if (item.adminRoleOnly && !isAdmin()) return false;
       if (item.adminOnly && !isOperator() && !isAdmin()) return false;
       if (item.disputeReadAccess && !isApprover() && !isOperator() && !isAdmin()) return false;
-      if (item.changeRequestHub && !isApprover() && !isOperator() && !isAdmin()) return false;
-      if (item.makerCheckerApprovals && !isApprover() && !isOperator() && !isAdmin()) return false;
+      if (item.changeRequestHub && !isApprover() && !isAdmin()) return false;
+      if (item.makerCheckerApprovals && !isApprover() && !isAdmin()) return false;
       if (item.approverOnly && !isApprover() && !isAdmin()) return false;
       if (item.requesterOnly && !isOperator() && !isAdmin()) return false;
       if (item.hideForAdmin && isAdmin()) return false;
@@ -385,7 +376,7 @@ export default function AppLayout() {
                   }`}
                 >
                   <Eye className="w-4 h-4" />
-                  <span className="min-w-0 flex-1 truncate">View wallets</span>
+                  <span className="min-w-0 flex-1 truncate">Wallets</span>
                 </button>
                 <button
                   type="button"
@@ -413,7 +404,7 @@ export default function AppLayout() {
             )}
           </div>
 
-          {(isApprover() || isOperator() || isAdmin()) && (
+          {(isApprover() || isAdmin()) && (
             <div className="mt-4">
               <button
                 type="button"

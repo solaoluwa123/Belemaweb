@@ -12,7 +12,41 @@ export function formatCompactNumber(num) {
 }
 
 /** Default placeholder for dates we cannot parse. Keep in sync with shared helpers below. */
-export const INVALID_DATE_FALLBACK = '—';
+export const INVALID_DATE_FALLBACK = 'empty';
+
+const EMPTY_CELL = 'empty';
+
+/** True when a table cell has no real value (including the leaked string "undefined"). */
+export function isBlankDisplayValue(value) {
+  if (value == null) return true;
+  if (typeof value === 'number') return !Number.isFinite(value);
+  if (typeof value === 'boolean') return false;
+  const text = String(value).trim();
+  return !text || text === 'undefined' || text === 'null' || text === 'NaN' || text === 'Invalid Date';
+}
+
+/** Show the real value, or `empty` when there is nothing to display. */
+export function formatEmptyCell(value) {
+  if (isBlankDisplayValue(value)) return EMPTY_CELL;
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  return String(value);
+}
+
+/** Local calendar date as YYYY-MM-DD. */
+export function formatLocalYmd(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Join non-blank parts, or `empty`. */
+export function formatJoinedCell(parts, separator = ' — ') {
+  const kept = (parts || [])
+    .filter((p) => !isBlankDisplayValue(p))
+    .map((p) => String(p).trim());
+  return kept.length ? kept.join(separator) : EMPTY_CELL;
+}
 
 /**
  * Parse anything the backend might emit for a date column into a real `Date`.

@@ -7,9 +7,7 @@ import { Button } from "../../components/ui/button";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
 import { fetchWalletActivity } from "../../services/wallets";
-import { formatBackendDate, formatBackendTime } from "../../utils/formatters";
-
-const POLL_MS = 12000;
+import { formatBackendDate, formatBackendTime, formatEmptyCell, formatJoinedCell, formatLocalYmd, getBackendDateTime } from "../../utils/formatters";
 
 export default function WalletActivity() {
   const { id } = useParams();
@@ -48,10 +46,14 @@ export default function WalletActivity() {
     loadActivity();
   }, [loadActivity]);
 
-  useEffect(() => {
-    const t = setInterval(() => loadActivity(), POLL_MS);
-    return () => clearInterval(t);
-  }, [loadActivity]);
+  const todayYmd = formatLocalYmd();
+  const todaysActivities = walletState.activities.filter((row) => {
+    const t = getBackendDateTime(row.dateSort || row.date);
+    if (!t) return false;
+    const start = new Date(`${todayYmd}T00:00:00`).getTime();
+    const end = new Date(`${todayYmd}T23:59:59.999`).getTime();
+    return t >= start && t <= end;
+  });
 
   const columns = [
     {
@@ -68,11 +70,16 @@ export default function WalletActivity() {
     {
       key: "details",
       label: "Transaction details",
-      render: (_v, row) => (
-        <span className="max-w-md line-clamp-2 text-sm" title={row.details}>
-          {row.details || `${row.type} — ${row.reference}`}
-        </span>
-      ),
+      render: (_v, row) => {
+        const label = formatEmptyCell(row.details) !== "empty"
+          ? String(row.details).trim()
+          : formatJoinedCell([row.type, row.reference]);
+        return (
+          <span className="max-w-md line-clamp-2 text-sm" title={label}>
+            {label}
+          </span>
+        );
+      },
     },
     {
       key: "flow",
@@ -129,7 +136,7 @@ export default function WalletActivity() {
             </Link>
             <span className="text-muted-foreground">·</span>
             <Link to="/wallets" className="text-primary underline-offset-2 hover:underline">
-              View wallets
+              Wallets
             </Link>
           </div>
         </div>
@@ -138,8 +145,6 @@ export default function WalletActivity() {
           Refresh
         </Button>
       </div>
-
-      <p className="text-xs text-muted-foreground">Auto-refresh every {POLL_MS / 1000}s.</p>
 
       {errorMessage ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>
@@ -173,10 +178,10 @@ export default function WalletActivity() {
       </div>
 
       <DataTable
-        data={walletState.activities}
+        data={todaysActivities}
         columns={columns}
         isLoading={isLoading}
-        emptyMessage="No wallet activity returned."
+        emptyMessage="No wallet activity for today."
         initialPageSize={25}
       />
     </div>

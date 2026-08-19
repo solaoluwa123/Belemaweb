@@ -9,9 +9,7 @@ import { Loader2, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { fetchAllWalletActivities, fetchWallets } from "../../services/wallets";
-import { formatBackendDate, formatBackendTime, getBackendDateTime } from "../../utils/formatters";
-
-const POLL_MS = 12000;
+import { formatBackendDate, formatBackendTime, getBackendDateTime, formatEmptyCell, formatJoinedCell, formatLocalYmd } from "../../utils/formatters";
 
 export default function WalletActivitiesAll() {
   const { user, requiresInstitutionScope } = useAuth();
@@ -26,8 +24,8 @@ export default function WalletActivitiesAll() {
   const [errorMessage, setErrorMessage] = useState("");
   const [filterWallet, setFilterWallet] = useState(walletFromUrl);
   const [filterInstitution, setFilterInstitution] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => formatLocalYmd());
+  const [dateTo, setDateTo] = useState(() => formatLocalYmd());
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -54,11 +52,6 @@ export default function WalletActivitiesAll() {
 
   useEffect(() => {
     load();
-  }, [load]);
-
-  useEffect(() => {
-    const t = setInterval(() => load(), POLL_MS);
-    return () => clearInterval(t);
   }, [load]);
 
   useEffect(() => {
@@ -109,11 +102,16 @@ export default function WalletActivitiesAll() {
     {
       key: "details",
       label: "Transaction details",
-      render: (_v, row) => (
-        <span className="max-w-md line-clamp-2 text-sm" title={row.details}>
-          {row.details || `${row.type} — ${row.reference}`}
-        </span>
-      ),
+      render: (_v, row) => {
+        const label = formatEmptyCell(row.details) !== "empty"
+          ? String(row.details).trim()
+          : formatJoinedCell([row.type, row.reference]);
+        return (
+          <span className="max-w-md line-clamp-2 text-sm" title={label}>
+            {label}
+          </span>
+        );
+      },
     },
     {
       key: "flow",
@@ -146,7 +144,7 @@ export default function WalletActivitiesAll() {
         </Link>
       ),
     },
-    { key: "institutionName", label: "Institution", render: (v) => v || "—" },
+    { key: "institutionName", label: "Institution", render: (v) => formatEmptyCell(v) },
     {
       key: "status",
       label: "Status",
@@ -168,13 +166,12 @@ export default function WalletActivitiesAll() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Wallet activities</h1>
           <p className="text-gray-500 mt-1">
-            Unified transaction log across all wallets (inflow / outflow). Refined by filters unless you leave them blank.
-            Refreshes every {POLL_MS / 1000}s.
+            Unified transaction log across all wallets (inflow / outflow). Defaults to today; change the dates to look further back.
           </p>
           <p className="text-sm text-muted-foreground mt-2">
             Open a specific wallet from{" "}
             <Link to="/wallets" className="text-primary underline-offset-2 hover:underline">
-              View wallets
+              Wallets
             </Link>{" "}
             or filter below.
           </p>
