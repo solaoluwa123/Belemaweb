@@ -23,7 +23,14 @@ import {
   rejectChangeRequest,
 } from "../../services/changeRequests";
 import { requestTransactionStatusChange } from "../../services/transactions";
-import { formatBackendDateTime } from "../../utils/formatters";
+import { formatBackendDateTime, formatCurrency, formatEmptyCell } from "../../utils/formatters";
+
+function displayAmount(value) {
+  if (value === undefined || value === null || value === "") return formatEmptyCell(undefined);
+  const n = Number(String(value).replace(/,/g, ""));
+  if (Number.isFinite(n)) return formatCurrency(n);
+  return formatEmptyCell(value);
+}
 
 function statusBadgeClass(status) {
   const s = String(status || "").toLowerCase();
@@ -274,6 +281,10 @@ function RequestTable({ rows, loading, mode, onApprove, onReject }) {
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-center">
             <th className="p-3 font-semibold text-slate-900">ID</th>
+            <th className="p-3 font-semibold text-slate-900">Change</th>
+            <th className="p-3 font-semibold text-slate-900">Institution</th>
+            <th className="p-3 font-semibold text-slate-900">Resource</th>
+            <th className="p-3 font-semibold text-slate-900">Amount</th>
             <th className="p-3 font-semibold text-slate-900">Summary</th>
             <th className="p-3 font-semibold text-slate-900">Type</th>
             <th className="p-3 font-semibold text-slate-900">Requested by</th>
@@ -285,12 +296,20 @@ function RequestTable({ rows, loading, mode, onApprove, onReject }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.rowKey || r.id} className="border-b border-slate-100 text-center hover:bg-slate-50/80">
-              <td className="p-3 font-mono text-xs">{r.id}</td>
-              <td className="p-3 max-w-[220px] truncate" title={r.summary}>
-                {r.summary}
+              <td className="p-3 font-mono text-xs">{formatEmptyCell(r.id)}</td>
+              <td className="p-3 whitespace-nowrap">{formatEmptyCell(r.change)}</td>
+              <td className="p-3 max-w-[160px] truncate" title={r.institution || ""}>
+                {formatEmptyCell(r.institution)}
               </td>
-              <td className="p-3 font-mono text-xs text-slate-700">{r.resourceType}</td>
-              <td className="p-3">{r.requestedBy}</td>
+              <td className="p-3 max-w-[180px] truncate" title={r.resource || ""}>
+                {formatEmptyCell(r.resource)}
+              </td>
+              <td className="p-3 whitespace-nowrap">{displayAmount(r.amount)}</td>
+              <td className="p-3 max-w-[220px] truncate" title={r.summary}>
+                {formatEmptyCell(r.summary)}
+              </td>
+              <td className="p-3 font-mono text-xs text-slate-700">{formatEmptyCell(r.resourceType)}</td>
+              <td className="p-3">{formatEmptyCell(r.requestedBy)}</td>
               <td className="p-3">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(r.status)}`}>
                   {r.status}

@@ -103,7 +103,9 @@ export default function TransactionApprovalsAccounts() {
       render: (value) => formatBackendDateTime(value),
     },
     { key: "sourceAccountName", label: "From" },
+    { key: "sourceBank", label: "Source bank" },
     { key: "beneficiaryAccountName", label: "To" },
+    { key: "beneficiaryBank", label: "Destination bank" },
     { key: "amount", label: "Amount", render: (value) => `₦${Number(value || 0).toLocaleString()}` },
     { key: "status", label: "Status", render: (value, row) => <StatusBadge status={row.status} /> },
   ];
@@ -156,7 +158,7 @@ export default function TransactionApprovalsAccounts() {
         selectable
         actions={actions}
         isLoading={isLoading}
-        emptyMessage="No account transaction approval items were returned by the backend."
+        emptyMessage="No pending transaction status items were returned."
       />
 
       <Dialog open={proposeOpen} onOpenChange={setProposeOpen}>

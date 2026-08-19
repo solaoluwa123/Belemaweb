@@ -322,7 +322,14 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
     };
   }
 
-  const responseCode = firstDefined(row.responseCode, row.srcResponsecode, row.destResponseCode, row.statusCode, "");
+  const responseCode = firstDefined(
+    row.responseCode,
+    row.srcResponsecode,
+    row.destResponseCode,
+    row.statusCode,
+    row.response_code,
+    "",
+  );
   const responseMessage = firstDefined(
     row.responseMessage,
     row.responseCodeDefinition,
@@ -333,9 +340,17 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
   const status = parseStatus(firstDefined(row.statusText, row.status, row.transactionStatus), responseCode);
 
   const sessionId = String(firstDefined(row.srcSessionid, row.sessionId, row.session_id, row.transactionId, ""));
-  const srcAcct = String(firstDefined(row.srcAccountNumber, row.sourceAccountNumber, row.from, ""));
+  const srcAcct = String(firstDefined(row.srcAccountNumber, row.sourceAccountNumber, row.originator_account_number, row.from, ""));
   const dateTime = normalizeApiDateTime(
-    firstDefined(row.transactiondate, row.responsedatetime, row.dateTime, row.date, row.createdAt, "")
+    firstDefined(
+      row.transactiondate,
+      row.transaction_date_time,
+      row.responsedatetime,
+      row.dateTime,
+      row.date,
+      row.createdAt,
+      "",
+    )
   );
 
   let mti = String(firstDefined(row.message_type, row.mti, row.messageType, ""));
@@ -400,7 +415,9 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
     sessionId,
     paymentReferenceNo: String(firstDefined(row.paymentReference, row.paymentReferenceNo, row.reference, "")),
     channelCode: String(firstDefined(row.channelCode, row.channel, "")),
-    sourceAccountName: String(firstDefined(row.srcAccountName, row.sourceAccountName, row.fromName, "")),
+    sourceAccountName: String(
+      firstDefined(row.srcAccountName, row.sourceAccountName, row.originator_account_name, row.fromName, ""),
+    ),
     sourceAccountNumber: srcAcct,
     sourceBank: resolveInstitutionDisplayName(
       [
@@ -419,7 +436,9 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
       ],
       institutionLookup
     ),
-    beneficiaryAccountName: String(firstDefined(row.destAccountName, row.beneficiaryAccountName, row.toName, "")),
+    beneficiaryAccountName: String(
+      firstDefined(row.destAccountName, row.beneficiaryAccountName, row.beneficiary_account_name, row.toName, ""),
+    ),
     beneficiaryAccountNumber: String(firstDefined(row.destAccountNumber, row.beneficiaryAccountNumber, row.to, "")),
     beneficiaryBank: resolveInstitutionDisplayName(
       [
@@ -472,6 +491,21 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
   };
 }
 
+function looksLikeNetworkEnvelope(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  const hasEnvelope = obj.message != null && (obj.code != null || obj.status != null);
+  const hasTxnHint = Boolean(
+    obj.srcSessionid ||
+      obj.sessionId ||
+      obj.session_id ||
+      obj.originator_account_name ||
+      obj.srcAccountName ||
+      obj.transactiondate ||
+      obj.transaction_date_time,
+  );
+  return hasEnvelope && !hasTxnHint;
+}
+
 function normalizeTransactionCollection(payload, institutionLookup = null) {
   const unwrapped = unwrapPayload(payload);
 
@@ -480,12 +514,13 @@ function normalizeTransactionCollection(payload, institutionLookup = null) {
   }
 
   if (unwrapped && typeof unwrapped === "object") {
+    if (looksLikeNetworkEnvelope(unwrapped)) {
+      return [];
+    }
     const nestedArray = Object.values(unwrapped).find((value) => Array.isArray(value));
     if (nestedArray) {
       return nestedArray.map((row, index) => normalizeTransaction(row, index, institutionLookup));
     }
-
-    return [normalizeTransaction(unwrapped, 0, institutionLookup)];
   }
 
   return [];

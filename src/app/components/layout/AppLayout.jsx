@@ -75,6 +75,12 @@ const approvalsMenu = [
     icon: <ArrowLeftRight className="w-4 h-4" />,
     makerCheckerApprovals: true,
   },
+  {
+    label: "Fund requests (queue)",
+    path: "/wallets/fund",
+    icon: <Banknote className="w-4 h-4" />,
+    fundQueueNav: true,
+  },
 ];
 
 const adminMenu = [
@@ -205,6 +211,9 @@ export default function AppLayout() {
   };
 
   const isActivePath = (path) => {
+    if (path === "/wallets/fund") {
+      return location.pathname.startsWith("/wallets/fund");
+    }
     if (location.pathname === path) return true;
     if (path === accountsDashboard) {
       return location.pathname === "/" || location.pathname === "/dashboard";
@@ -234,6 +243,7 @@ export default function AppLayout() {
       if (item.changeRequestHub && !isApprover() && !isAdmin()) return false;
       if (item.makerCheckerApprovals && !isApprover() && !isAdmin()) return false;
       if (item.approverOnly && !isApprover() && !isAdmin()) return false;
+      if (item.fundQueueNav && (!isApprover() || isAdmin())) return false;
       if (item.requesterOnly && !isOperator() && !isAdmin()) return false;
       if (item.hideForAdmin && isAdmin()) return false;
       return true;
@@ -388,7 +398,7 @@ export default function AppLayout() {
                   <Activity className="w-4 h-4" />
                   <span className="min-w-0 flex-1 truncate">Wallet activities</span>
                 </button>
-                {(isOperator() || isApprover() || isAdmin()) && (
+                {(isOperator() || isAdmin()) && (
                   <button
                     type="button"
                     onClick={() => navigateTo("/wallets/fund")}
@@ -397,7 +407,7 @@ export default function AppLayout() {
                     }`}
                   >
                     <Banknote className="w-4 h-4" />
-                    <span className="min-w-0 flex-1 truncate">{isApprover() && !isAdmin() ? "Fund requests (queue)" : "Fund wallet"}</span>
+                    <span className="min-w-0 flex-1 truncate">Fund wallet</span>
                   </button>
                 )}
               </div>

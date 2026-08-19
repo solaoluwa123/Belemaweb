@@ -261,7 +261,7 @@ export function StatisticsSection({
           </ResponsiveContainer>
         </StatisticsCard>
 
-        <StatisticsCard title="Failure rates by Institution" to="/dashboard/statistics/by-institution" className="sm:col-span-2 lg:col-span-4">
+        <StatisticsCard title="Failure by destination institution" to="/dashboard/statistics/by-institution" className="sm:col-span-2 lg:col-span-4">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={failureByInstitution} layout="vertical" margin={{ top: 5, right: 5, left: 60, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

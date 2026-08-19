@@ -358,13 +358,18 @@ function normalizeChannelRows(payload) {
 }
 
 function normalizeInstitutionRows(payload) {
-  return asArray(payload)
+  const tnx = getTnxModelFromPayload(payload);
+  const summaryRows = tnx ? asArray(tnx.summary) : [];
+  const sourceRows = summaryRows.length ? summaryRows : asArray(payload);
+  return sourceRows
     .map((row) => {
       const source = row && typeof row === "object" ? row : {};
       const institutionCode = pickString(source, [
         "institutionCode",
         "financialInstitutionCode",
         "code",
+        "destination_institution_code",
+        "destinationInstitutionCode",
         "source_institution_code",
         "sourceInstitutionCode",
         "institution_code",

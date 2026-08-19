@@ -80,10 +80,15 @@ function walletOpToChangeRequest(row, index = 0) {
   ].filter(Boolean);
 
   const id = safeString(source.id, `WOP${index + 1}`);
+  const resource = [walletName, walletNo ? `#${walletNo}` : ""].filter(Boolean).join(" ");
   return {
     id,
     rowKey: `wallet:${id}`,
     resourceType: actionType ? `wallet.${actionType}` : CHANGE_RESOURCE_TYPES.WALLET_EDIT,
+    change: verb,
+    institution,
+    resource,
+    amount: source.balance,
     summary: summaryParts.join(" "),
     requestedBy: safeString(source.creator ?? source.username),
     status: "Pending",
@@ -140,6 +145,13 @@ function userApprovalToChangeRequest(row) {
     role ? `(${role})` : "",
   ].filter(Boolean);
   const id = safeString(row?.id ?? raw.id, `USR-${userIdentity}`);
+  const institution = safeString(
+    raw.financialInstitutionName ??
+      raw.financial_institution_name ??
+      raw.institutionName ??
+      raw.institution_code ??
+      raw.financialInstitutionCode,
+  );
   return {
     id,
     rowKey: `user:${id}`,
@@ -149,6 +161,10 @@ function userApprovalToChangeRequest(row) {
         : actionType === "delete"
           ? CHANGE_RESOURCE_TYPES.SYSTEM_USER_DELETE
           : CHANGE_RESOURCE_TYPES.SYSTEM_USER_UPDATE,
+    change: `${segmentLabel} ${actionType}`.trim(),
+    institution,
+    resource: [userIdentity, role].filter(Boolean).join(" · "),
+    amount: row?.amount ?? raw.amount,
     summary: summaryParts.join(" "),
     requestedBy: safeString(
       row?.submittedBy ?? raw.creator ?? raw.created_by ?? raw.createdBy,
@@ -196,6 +212,10 @@ function institutionApprovalToChangeRequest(row) {
     id,
     rowKey: `institution:${id}`,
     resourceType: CHANGE_RESOURCE_TYPES.INSTITUTION_REGISTRATION_DECISION,
+    change: `Institution ${actionType}`,
+    institution: [name, code].filter(Boolean).join(" · "),
+    resource: name,
+    amount: undefined,
     summary: summaryParts.join(" "),
     requestedBy: safeString(
       row?.submittedBy ?? raw.created_by ?? raw.createdBy ?? raw.creator,

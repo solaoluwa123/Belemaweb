@@ -63,7 +63,7 @@ export default function ByInstitutionPage() {
       ) : null}
       <Card>
         <CardHeader>
-          <CardTitle>Failure rates by Institution</CardTitle>
+          <CardTitle>Failure by destination institution</CardTitle>
           <p className="text-sm text-slate-500">Click a bar to view return code breakdown for that institution.</p>
         </CardHeader>
         <CardContent>
