@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import { fetchWalletActivity } from "../../services/wallets";
 import { formatBackendDate, formatBackendTime, formatEmptyCell, formatJoinedCell, formatLocalYmd, getBackendDateTime } from "../../utils/formatters";
 
 export default function WalletActivity() {
   const { id } = useParams();
+  const { user, requiresInstitutionScope } = useAuth();
   const [walletState, setWalletState] = useState({
     wallet: null,
     activities: [],
@@ -27,6 +29,32 @@ export default function WalletActivity() {
     setErrorMessage("");
     try {
       const data = await fetchWalletActivity(id);
+      if (requiresInstitutionScope()) {
+        const mine = String(user?.institutionCode || "").trim();
+        const fi = String(data.wallet?.institutionId || data.wallet?.financialInstitutionCode || "").trim();
+        if (!mine) {
+          setWalletState({
+            wallet: null,
+            activities: [],
+            totalCredit: 0,
+            totalDebit: 0,
+            currentBalance: 0,
+          });
+          setErrorMessage("Your account is not linked to an institution.");
+          return;
+        }
+        if (!fi || fi !== mine) {
+          setWalletState({
+            wallet: null,
+            activities: [],
+            totalCredit: 0,
+            totalDebit: 0,
+            currentBalance: 0,
+          });
+          setErrorMessage("This wallet is not linked to your institution.");
+          return;
+        }
+      }
       setWalletState(data);
     } catch (error) {
       setWalletState({
@@ -40,7 +68,7 @@ export default function WalletActivity() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, user?.institutionCode, requiresInstitutionScope]);
 
   useEffect(() => {
     loadActivity();

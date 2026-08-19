@@ -349,7 +349,7 @@ export default function UsersManagement() {
             {isAdmin()
               ? "Administrator creates, edits, and deletes users immediately."
               : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Change requests</strong>.</>
+                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Pending User Approvals</strong>.</>
                 : "You can view system users."}
           </p>
         </div>

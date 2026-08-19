@@ -39,7 +39,7 @@ const DEFAULT_STATS_DATE = (() => {
 
 export default function TransgateDashboard() {
   const { user, isAdmin, isThirdPartyVendor } = useAuth();
-  const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "all" : "all";
+  const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "" : "all";
   const { brand } = useBrand();
   const [statsDate, setStatsDate] = useState(() => DEFAULT_STATS_DATE);
   const [statsInstitution, setStatsInstitution] = useState("all");
@@ -123,7 +123,7 @@ export default function TransgateDashboard() {
   };
 
   const applyFilters = () => {
-    setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "all" : modalInstitution);
+    setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "" : modalInstitution);
     setStatsDate(modalDate);
     setFiltersOpen(false);
   };
@@ -295,7 +295,7 @@ export default function TransgateDashboard() {
           <StatisticsSection
             statsDate={statsDate}
             onDateChange={setStatsDate}
-            statsInstitution={statsInstitution}
+            statsInstitution={isThirdPartyVendor() ? vendorLockedInstitution : statsInstitution}
             onInstitutionChange={setStatsInstitution}
             statsData={statsData}
             isLoading={isLoading}

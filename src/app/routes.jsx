@@ -55,8 +55,6 @@ import PendingUserApprovals from "./pages/approvals/PendingUserApprovals";
 import WalletApprovals from "./pages/approvals/WalletApprovals";
 import InstitutionApprovals from "./pages/approvals/InstitutionApprovals";
 import TransactionApprovalsAccounts from "./pages/approvals/TransactionApprovalsAccounts";
-import ChangeRequestsHub from "./pages/approvals/ChangeRequestsHub";
-
 import UsersManagement from "./pages/admin/UsersManagement";
 import OtherUsers from "./pages/admin/OtherUsers";
 import FinancialInstitutions from "./pages/admin/FinancialInstitutions";
@@ -139,7 +137,7 @@ export const router = createBrowserRouter(
       { path: "wallets", Component: WalletList },
       { path: "wallets/:id/activity", Component: WalletActivity },
 
-      { path: "approvals/change-requests", Component: ChangeRequestsHub },
+      { path: "approvals/change-requests", element: <Navigate to="/approvals/wallets" replace /> },
       { path: "approvals/users", Component: PendingUserApprovals },
       { path: "approvals/wallets", Component: WalletApprovals },
       { path: "approvals/institutions", Component: InstitutionApprovals },

@@ -23,6 +23,7 @@ export default function FailedCodesPage() {
     try {
       const data = await fetchAccountsDashboardData({
         institutionCode: requiresInstitutionScope() ? user?.institutionCode : undefined,
+        requireInstitutionScope: requiresInstitutionScope(),
       });
       setRows(data.failedTop5Codes);
     } catch (error) {

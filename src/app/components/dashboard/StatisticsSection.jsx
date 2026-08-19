@@ -68,9 +68,15 @@ export function StatisticsSection({
     setInternalLoading(true);
     setInternalError("");
     try {
+      if (lockInstitution && (!institution || institution === "all")) {
+        setInternalStats(null);
+        setInternalError("Your account is not linked to an institution.");
+        return;
+      }
       const data = await fetchAccountsDashboardData({
         institutionCode: institution !== "all" ? institution : null,
         date,
+        requireInstitutionScope: lockInstitution,
       });
       setInternalStats(data);
     } catch (error) {
@@ -261,6 +267,7 @@ export function StatisticsSection({
           </ResponsiveContainer>
         </StatisticsCard>
 
+        {!lockInstitution ? (
         <StatisticsCard title="Failure by destination institution" to="/dashboard/statistics/by-institution" className="sm:col-span-2 lg:col-span-4">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={failureByInstitution} layout="vertical" margin={{ top: 5, right: 5, left: 60, bottom: 0 }}>
@@ -276,6 +283,7 @@ export function StatisticsSection({
             </BarChart>
           </ResponsiveContainer>
         </StatisticsCard>
+        ) : null}
       </div>
       ) : null}
     </section>

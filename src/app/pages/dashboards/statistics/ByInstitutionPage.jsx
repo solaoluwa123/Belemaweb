@@ -38,6 +38,7 @@ export default function ByInstitutionPage() {
   };
 
   useEffect(() => {
+    if (isThirdPartyVendor()) return;
     loadPage();
   }, []);
 

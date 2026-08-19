@@ -23,6 +23,7 @@ export default function ByChannelPage() {
     try {
       const data = await fetchAccountsDashboardData({
         institutionCode: requiresInstitutionScope() ? user?.institutionCode : undefined,
+        requireInstitutionScope: requiresInstitutionScope(),
       });
       setRows(data.transactionsByChannel);
     } catch (error) {

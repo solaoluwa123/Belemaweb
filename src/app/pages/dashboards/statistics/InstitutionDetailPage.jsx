@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { ArrowLeft, Loader2, RefreshCcw } from "lucide-react";
@@ -8,11 +8,14 @@ import { TRANSGATE_BANKS } from "../../../data/mockData";
 import { fetchInstitutionFailedCodeBreakdown } from "../../../services/dashboards";
 import { APIError } from "../../../services/api";
 import { useBrand } from "../../../../branding/useBrand";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function InstitutionDetailPage() {
   const navigate = useNavigate();
   const { institutionName } = useParams();
   const { brand } = useBrand();
+  const { user, isThirdPartyVendor } = useAuth();
+  const vendorCode = String(user?.institutionCode || "").trim();
   const institutionKey = institutionName ? decodeURIComponent(institutionName) : "";
   const resolvedInstitution = useMemo(() => {
     const lowerKey = institutionKey.toLowerCase();
@@ -47,8 +50,15 @@ export default function InstitutionDetailPage() {
   };
 
   useEffect(() => {
+    if (isThirdPartyVendor() && (!vendorCode || String(institutionCode) !== vendorCode)) {
+      return;
+    }
     loadPage();
-  }, [institutionCode]);
+  }, [institutionCode, vendorCode, isThirdPartyVendor]);
+
+  if (isThirdPartyVendor() && (!vendorCode || String(institutionCode) !== vendorCode)) {
+    return <Navigate to="/dashboard/statistics" replace />;
+  }
 
   return (
     <div className="space-y-8">

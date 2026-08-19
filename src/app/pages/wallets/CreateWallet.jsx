@@ -167,7 +167,7 @@ export default function CreateWallet() {
       });
 
       setSuccessMessage("Request submitted for approver review.");
-      toast.success("Wallet creation sent for approval. Track it under Approvals → Change requests.");
+      toast.success("Wallet creation sent for approval. Track it under Approvals → Wallet Approvals.");
 
       setFormData({
         accountName: "",
@@ -178,7 +178,7 @@ export default function CreateWallet() {
       });
 
       setTimeout(() => {
-        navigate("/approvals/change-requests");
+        navigate("/wallets");
       }, 1200);
     } catch (error) {
       setErrorMessage(

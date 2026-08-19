@@ -279,16 +279,16 @@ export default function InstitutionContacts() {
           <>
             As an administrator, create and edit apply immediately. Delete is admin-only. Track other
             pending user work in{" "}
-            <Link to="/approvals/change-requests" className="underline font-medium">
-              Change requests
+            <Link to="/approvals/users" className="underline font-medium">
+              Pending User Approvals
             </Link>
             .
           </>
         ) : (
           <>
             Create and edit contacts require approver sign-off. Track requests in{" "}
-            <Link to="/approvals/change-requests" className="underline font-medium">
-              Change requests
+            <Link to="/approvals/users" className="underline font-medium">
+              Pending User Approvals
             </Link>
             . Only administrators can delete contacts.
           </>

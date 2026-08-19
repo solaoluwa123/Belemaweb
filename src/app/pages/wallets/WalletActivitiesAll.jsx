@@ -35,7 +35,10 @@ export default function WalletActivitiesAll() {
         institutionCode,
         requireInstitutionScope: requireScope,
       });
-      const activity = await fetchAllWalletActivities();
+      const activity = await fetchAllWalletActivities({
+        institutionCode,
+        requireInstitutionScope: requireScope,
+      });
       const walletNumbers = new Set(walletList.map((w) => String(w.walletNumber || w.id || "").trim()));
       const scopedActivity = requireScope
         ? activity.filter((row) => walletNumbers.has(String(row.walletNumber || "").trim()))

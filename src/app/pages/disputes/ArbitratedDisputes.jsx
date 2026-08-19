@@ -9,7 +9,7 @@ import { fetchArbitratedDisputes } from "../../services/disputes";
 import { formatBackendDate } from "../../utils/formatters";
 
 export default function ArbitratedDisputes() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, requiresInstitutionScope } = useAuth();
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,6 +41,7 @@ export default function ArbitratedDisputes() {
     try {
       const disputes = await fetchArbitratedDisputes({
         institutionCode: user?.institutionCode || undefined,
+        requireInstitutionScope: requiresInstitutionScope(),
       });
       setRows(disputes);
     } catch (error) {

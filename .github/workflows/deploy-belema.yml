@@ -106,10 +106,12 @@ jobs:
             FE_PID=\$(cat /home/${BELEMA_USER}/supersoft/belema_frontend/run/belema_frontend.pid 2>/dev/null || true)
             if [ -n \"\$API_PID\" ]; then kill \$API_PID 2>/dev/null || true; sleep 2; kill -9 \$API_PID 2>/dev/null || true; fi
             if [ -n \"\$FE_PID\" ]; then kill \$FE_PID 2>/dev/null || true; sleep 2; kill -9 \$FE_PID 2>/dev/null || true; fi
+            for p in \$(ss -lntp | awk '/:8077/{print}' | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true); do kill -9 \$p 2>/dev/null || true; done
+            sleep 2
 
             /home/${BELEMA_USER}/supersoft/belemaApi/run/start-belemaApi.sh
             /home/${BELEMA_USER}/supersoft/belema_frontend/run/start-belema_frontend.sh
 
-            sleep 10
+            sleep 15
             ss -lntp | grep -E '(:8077|:18080)' || true"
 

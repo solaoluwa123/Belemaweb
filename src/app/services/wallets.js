@@ -521,8 +521,8 @@ function clearWalletActivityAllHttpSkip() {
   }
 }
 
-async function fetchAllWalletActivitiesFromWalletsOnly() {
-  const wallets = await fetchWallets();
+async function fetchAllWalletActivitiesFromWalletsOnly({ institutionCode, requireInstitutionScope = false } = {}) {
+  const wallets = await fetchWallets({ institutionCode, requireInstitutionScope });
   const slice = wallets.slice(0, LIVE_COMBINED_ACTIVITY_MAX_WALLETS);
   const query = buildWalletActivityQuery({ limit: 300 });
   const batches = await Promise.all(
@@ -544,24 +544,33 @@ async function fetchAllWalletActivitiesFromWalletsOnly() {
   return rows;
 }
 
-export async function fetchAllWalletActivities() {
+export async function fetchAllWalletActivities({ institutionCode, requireInstitutionScope = false } = {}) {
+  const walletOpts = { institutionCode, requireInstitutionScope };
   if (shouldSkipWalletActivityAllHttp()) {
-    return fetchAllWalletActivitiesFromWalletsOnly();
+    return fetchAllWalletActivitiesFromWalletsOnly(walletOpts);
   }
 
   try {
-    // Fetch the wallets list in parallel so we can resolve each activity row's institution
-    // (the activity table itself doesn't carry institution metadata — see `attachWalletInstitution`).
     const [payload, walletsForLookup] = await Promise.all([
       apiClient.get(API_ENDPOINTS.wallets.activityAll),
-      fetchWallets().catch(() => []),
+      fetchWallets(walletOpts).catch(() => []),
     ]);
     clearWalletActivityAllHttpSkip();
     const lookup = buildWalletLookupByNumber(walletsForLookup);
-    const rows = enrichActivitiesWithInstitution(
+    let rows = enrichActivitiesWithInstitution(
       asArray(payload).map(normalizeActivity),
       lookup,
     );
+    if (requireInstitutionScope) {
+      const allowedNums = new Set(lookup.keys());
+      const mine = String(institutionCode || "").trim();
+      rows = rows.filter((row) => {
+        const num = String(row?.walletNumber || "").trim();
+        if (allowedNums.size && num && allowedNums.has(num)) return true;
+        const fi = String(row?.institutionId || "").trim();
+        return Boolean(mine && fi && fi === mine);
+      });
+    }
     if (rows.length) {
       rows.sort(
         (a, b) => getBackendDateTime(b.dateSort || b.date) - getBackendDateTime(a.dateSort || a.date),
@@ -575,7 +584,7 @@ export async function fetchAllWalletActivities() {
     /* fall back: some deployments only expose per-wallet activity */
   }
 
-  return fetchAllWalletActivitiesFromWalletsOnly();
+  return fetchAllWalletActivitiesFromWalletsOnly(walletOpts);
 }
 
 /** After a 405 (path shadows DELETE /wallets/{x}/{y}), skip the broken URL for this tab until a successful GET clears it. */

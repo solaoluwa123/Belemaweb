@@ -458,6 +458,12 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
       institutionLookup
     ),
     destinationNode: String(firstDefined(row.destNodeInstitutionName, row.destinationNode, "")),
+    sourceInstitutionCode: String(
+      firstDefined(row.srcInstitutioncode, row.srcInstitutionCode, row.sourceInstitutionCode, row.source_institution_code, ""),
+    ),
+    destinationInstitutionCode: String(
+      firstDefined(row.destInstitutioncode, row.destInstitutionCode, row.destinationInstitutionCode, row.destination_institution_code, ""),
+    ),
     amount: toNumber(firstDefined(row.srcAmount, row.destAmount, row.amount)),
     status,
     ftDurationMs: toNumber(firstDefined(row.txnDuration, row.ftDurationMs)),

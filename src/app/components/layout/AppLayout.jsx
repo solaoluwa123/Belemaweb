@@ -55,12 +55,6 @@ const accountsMenuBase = [
 ];
 
 const approvalsMenu = [
-  {
-    label: "Change requests",
-    path: "/approvals/change-requests",
-    icon: <ClipboardList className="w-4 h-4" />,
-    changeRequestHub: true,
-  },
   { label: "Pending User Approvals", path: "/approvals/users", icon: <Users className="w-4 h-4" />, approverOnly: true },
   { label: "Wallet Approvals", path: "/approvals/wallets", icon: <Wallet className="w-4 h-4" />, approverOnly: true },
   {
@@ -113,8 +107,10 @@ export default function AppLayout() {
   );
 
   const vendorNavItems = isThirdPartyVendor()
-    ? getVendorNavItems(user, { accountsDashboard })
+    ? getVendorNavItems(user, { accountsDashboard }).filter((item) => isVendorAllowedPath(item.path, accountsDashboard))
     : [];
+  const vendorAccountItems = vendorNavItems.filter((item) => !String(item.path).startsWith("/wallets"));
+  const vendorWalletItems = vendorNavItems.filter((item) => String(item.path).startsWith("/wallets"));
 
   const hasRouteAccess = (pathname) => {
     if (!user) return false;
@@ -230,6 +226,22 @@ export default function AppLayout() {
 
   const institutionActivityActive = location.pathname.startsWith("/wallets/institution-activity");
 
+  const isVendorItemActive = (path) => {
+    if (path === "/wallets") return walletNav.view;
+    if (path === "/wallets/activities") return walletNav.activities;
+    if (path === "/disputes/log") return location.pathname === "/disputes/log";
+    if (path === "/disputes/arbitrated") return location.pathname.startsWith("/disputes/arbitrated");
+    if (path === "/disputes") {
+      return (
+        location.pathname === "/disputes" ||
+        (location.pathname.startsWith("/disputes/") &&
+          !location.pathname.startsWith("/disputes/log") &&
+          !location.pathname.startsWith("/disputes/arbitrated"))
+      );
+    }
+    return location.pathname === path || (path !== accountsDashboard && location.pathname.startsWith(`${path}/`));
+  };
+
   const navigateTo = (path) => {
     navigate(path);
     setSidebarOpen(false);
@@ -240,7 +252,6 @@ export default function AppLayout() {
       if (item.adminRoleOnly && !isAdmin()) return false;
       if (item.adminOnly && !isOperator() && !isAdmin()) return false;
       if (item.disputeReadAccess && !isApprover() && !isOperator() && !isAdmin()) return false;
-      if (item.changeRequestHub && !isApprover() && !isAdmin()) return false;
       if (item.makerCheckerApprovals && !isApprover() && !isAdmin()) return false;
       if (item.approverOnly && !isApprover() && !isAdmin()) return false;
       if (item.fundQueueNav && (!isApprover() || isAdmin())) return false;
@@ -296,28 +307,72 @@ export default function AppLayout() {
         <nav className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {isThirdPartyVendor() ? (
             <>
-              {vendorNavItems.map((item) => {
-                const Icon = item.icon;
-                const active =
-                  location.pathname === item.path ||
-                  (item.path !== accountsDashboard &&
-                    location.pathname.startsWith(`${item.path}/`));
-                return (
-                  <button
-                    type="button"
-                    key={item.path}
-                    onClick={() => navigateTo(item.path)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-                      active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                        : "text-sidebar-accent-foreground hover:bg-sidebar-accent"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-                  </button>
-                );
-              })}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setAccountsExpanded(!accountsExpanded)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-accent-foreground hover:text-sidebar-foreground"
+                >
+                  <span>{brand.menus.groupLabels.accounts.toUpperCase()}</span>
+                  {accountsExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+                {accountsExpanded ? (
+                  <div className="mt-1 space-y-1">
+                    {vendorAccountItems.map((item) => {
+                      const Icon = item.icon || LayoutDashboard;
+                      const active = isVendorItemActive(item.path);
+                      return (
+                        <button
+                          type="button"
+                          key={item.path}
+                          onClick={() => navigateTo(item.path)}
+                          className={`w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                            active
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                              : "text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setWalletExpanded(!walletExpanded)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-accent-foreground hover:text-sidebar-foreground"
+                >
+                  <span>{brand.menus.groupLabels.wallet.toUpperCase()}</span>
+                  {walletExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+                {walletExpanded ? (
+                  <div className="mt-1 space-y-1">
+                    {vendorWalletItems.map((item) => {
+                      const Icon = item.icon || LayoutDashboard;
+                      const active = isVendorItemActive(item.path);
+                      return (
+                        <button
+                          type="button"
+                          key={item.path}
+                          onClick={() => navigateTo(item.path)}
+                          className={`w-full flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                            active
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                              : "text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
               <p className="mt-6 px-3 text-center text-xs font-semibold uppercase tracking-wider text-sidebar-accent-foreground/75">
                 {brand.productText.sidebarBelowNavLabel ?? brand.displayName}
               </p>

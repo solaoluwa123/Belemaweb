@@ -90,7 +90,7 @@ function formatReversed(value) {
 export default function TransactionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isOperator, canRequestStatusChange, user } = useAuth();
+  const { isOperator, canRequestStatusChange, user, requiresInstitutionScope } = useAuth();
   const [transaction, setTransaction] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -105,6 +105,21 @@ export default function TransactionDetails() {
 
     try {
       const data = await fetchTransactionDetails(id);
+      if (data && requiresInstitutionScope()) {
+        const mine = String(user?.institutionCode || "").trim();
+        const src = String(data.sourceInstitutionCode || "").trim();
+        const dest = String(data.destinationInstitutionCode || "").trim();
+        if (!mine) {
+          setTransaction(null);
+          setErrorMessage("Your account is not linked to an institution.");
+          return;
+        }
+        if (src !== mine && dest !== mine) {
+          setTransaction(null);
+          setErrorMessage("This transaction is not linked to your institution.");
+          return;
+        }
+      }
       setTransaction(data);
       if (!data) {
         setErrorMessage("Transaction details were not found.");

@@ -20,6 +20,7 @@ export default function AverageTimePage() {
     try {
       const data = await fetchAccountsDashboardData({
         institutionCode: requiresInstitutionScope() ? user?.institutionCode : undefined,
+        requireInstitutionScope: requiresInstitutionScope(),
       });
       setAverageTime(data.averageTime);
     } catch (error) {

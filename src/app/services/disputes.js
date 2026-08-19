@@ -171,7 +171,7 @@ export async function fetchDisputes({
  * Arbitrated disputes for an institution. Uses the dedicated endpoint when available;
  * otherwise loads disputes and filters by status text.
  */
-export async function fetchArbitratedDisputes({ institutionCode } = {}) {
+export async function fetchArbitratedDisputes({ institutionCode, requireInstitutionScope = false } = {}) {
   if (institutionCode && institutionCode !== "-1") {
     try {
       const payload = await apiClient.get(
@@ -183,7 +183,7 @@ export async function fetchArbitratedDisputes({ institutionCode } = {}) {
       /* fall through */
     }
   }
-  const all = await fetchDisputes({ institutionCode });
+  const all = await fetchDisputes({ institutionCode, requireInstitutionScope });
   return all.filter((d) => {
     const label = `${d.originalStatus || ""} ${d.status || ""}`.toLowerCase();
     return label.includes("arbitrat");

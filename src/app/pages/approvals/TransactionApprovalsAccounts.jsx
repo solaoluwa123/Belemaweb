@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { Button } from "../../components/ui/button";
@@ -118,12 +116,7 @@ export default function TransactionApprovalsAccounts() {
         </Button>
       )}
       {canApprove && (
-        <span className="text-sm text-gray-500">
-          Approve in{" "}
-          <Link to="/approvals/change-requests" className="text-primary underline font-medium">
-            Change requests
-          </Link>
-        </span>
+        <span className="text-sm text-gray-500">Review pending status items on this page.</span>
       )}
       {!canSubmit && !canApprove && !row.approvedBy && (
         <span className="text-sm text-gray-500">Awaiting approval</span>
@@ -142,9 +135,9 @@ export default function TransactionApprovalsAccounts() {
       </div>
       <p className="text-gray-500 text-sm">
         {canApprove && !canSubmit
-          ? "Operators submit transaction status changes; approve or reject those requests in Change requests."
+          ? "Operators submit transaction status changes; review pending items here."
           : canSubmit
-            ? "Submit a proposed final status for pending items. An approver applies it from Change requests."
+            ? "Submit a proposed final status for pending items. An approver reviews them here."
             : "You do not have permission to submit or approve transaction status changes."}
       </p>
       {errorMessage ? (

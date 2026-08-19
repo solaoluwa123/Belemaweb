@@ -123,7 +123,7 @@ export default function LogDispute() {
             <p className="text-gray-600">
               {isVendor
                 ? "Your dispute has been created and is available in the disputes list."
-                : "Your dispute request was submitted. An approver must accept it before it appears in the disputes list. You can track status under Approvals → Change requests."}
+                : "Your dispute request was submitted. An approver must accept it before it appears in the disputes list."}
             </p>
             <div className="flex gap-3 justify-center">
               <Button onClick={() => navigate(isVendor ? "/disputes" : "/transactions")}>

@@ -6,6 +6,7 @@ import {
   Scale,
   Banknote,
   Activity,
+  Eye,
 } from "lucide-react";
 
 const ICON_MAP = {
@@ -15,6 +16,7 @@ const ICON_MAP = {
   arrowleftright: ArrowLeftRight,
   wallet: Wallet,
   wallets: Wallet,
+  eye: Eye,
   dispute: AlertCircle,
   disputes: AlertCircle,
   alertcircle: AlertCircle,
@@ -37,10 +39,13 @@ const PATH_ALIASES = [
   ["/disputes/arbitrated", "/disputes/arbitrated"],
   ["/disputes", "/disputes"],
   ["/wallets/activity", "/wallets/activities"],
+  ["/wallets/activities", "/wallets/activities"],
   ["/wallets/view", "/wallets"],
   ["/wallets", "/wallets"],
   ["/statistics", "/dashboard/statistics"],
 ];
+
+const EXACT_ONLY_ALIASES = new Set(["/wallets", "/disputes", "/transactions"]);
 
 const CARD_PATH_RE = /\/cards?\b|\/cardpayments|\/nuspayments|\/sparkpay/i;
 
@@ -61,7 +66,9 @@ export function resolveMenuPath(rawPath, accountsDashboard = "/dashboard/account
   }
 
   for (const [from, to] of PATH_ALIASES) {
-    if (normalized === from || normalized.startsWith(`${from}/`)) {
+    const exact = normalized === from;
+    const prefix = !EXACT_ONLY_ALIASES.has(from) && normalized.startsWith(`${from}/`);
+    if (exact || prefix) {
       if (to === "/dashboard/accounts") return accountsDashboard;
       return to;
     }
@@ -75,11 +82,28 @@ function resolveIcon(iconName) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
-  return ICON_MAP[key] || LayoutDashboard;
+  if (!key) return null;
+  if (key.startsWith("fa") && key.length <= 4) return null;
+  return ICON_MAP[key] || null;
+}
+
+function resolveIconForPath(path, iconName) {
+  const p = String(path || "");
+  if (p === "/wallets/activities" || p.startsWith("/wallets/activit")) return Activity;
+  if (p === "/wallets" || p.startsWith("/wallets/")) return Eye;
+  if (p === "/disputes/log" || p.startsWith("/disputes/log")) return AlertCircle;
+  if (p.startsWith("/disputes")) return Scale;
+  if (p.startsWith("/transactions")) return ArrowLeftRight;
+  if (p.includes("/dashboard") || p === "/") return LayoutDashboard;
+  return resolveIcon(iconName) || LayoutDashboard;
 }
 
 function isCardMenuPath(path) {
   return CARD_PATH_RE.test(String(path || ""));
+}
+
+function itemLabel(row) {
+  return String(row?.label || row?.childLabel || "").trim();
 }
 
 /**
@@ -96,13 +120,16 @@ export function buildNavFromTransgateMenu(transgateMenu, { accountsDashboard = "
 
     const route = resolveMenuPath(rawPath, accountsDashboard);
     if (!route || seen.has(route)) continue;
-    seen.add(route);
+    if (!isVendorAllowedPath(route, accountsDashboard)) continue;
 
-    const Icon = resolveIcon(row.icon);
+    const label = itemLabel(row);
+    if (!label) continue;
+
+    seen.add(route);
     items.push({
-      label: row.label || row.childLabel || "Menu",
+      label,
       path: route,
-      icon: Icon,
+      icon: resolveIconForPath(route, row.icon),
     });
   }
 
@@ -116,15 +143,45 @@ export function getVendorFallbackMenu({ accountsDashboard = "/dashboard/accounts
     { label: "Transactions", path: "/transactions", icon: ArrowLeftRight },
     { label: "Log Dispute", path: "/disputes/log", icon: AlertCircle },
     { label: "Disputes", path: "/disputes", icon: Scale },
-    { label: "Wallets", path: "/wallets", icon: Wallet },
-    { label: "Wallet Activities", path: "/wallets/activities", icon: Wallet },
+    { label: "Arbitrated Disputes", path: "/disputes/arbitrated", icon: Scale },
+    { label: "Wallets", path: "/wallets", icon: Eye },
+    { label: "Wallet Activities", path: "/wallets/activities", icon: Activity },
   ];
 }
 
 export function getVendorNavItems(user, { accountsDashboard = "/dashboard/accounts" } = {}) {
+  const fallback = getVendorFallbackMenu({ accountsDashboard }).filter((item) =>
+    isVendorAllowedPath(item.path, accountsDashboard),
+  );
   const fromApi = buildNavFromTransgateMenu(user?.transgateMenu, { accountsDashboard });
-  if (fromApi.length) return fromApi;
-  return getVendorFallbackMenu({ accountsDashboard });
+  const byPath = new Map(fallback.map((item) => [item.path, { ...item }]));
+
+  for (const item of fromApi) {
+    const existing = byPath.get(item.path);
+    if (existing) {
+      byPath.set(item.path, {
+        ...existing,
+        label: item.label || existing.label,
+        icon: item.icon || existing.icon,
+      });
+    } else if (isVendorAllowedPath(item.path, accountsDashboard)) {
+      byPath.set(item.path, item);
+    }
+  }
+
+  const ordered = [];
+  const seen = new Set();
+  for (const item of fallback) {
+    const next = byPath.get(item.path);
+    if (next) {
+      ordered.push(next);
+      seen.add(item.path);
+    }
+  }
+  for (const [path, item] of byPath) {
+    if (!seen.has(path)) ordered.push(item);
+  }
+  return ordered;
 }
 
 /** Paths a Third Party Vendor may access (for route guards). */

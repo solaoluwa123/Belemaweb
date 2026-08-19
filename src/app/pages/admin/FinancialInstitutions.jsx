@@ -741,8 +741,8 @@ export default function FinancialInstitutions() {
       </div>
       <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
         Add, edit, and deactivate actions are submitted for approver review. Applied changes appear after approval in{" "}
-        <Link to="/approvals/change-requests" className="underline font-medium">
-          Change requests
+        <Link to="/approvals/institutions" className="underline font-medium">
+          Institution Approvals
         </Link>
         .
         {institutionTypesFromTypesEndpoint.length > 0 ? (

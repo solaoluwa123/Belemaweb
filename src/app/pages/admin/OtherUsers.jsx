@@ -350,7 +350,7 @@ export default function OtherUsers() {
             {isAdmin()
               ? "Administrator creates, edits, and deletes other users (roles 4–8) immediately."
               : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Change requests</strong>.</>
+                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Pending User Approvals</strong>.</>
                 : "You can view other users."}
           </p>
         </div>

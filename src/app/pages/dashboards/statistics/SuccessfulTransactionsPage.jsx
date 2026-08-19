@@ -23,6 +23,7 @@ export default function SuccessfulTransactionsPage() {
     try {
       const data = await fetchAccountsDashboardData({
         institutionCode: requiresInstitutionScope() ? user?.institutionCode : undefined,
+        requireInstitutionScope: requiresInstitutionScope(),
       });
       setRows(data.successVolumes7d);
     } catch (error) {
