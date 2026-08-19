@@ -37,7 +37,7 @@ export default function Login() {
         setError(result.error || "Dev bypass failed.");
         return;
       }
-      navigate(brand.routes.accountsDashboard, { replace: true });
+      navigate("/transactions", { replace: true });
     } catch (err) {
       setError(err?.message || "Dev bypass failed.");
     } finally {
@@ -92,7 +92,7 @@ export default function Login() {
         navigate("/auth/force-password-change", { replace: true });
         return;
       }
-      navigate(brand.routes.accountsDashboard, { replace: true });
+      navigate("/transactions", { replace: true });
     }, 600);
   };
 

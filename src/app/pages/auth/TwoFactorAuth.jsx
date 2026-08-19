@@ -35,7 +35,7 @@ export default function TwoFactorAuth() {
       return;
     }
 
-    navigate("/dashboard/accounts", { replace: true });
+    navigate("/transactions", { replace: true });
   };
 
   return (

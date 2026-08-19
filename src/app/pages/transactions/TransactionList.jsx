@@ -120,7 +120,7 @@ function getRangeForPreset(preset, customStart, customEnd) {
   }
 }
 
-const initialPreset = "all";
+const initialPreset = "today";
 const initialRange = getRangeForPreset(initialPreset);
 
 const ADVANCED_FILTERS_INITIAL = {

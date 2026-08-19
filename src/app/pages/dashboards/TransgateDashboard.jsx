@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { StatisticsSection } from "../../components/dashboard/StatisticsSection";
@@ -18,32 +17,14 @@ import { Calendar, CALENDAR_YEAR_MIN, CALENDAR_YEAR_MAX } from "../../components
 import { format } from "date-fns";
 import {
   ArrowLeftRight,
-  AlertCircle,
   Banknote,
   CheckCircle,
-  TrendingUp,
   Filter,
-  Activity,
   CalendarIcon,
   Loader2,
   RefreshCcw,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { Card, CardContent } from "../../components/ui/card";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
 import { fetchAccountsDashboardData } from "../../services/dashboards";
@@ -57,8 +38,7 @@ const DEFAULT_STATS_DATE = (() => {
 })();
 
 export default function TransgateDashboard() {
-  const navigate = useNavigate();
-  const { user, isAdmin, isOperator, isThirdPartyVendor, canLogSwitchDispute } = useAuth();
+  const { user, isAdmin, isThirdPartyVendor } = useAuth();
   const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "all" : "all";
   const { brand } = useBrand();
   const [statsDate, setStatsDate] = useState(() => DEFAULT_STATS_DATE);
@@ -130,15 +110,11 @@ export default function TransgateDashboard() {
           volume: "₦0.00",
           successRate: "0.0%",
           successCount: 0,
-          pendingDisputes: "0",
         },
-        chartData7d: [],
-        responseCodes: [],
       }
     );
   }, [statsData]);
-  const { metrics, chartData7d, responseCodes } = stats;
-  const chartColors = brand.theme.chart;
+  const { metrics } = stats;
 
   const openFilters = () => {
     setModalInstitution(statsInstitution);
@@ -175,12 +151,6 @@ export default function TransgateDashboard() {
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
             Refresh
           </Button>
-          {!isThirdPartyVendor() ? (
-            <Button onClick={() => navigate(brand.routes.liveMonitoring)} className="gap-2">
-              <Activity className="w-4 h-4" />
-              Live Monitoring
-            </Button>
-          ) : null}
         </div>
       </div>
 
@@ -300,15 +270,15 @@ export default function TransgateDashboard() {
       {showDashboardBody ? (
         <>
           {/* Metrics – driven by Statistics section bank/date filters */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <MetricCard
-              title="Total Transactions"
+              title="Transaction Volume"
               value={metrics.totalTransactions}
               icon={ArrowLeftRight}
               iconColor="text-primary"
             />
             <MetricCard
-              title="Transaction Volume"
+              title="Transaction Value"
               value={metrics.volume}
               icon={Banknote}
               iconColor="text-[color:var(--color-chart-2)]"
@@ -320,16 +290,8 @@ export default function TransgateDashboard() {
               iconColor="text-[color:var(--color-chart-2)]"
               subtitle={`${metrics.successCount} successful`}
             />
-            <MetricCard
-              title="Pending Disputes"
-              value={metrics.pendingDisputes}
-              icon={AlertCircle}
-              iconColor="text-[color:var(--color-chart-3)]"
-              subtitle="Requires attention"
-            />
           </div>
 
-          {/* Statistics – clickable cards; filters drive metrics and charts below */}
           <StatisticsSection
             statsDate={statsDate}
             onDateChange={setStatsDate}
@@ -340,165 +302,9 @@ export default function TransgateDashboard() {
             errorMessage={errorMessage}
             lockInstitution={isThirdPartyVendor()}
             institutionDisplayName={isThirdPartyVendor() ? user?.institutionName || user?.institutionCode : undefined}
-            hideLiveMonitoring={isThirdPartyVendor()}
           />
-
-          {/* Charts – driven by Statistics section bank/date filters */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData7d}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="transactions"
-                      stroke={chartColors[0]}
-                      strokeWidth={2}
-                      name="Transactions"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction Volume</CardTitle>
-              </CardHeader>
-              <CardContent className={" text-xs"}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData7d}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="amount" fill={chartColors[2]} name="Amount (₦)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Response Codes Distribution – driven by bank/date */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Response Codes Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={responseCodes}
-                      cx="50%"
-                      cy="42%"
-                      innerRadius={0}
-                      outerRadius={70}
-                      paddingAngle={2}
-                      dataKey="count"
-                      nameKey="code"
-                    >
-                      {responseCodes.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value, name, props) => [
-                        `${value} (${props.payload.description})`,
-                        props.payload.code,
-                      ]}
-                      contentStyle={{ fontSize: "12px" }}
-                    />
-                    <Legend
-                      layout="horizontal"
-                      align="center"
-                      verticalAlign="bottom"
-                      formatter={(value, entry) => (
-                        <span className="text-sm">
-                          {value}: {entry.payload.count}
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Response Code Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {responseCodes.map((code, index) => {
-                    const total = responseCodes.reduce((a, b) => a + b.count, 0);
-                    return (
-                      <div key={code.code} className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: chartColors[index % chartColors.length] }}
-                          />
-                          <div>
-                            <p className="font-medium">{code.code}</p>
-                            <p className="text-sm text-gray-600">{code.description}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold">{code.count}</p>
-                          <p className="text-xs text-gray-500">
-                            {total ? ((code.count / total) * 100).toFixed(1) : 0}%
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </>
       ) : null}
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-            <Button variant="outline" className="h-20" onClick={() => navigate("/transactions")}>
-              <div className="text-center">
-                <ArrowLeftRight className="w-6 h-6 mx-auto mb-2" />
-                <p className="text-sm">View Transactions</p>
-              </div>
-            </Button>
-            {(isOperator() || canLogSwitchDispute()) && (
-              <Button variant="outline" className="h-20" onClick={() => navigate("/disputes/log")}>
-                <div className="text-center">
-                  <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-                  <p className="text-sm">Log Dispute</p>
-                </div>
-              </Button>
-            )}
-            <Button variant="outline" className="h-20" onClick={() => navigate("/wallets")}>
-              <div className="text-center">
-                <TrendingUp className="w-6 h-6 mx-auto mb-2" />
-                <p className="text-sm">{isOperator() ? "Manage Wallets" : "View Wallets"}</p>
-              </div>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

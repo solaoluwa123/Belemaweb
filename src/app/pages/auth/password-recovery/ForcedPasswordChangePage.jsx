@@ -49,7 +49,7 @@ export default function ForcedPasswordChangePage() {
       const ok = await completePasswordChange(user.id, password);
       setLoading(false);
       if (ok) {
-        navigate("/dashboard/accounts", { replace: true });
+        navigate("/transactions", { replace: true });
       } else {
         setError("Failed to update password. Try again.");
       }

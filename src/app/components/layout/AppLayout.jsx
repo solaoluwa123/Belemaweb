@@ -325,19 +325,6 @@ export default function AppLayout() {
             <>
           <button
             type="button"
-            onClick={() => navigateTo("/dashboard/live-monitoring")}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-              isActivePath("/dashboard/live-monitoring")
-                ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                : "text-sidebar-accent-foreground hover:bg-sidebar-accent"
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            Live Monitoring
-          </button>
-
-          <button
-            type="button"
             onClick={() => navigateTo("/wallets/institution-activity")}
             className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
               institutionActivityActive

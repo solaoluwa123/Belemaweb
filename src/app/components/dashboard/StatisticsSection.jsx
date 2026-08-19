@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
 import { StatisticsCard } from "./StatisticsCard";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { Calendar, CALENDAR_YEAR_MIN, CALENDAR_YEAR_MAX } from "../../components/ui/calendar";
 import { format } from "date-fns";
-import { CalendarIcon, ExternalLink, Loader2, RefreshCcw } from "lucide-react";
+import { CalendarIcon, Loader2, RefreshCcw } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -37,7 +36,6 @@ export function StatisticsSection({
   errorMessage: controlledError,
   lockInstitution = false,
   institutionDisplayName,
-  hideLiveMonitoring = false,
 }) {
   const { brand } = useBrand();
   const [internalInstitution, setInternalInstitution] = useState("all");
@@ -134,15 +132,6 @@ export function StatisticsSection({
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
               Refresh
             </Button>
-          ) : null}
-          {!hideLiveMonitoring ? (
-            <Link
-              to="/dashboard/live-monitoring"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:opacity-80 hover:underline"
-            >
-              Go to live monitoring
-              <ExternalLink className="h-4 w-4" aria-hidden />
-            </Link>
           ) : null}
         </div>
       </div>
