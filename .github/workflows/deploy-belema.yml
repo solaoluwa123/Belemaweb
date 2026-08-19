@@ -53,14 +53,16 @@ jobs:
           cp -r dist/* "$STATIC_DIR/"
 
       - name: Build frontend WAR (spring-wrapper)
+        working-directory: belema_backend
         run: |
-          chmod +x belema_backend/mvnw
-          belema_backend/mvnw -f "spring-wrapper/pom.xml" -DskipTests package
+          chmod +x mvnw
+          ./mvnw -f "${{ github.workspace }}/spring-wrapper/pom.xml" -DskipTests package
 
       - name: Build backend jar
+        working-directory: belema_backend
         run: |
-          chmod +x belema_backend/mvnw
-          belema_backend/mvnw -DskipTests package
+          chmod +x mvnw
+          ./mvnw -DskipTests package
 
       - name: Prepare SSH
         uses: webfactory/ssh-agent@v0.9.0

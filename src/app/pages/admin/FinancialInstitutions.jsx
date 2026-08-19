@@ -93,7 +93,7 @@ function validateInstitutionForm(form, { requireSecrets, isCreate }) {
   const code = form.code.trim();
   if (!code) return "Institution code is required.";
   if (!/^\d{1,6}$/.test(code)) return "Institution code must be 1 to 6 digits.";
-  if (!form.businessName.trim()) return "Business name is required.";
+  if (!form.businessName.trim()) return "Institution name is required.";
   if (!form.shortName.trim()) return "Short name is required.";
   if (!form.businessType) return "Institution type is required.";
   if (!form.businessAddress.trim()) return "Business address is required.";
@@ -196,12 +196,12 @@ function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCr
         />
       </div>
       <div className="sm:col-span-2 space-y-1.5">
-        <Label htmlFor={`${idPrefix}-businessName`}>Business Name *</Label>
+        <Label htmlFor={`${idPrefix}-businessName`}>Institution Name *</Label>
         <Input
           id={`${idPrefix}-businessName`}
           value={form.businessName}
           onChange={(e) => setForm((p) => ({ ...p, businessName: e.target.value }))}
-          placeholder="Full business name"
+          placeholder="Full institution name"
         />
       </div>
       <div className="space-y-1.5">
