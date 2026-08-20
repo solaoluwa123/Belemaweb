@@ -102,16 +102,45 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" "set -e
+            kill_port() {
+              port=\"\$1\"
+              for p in \$(ss -lntp 2>/dev/null | awk -v p=\":\$port\" '\$0 ~ p {print}' | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true); do
+                echo \"killing pid \$p on port \$port\"
+                kill -9 \"\$p\" 2>/dev/null || true
+              done
+            }
+
             API_PID=\$(cat /home/${BELEMA_USER}/supersoft/belemaApi/run/belemaApi.pid 2>/dev/null || true)
             FE_PID=\$(cat /home/${BELEMA_USER}/supersoft/belema_frontend/run/belema_frontend.pid 2>/dev/null || true)
             if [ -n \"\$API_PID\" ]; then kill \$API_PID 2>/dev/null || true; sleep 2; kill -9 \$API_PID 2>/dev/null || true; fi
             if [ -n \"\$FE_PID\" ]; then kill \$FE_PID 2>/dev/null || true; sleep 2; kill -9 \$FE_PID 2>/dev/null || true; fi
-            for p in \$(ss -lntp | awk '/:8077/{print}' | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true); do kill -9 \$p 2>/dev/null || true; done
+            # Stale Java often keeps the port after a bad pid-file kill; clear both listeners.
+            kill_port 8077
+            kill_port 18080
             sleep 2
 
             /home/${BELEMA_USER}/supersoft/belemaApi/run/start-belemaApi.sh
             /home/${BELEMA_USER}/supersoft/belema_frontend/run/start-belema_frontend.sh
 
-            sleep 15
-            ss -lntp | grep -E '(:8077|:18080)' || true"
+            echo 'Waiting for local health...'
+            ok_api=0
+            ok_fe=0
+            for i in \$(seq 1 24); do
+              api_code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:8077/sparkpayapi/ || true)
+              fe_code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18080/belema/ || true)
+              echo \"attempt \$i api=\$api_code fe=\$fe_code\"
+              case \"\$api_code\" in 200|401|403|404) ok_api=1 ;; esac
+              case \"\$fe_code\" in 200|301|302|304) ok_fe=1 ;; esac
+              if [ \"\$ok_api\" = 1 ] && [ \"\$ok_fe\" = 1 ]; then
+                ss -lntp | grep -E '(:8077|:18080)' || true
+                echo 'Belema local health OK'
+                exit 0
+              fi
+              sleep 5
+            done
+            echo 'Belema health check FAILED'
+            ss -lntp | grep -E '(:8077|:18080)' || true
+            tail -n 80 /home/${BELEMA_USER}/supersoft/belemaApi/run/*.log 2>/dev/null || true
+            tail -n 80 /home/${BELEMA_USER}/supersoft/belema_frontend/run/*.log 2>/dev/null || true
+            exit 1"
 
