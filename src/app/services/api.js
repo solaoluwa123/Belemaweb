@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     login: '/users/login',
     logout: '/users/logout',
     verify2FA: '/users/login-2fa',
+    setup2FA: '/users/setup-2fa',
     refreshToken: '/auth/refresh',
     recoverPassword: '/users/recoverpassword',
     resetPassword: '/users/resetpassword',

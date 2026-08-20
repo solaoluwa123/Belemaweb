@@ -316,6 +316,13 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUser = (patch) => {
+    if (!user || !patch || typeof patch !== "object") return;
+    const nextUser = { ...user, ...patch };
+    persistAuthenticatedUser(nextUser, readLocalStorage(STORAGE_KEY_NAMES.AUTH_TOKEN) || user.sessionToken || "");
+    setUser(nextUser);
+  };
+
   const logout = async () => {
     const identifier = user?.email || user?.username || "";
     // Call the API first so the session token is still attached and the backend can
@@ -363,6 +370,7 @@ export function AuthProvider({ children }) {
         loginAsDevVendor,
         loginWithCredentials,
         completePasswordChange,
+        updateUser,
         logout,
         verifyTwoFactor,
         isAdmin,

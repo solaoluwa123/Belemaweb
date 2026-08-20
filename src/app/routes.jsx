@@ -23,6 +23,7 @@ import {
   AccountLockedPage,
 } from "./pages/auth/password-recovery";
 import ForcedPasswordChangePage from "./pages/auth/password-recovery/ForcedPasswordChangePage";
+import SecuritySettings from "./pages/settings/SecuritySettings";
 
 import TransgateDashboard from "./pages/dashboards/TransgateDashboard";
 import StatisticsPage from "./pages/dashboards/statistics/StatisticsPage";
@@ -122,6 +123,7 @@ export const router = createBrowserRouter(
       { path: "dashboard/statistics/institution/:institutionName", Component: InstitutionDetailPage },
 
       { path: "transactions", Component: TransactionList },
+      { path: "settings/security", Component: SecuritySettings },
       { path: "transactions/live", Component: TransactionsIndexRedirect },
       { path: "transactions/:id", Component: TransactionDetails },
 

@@ -198,6 +198,7 @@ export const VENDOR_ALLOWED_ROUTE_PREFIXES = [
 export function isVendorAllowedPath(pathname, accountsDashboard = "/dashboard/accounts") {
   if (pathname === "/" || pathname === accountsDashboard) return true;
   if (pathname.startsWith("/dashboard/statistics")) return true;
+  if (pathname.startsWith("/settings/security")) return true;
   if (pathname.startsWith("/dashboard/live-monitoring")) return false;
   if (pathname.startsWith("/wallets/institution-activity")) return false;
   if (pathname.startsWith("/admin/")) return false;

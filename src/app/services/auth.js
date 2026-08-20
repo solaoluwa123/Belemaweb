@@ -135,9 +135,35 @@ function hasIdentity(user) {
   const hasId =
     user?.id !== undefined &&
     user?.id !== null &&
-    String(user.id).trim() !== "";
+    String(user.id).trim() !== "" &&
+    String(user.id).trim() !== "0";
   const hasEmail = String(user?.email || "").trim() !== "";
-  return hasId || hasEmail;
+  const hasUsername = String(user?.username || "").trim() !== "";
+  return hasId || hasEmail || hasUsername;
+}
+
+/** Reject business-level login failures that still arrive as HTTP 200. */
+function assertAuthBusinessSuccess(payload) {
+  const data = unwrapPayload(payload);
+  if (!data || typeof data !== "object") {
+    throw new APIError("Invalid authentication response from the backend.", 500, payload);
+  }
+  const status = String(data.status || "").toLowerCase();
+  const code = Number(data.code);
+  const message = String(data.message || "").trim();
+  if (status === "failed" || status === "error" || (Number.isFinite(code) && code !== 200 && code !== 0)) {
+    throw new APIError(message || "Authentication failed.", Number.isFinite(code) && code >= 400 ? code : 401, data);
+  }
+  const lowerMsg = message.toLowerCase();
+  if (
+    lowerMsg.includes("invalid 2fa") ||
+    lowerMsg.includes("invalid username") ||
+    lowerMsg.includes("invalid password") ||
+    lowerMsg.includes("account locked")
+  ) {
+    throw new APIError(message, 401, data);
+  }
+  return data;
 }
 
 function normalizeUser(payload) {
@@ -250,6 +276,7 @@ export async function loginWithApi(identifier, password) {
     throw lastAuthError || new APIError("Unauthorized.", 401, null);
   }
 
+  assertAuthBusinessSuccess(response);
   let user = normalizeUser(response);
   const sessionToken = user.sessionToken;
   if (!sessionToken) {
@@ -320,10 +347,18 @@ export async function verifyTwoFactorCode(code) {
     }),
   });
 
+  assertAuthBusinessSuccess(response);
   let user = normalizeUser(response);
+  const sessionToken = String(user.sessionToken || "").trim();
+  if (!sessionToken) {
+    throw new APIError(
+      user.raw?.message || "Two-factor verification did not return a session.",
+      401,
+      user.raw || response,
+    );
+  }
   clearPendingTwoFactorChallenge();
 
-  const sessionToken = user.sessionToken || challenge.sessionToken;
   if (user.roleName === "User" && user.roleId) {
     const resolved = await resolveRoleFromRoleId(user.roleId, sessionToken);
     if (resolved && resolved !== "User") {
@@ -336,6 +371,39 @@ export async function verifyTwoFactorCode(code) {
     user,
     sessionToken,
     message: user.raw?.message || "Verification successful.",
+  };
+}
+
+export async function setupTwoFactor({ username, enable = true } = {}) {
+  if (!username) {
+    throw new APIError("Username is required to set up two-factor authentication.", 400, null);
+  }
+  const response = await apiClient.request(API_ENDPOINTS.auth.setup2FA, {
+    method: "POST",
+    body: JSON.stringify({
+      username,
+      // Backend SetUp2FA uses UserModel.id as the enable flag (1 = on).
+      id: enable ? 1 : 0,
+    }),
+  });
+  assertAuthBusinessSuccess(response);
+  const data = unwrapPayload(response) || response;
+  let qrCodeUri = "";
+  const meta = data?.meta;
+  if (typeof meta === "string" && meta.trim()) {
+    try {
+      qrCodeUri = String(JSON.parse(meta)?.qrCodeUri || "").trim();
+    } catch {
+      qrCodeUri = "";
+    }
+  } else if (meta && typeof meta === "object") {
+    qrCodeUri = String(meta.qrCodeUri || "").trim();
+  }
+  return {
+    enabled: enable,
+    qrCodeUri,
+    message: String(data?.message || (enable ? "2FA enabled successfully" : "2FA disabled successfully")),
+    raw: data,
   };
 }
 

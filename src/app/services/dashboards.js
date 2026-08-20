@@ -788,6 +788,7 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
   const trendEndpoint = scope
     ? API_ENDPOINTS.dashboards.transactionsTrendByInstitution(scope)
     : byDateEndpoint;
+  const trendParams = scope ? { ...dateParams, type: "day" } : pagedDateParams;
 
   const txnSearchPromise = (async () => {
     const range = getDashboardRangeAsDates(date);
@@ -828,7 +829,7 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
     fetchOrNull(failedCodesEndpoint, pagedDateParams),
     fetchOrNull(failingInstitutionsEndpoint, pagedDateParams),
     fetchOrNull(averageTimeEndpoint, averageTimeParams),
-    fetchOrNull(trendEndpoint, pagedDateParams),
+    fetchOrNull(trendEndpoint, trendParams),
     txnSearchPromise,
     fetchPendingDisputesCount(scope),
   ]);

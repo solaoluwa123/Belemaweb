@@ -50,7 +50,8 @@ export default function TwoFactorAuth() {
           <div>
             <CardTitle className="text-2xl">Two-Factor Authentication</CardTitle>
             <CardDescription>
-              Enter the 6-digit code for {pendingTwoFactor?.identifier || "your account"}
+              Enter the 6-digit code from your authenticator app for{" "}
+              {pendingTwoFactor?.identifier || "your account"}. This is required when 2FA is enabled on your account.
             </CardDescription>
           </div>
         </CardHeader>

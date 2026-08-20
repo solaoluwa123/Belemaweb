@@ -587,6 +587,10 @@ export default function AppLayout() {
                   <p className="text-xs text-gray-400 mt-1">{user?.institutionName}</p>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigateTo("/settings/security")}>
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Security / 2FA
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout

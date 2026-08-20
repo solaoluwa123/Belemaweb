@@ -86,7 +86,12 @@ export default function TransgateDashboard() {
   }, [user?.institutionCode, user?.roleId]);
 
   useEffect(() => {
-    if (isThirdPartyVendor() && !user?.institutionCode) return;
+    if (isThirdPartyVendor() && !user?.institutionCode) {
+      setIsLoading(false);
+      setStatsData(null);
+      setErrorMessage("Your account is not linked to an institution.");
+      return;
+    }
     loadDashboard();
   }, [statsInstitution, statsDate, user?.institutionCode, user?.roleId]);
 
