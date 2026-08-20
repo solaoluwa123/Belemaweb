@@ -623,7 +623,8 @@ function isGlobalInstitutionCode(code) {
 
 /**
  * List all transactions via `GET /transactions`.
- * Third Party Vendor (FI-scoped) uses `GET /transactions/institution/{code}`.
+ * Third Party Vendor (FI-scoped) uses `GET /transactions/institution/{code}`
+ * (backend also auto-routes role 4 to that path).
  */
 export async function fetchTransactions({ institutionCode, requireInstitutionScope = false } = {}) {
   const code = String(institutionCode ?? "").trim();
@@ -632,7 +633,7 @@ export async function fetchTransactions({ institutionCode, requireInstitutionSco
     throw new APIError("Institution code is required for this role.", 400, null);
   }
   if (scoped) {
-    return fetchTransactionsByInstitution(code, { page: 1, limit: 500, isCurrent: "true" });
+    return fetchTransactionsByInstitution(code);
   }
   const [response, lookup] = await Promise.all([
     apiClient.get(API_ENDPOINTS.transactions.list),
