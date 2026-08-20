@@ -127,7 +127,9 @@ export default function AppLayout() {
       return isApprover() || isOperator();
     }
 
-    if (pathname === "/disputes/log") return isOperator() || isAdmin();
+    if (pathname === "/disputes/log" || pathname.startsWith("/disputes/log/")) {
+      return isOperator() || isAdmin() || isThirdPartyVendor();
+    }
     if (pathname === "/disputes" || pathname.startsWith("/disputes/")) {
       return isApprover() || isOperator() || isAdmin();
     }

@@ -94,7 +94,9 @@ export function canManageFI(user) {
 }
 
 export function canLogSwitchDispute(user, { isOperator = false } = {}) {
-  if (!user || isThirdPartyVendor(user)) return false;
+  // Third-party vendors may log disputes for their FI; approve remains non-vendor.
+  if (!user) return false;
+  if (isThirdPartyVendor(user)) return true;
   return isOperator || isAdministrator(user);
 }
 

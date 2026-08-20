@@ -132,6 +132,7 @@ function endOfLocalDay(d) {
 /**
  * Dashboard metrics and charts are scoped to the selected calendar day only.
  * If that day has no transactions, the UI shows an empty state instead of zeros.
+ * `isCurrent` tells the API to read live vs archive tables for that day window.
  */
 function buildDateRangeParams(date) {
   if (!date) return {};
@@ -139,9 +140,16 @@ function buildDateRangeParams(date) {
   if (Number.isNaN(selectedDate.getTime())) return {};
 
   const day = startOfLocalDay(selectedDate);
+  const today = startOfLocalDay(new Date());
+  const isToday =
+    day.getFullYear() === today.getFullYear() &&
+    day.getMonth() === today.getMonth() &&
+    day.getDate() === today.getDate();
+
   return {
     startDate: formatDashboardRangeDateParam(day),
     endDate: formatDashboardRangeDateParam(endOfLocalDay(day)),
+    isCurrent: isToday ? "true" : "false",
   };
 }
 
@@ -207,6 +215,63 @@ function shouldFillDashboardMetricsFromTransactions(summary) {
   return summary.totalTransactions === 0 && summary.totalAmount === 0;
 }
 
+/** Prefer by-date / search meta whenever present — it includes real successRate aggregates. */
+function shouldPreferTransactionMeta(summary, metaAgg) {
+  return Boolean(metaAgg && metaAgg.totalTransactions > 0);
+}
+
+/**
+ * Parse NetworkResponse.meta (`totalRecords`, `totalValue`, `successRate`) from list endpoints.
+ */
+function extractMetaAggFromPayload(payload) {
+  const raw = getRawResponseObject(payload) ?? asObject(payload);
+  let m = raw?.meta;
+  if (typeof m === "string") {
+    try {
+      m = JSON.parse(m);
+    } catch {
+      m = null;
+    }
+  }
+  if (!m || typeof m !== "object") return null;
+  const totalRecords = Number(m.totalRecords ?? m.totalTransactions ?? m.total);
+  const totalValue = Number(m.totalValue ?? m.totalAmount ?? m.sum);
+  const successRate = Number(m.successRate);
+  if (!(Number.isFinite(totalRecords) && totalRecords > 0)) return null;
+  const sr = Number.isFinite(successRate) ? Math.min(100, Math.max(0, successRate)) : 0;
+  return {
+    totalTransactions: totalRecords,
+    totalAmount: Number.isFinite(totalValue) ? totalValue : 0,
+    successRate: sr,
+    successCount: Math.round((sr / 100) * totalRecords),
+  };
+}
+
+function applyMetaAggToSummary(summary, metaAgg) {
+  if (!metaAgg || !(metaAgg.totalTransactions > 0)) return summary;
+  const totalTransactions = metaAgg.totalTransactions;
+  const totalAmount = metaAgg.totalAmount;
+  const successRate = Number.isFinite(metaAgg.successRate) ? metaAgg.successRate : 0;
+  const successCount =
+    Number.isFinite(metaAgg.successCount)
+      ? metaAgg.successCount
+      : Math.round((successRate / 100) * totalTransactions);
+  return {
+    ...summary,
+    totalTransactions,
+    totalAmount,
+    successCount,
+    successRate,
+    metricCards: {
+      totalTransactions: String(totalTransactions),
+      volume: formatCompactCurrency(totalAmount),
+      successRate: formatPercent(successRate),
+      successCount,
+      pendingDisputes: summary.metricCards?.pendingDisputes ?? String(summary.pendingDisputes || 0),
+    },
+  };
+}
+
 function filterRowsToRange(rows, range) {
   if (!Array.isArray(rows) || !range) return rows || [];
   const startMs = range.start.getTime();
@@ -230,20 +295,18 @@ function filterRowsToInstitution(rows, scope) {
 }
 
 function mergeSummaryWithTransactionSearch(summary, metaAgg, rowAgg) {
-  const useMeta = metaAgg && metaAgg.totalTransactions > 0;
-  const useRows = !useMeta && rowAgg && rowAgg.totalTransactions > 0;
-  if (!shouldFillDashboardMetricsFromTransactions(summary) || (!useMeta && !useRows)) return summary;
+  const useMeta = shouldPreferTransactionMeta(summary, metaAgg);
+  const useRows = !useMeta && rowAgg && rowAgg.totalTransactions > 0 && shouldFillDashboardMetricsFromTransactions(summary);
+  if (!useMeta && !useRows) return summary;
 
-  const agg = useMeta ? metaAgg : rowAgg;
+  if (useMeta) return applyMetaAggToSummary(summary, metaAgg);
+
+  const agg = rowAgg;
   const totalTransactions = agg.totalTransactions;
   const totalAmount = agg.totalAmount;
   const successCount = agg.successCount;
   const successRate =
-    useMeta && Number.isFinite(metaAgg.successRate)
-      ? metaAgg.successRate
-      : totalTransactions > 0
-        ? (successCount / totalTransactions) * 100
-        : 0;
+    totalTransactions > 0 ? (successCount / totalTransactions) * 100 : 0;
 
   return {
     ...summary,
@@ -744,8 +807,10 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
   }
   const dateParams = buildDateRangeParams(date);
   const pagedDateParams = withPagination(dateParams);
-  /** `GET /ft-average-time` requires `isCurrent` (Spring @RequestParam); do not send only start/end. */
-  const averageTimeParams = { ...dateParams, isCurrent: "true" };
+  const averageTimeParams = {
+    ...dateParams,
+    isCurrent: dateParams.isCurrent || "true",
+  };
   const summaryEndpoint = getScopedEndpoint(
     API_ENDPOINTS.dashboards.transactionsSummary,
     API_ENDPOINTS.dashboards.transactionsSummaryByInstitution,
@@ -784,11 +849,88 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
     API_ENDPOINTS.dashboards.ftAverageTimeByInstitution,
     scope
   );
-  /** `GET /transactions-trend/{code}` requires `type` + `auth-token`; use global `transactions-by-date` when not scoped. */
   const trendEndpoint = scope
     ? API_ENDPOINTS.dashboards.transactionsTrendByInstitution(scope)
     : byDateEndpoint;
   const trendParams = scope ? { ...dateParams, type: "day" } : pagedDateParams;
+
+  /**
+   * Institution-scoped (vendors): lean fetch — by-date meta has totalRecords/totalValue/successRate.
+   * Skip heavy search(800), failing-FI list, pending disputes, and trend endpoint.
+   */
+  if (scope) {
+    const [
+      byDatePayload,
+      byDateOnlyPayload,
+      channelsPayload,
+      failedCodesPayload,
+      averageTimePayload,
+      successPayload,
+    ] = await Promise.all([
+      fetchOrNull(byDateEndpoint, pagedDateParams),
+      fetchOrNull(byDateOnlyEndpoint, pagedDateParams),
+      fetchOrNull(channelsEndpoint, pagedDateParams),
+      fetchOrNull(failedCodesEndpoint, pagedDateParams),
+      fetchOrNull(averageTimeEndpoint, averageTimeParams),
+      fetchOrNull(successEndpoint, dateParams),
+    ]);
+
+    const byDateMeta =
+      extractMetaAggFromPayload(byDateOnlyPayload) || extractMetaAggFromPayload(byDatePayload);
+
+    let summary = normalizeSummary(null, successPayload, averageTimePayload);
+    if (byDateMeta) {
+      summary = applyMetaAggToSummary(summary, byDateMeta);
+    } else if (shouldFillDashboardMetricsFromTransactions(summary)) {
+      try {
+        const scopedRows = await fetchTransactionsForDashboardFallback(scope, dateParams);
+        if (scopedRows.length) {
+          const rowAgg = aggregateMetricsFromTransactionRows(scopedRows);
+          summary = mergeSummaryWithTransactionSearch(summary, null, rowAgg);
+        }
+      } catch {
+        /* keep zero metrics */
+      }
+    }
+
+    summary = {
+      ...summary,
+      pendingDisputes: 0,
+      metricCards: {
+        ...summary.metricCards,
+        pendingDisputes: "0",
+      },
+    };
+
+    let chartData7d = normalizeTrendRows(byDateOnlyPayload || byDatePayload);
+    const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
+    let successVolumes7d = normalizeSuccessVolumes(successPayload, byDatePayload || byDateOnlyPayload);
+    if ((!successVolumes7d || successVolumes7d.length < 1) && byDateMeta?.successCount > 0) {
+      const label =
+        date instanceof Date && !Number.isNaN(date.getTime())
+          ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+          : "Today";
+      successVolumes7d = [{ date: label, volume: byDateMeta.successCount }];
+    }
+    const transactionsByChannel = normalizeChannelRows(channelsPayload);
+
+    const hasTransactions =
+      Number(summary.totalTransactions) > 0 ||
+      chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
+
+    return {
+      hasTransactions,
+      metrics: summary.metricCards,
+      chartData7d: hasTransactions ? chartData7d : [],
+      responseCodes: hasTransactions ? responseCodes : [],
+      successVolumes7d: hasTransactions ? successVolumes7d : [],
+      failedTop5Codes: hasTransactions ? responseCodes : [],
+      transactionsByChannel: hasTransactions ? transactionsByChannel : [],
+      failureByInstitution: [],
+      averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
+      rawSummary: summary,
+    };
+  }
 
   const txnSearchPromise = (async () => {
     const range = getDashboardRangeAsDates(date);
@@ -834,15 +976,22 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
     fetchPendingDisputesCount(scope),
   ]);
 
+  const byDateMeta =
+    extractMetaAggFromPayload(byDateOnlyPayload) || extractMetaAggFromPayload(byDatePayload);
+
   const summaryBase = normalizeSummary(summaryPayload, successPayload, averageTimePayload);
   let workingRows = Array.isArray(txnSearch.rows) ? txnSearch.rows : [];
   let rowAgg = aggregateMetricsFromTransactionRows(workingRows);
-  let summary = mergeSummaryWithTransactionSearch(summaryBase, txnSearch.metaAgg, rowAgg);
+  let summary = mergeSummaryWithTransactionSearch(
+    summaryBase,
+    byDateMeta || txnSearch.metaAgg,
+    rowAgg,
+  );
 
-  /**
-   * Final safety net: if everything above still reports zero, hit `GET /transactions` (already-working list)
-   * and aggregate client-side over the same window/scope. Slow path; only fires when nothing else has data.
-   */
+  if (shouldPreferTransactionMeta(summary, byDateMeta)) {
+    summary = applyMetaAggToSummary(summary, byDateMeta);
+  }
+
   if (shouldFillDashboardMetricsFromTransactions(summary)) {
     try {
       const scopedRows = await fetchTransactionsForDashboardFallback(scope, dateParams);

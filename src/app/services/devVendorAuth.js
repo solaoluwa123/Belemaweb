@@ -7,6 +7,7 @@ const DEV_TRANSGATE_MENU = [
   { label: "Transactions", path: "/transactions", icon: "transactions" },
   { label: "Wallets", path: "/wallets", icon: "wallets" },
   { label: "Wallet Activities", path: "/wallets/activities", icon: "activity" },
+  { label: "Log Dispute", path: "/disputes/log", icon: "disputes" },
 ];
 
 export function buildDevVendorUser(overrides = {}) {

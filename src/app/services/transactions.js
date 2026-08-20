@@ -712,13 +712,17 @@ export async function fetchTransactionDetails(sessionId) {
   return row;
 }
 
-/** `GET /transactions/institution/{code}` */
+/** `GET /transactions/institution/{code}` — when dates are present, use by-date (with meta aggregates). */
 export async function fetchTransactionsByInstitution(institutionCode, params = {}) {
   if (!institutionCode) {
     throw new APIError("Institution code is required.", 400, null);
   }
+  const hasDate = Boolean(params.startDate && params.endDate);
+  const endpoint = hasDate
+    ? API_ENDPOINTS.dashboards.transactionsByDateByInstitution(institutionCode)
+    : API_ENDPOINTS.transactions.byInstitution(institutionCode);
   const [response, lookup] = await Promise.all([
-    apiClient.get(API_ENDPOINTS.transactions.byInstitution(institutionCode), params),
+    apiClient.get(endpoint, params),
     getInstitutionNameLookup(),
   ]);
   return normalizeTransactionCollection(response, lookup);

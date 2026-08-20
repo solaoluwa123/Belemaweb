@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import QRCode from "qrcode";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { AlertCircle, ShieldCheck, Loader2 } from "lucide-react";
@@ -12,9 +13,45 @@ export default function SecuritySettings() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [qrCodeUri, setQrCodeUri] = useState("");
+  const [otpauthUri, setOtpauthUri] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [manualSecret, setManualSecret] = useState("");
+  const [qrBusy, setQrBusy] = useState(false);
 
   const identifier = user?.email || user?.username || "";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!otpauthUri) {
+      setQrDataUrl("");
+      return undefined;
+    }
+
+    // Already an image URL / data URI from a future API change.
+    if (otpauthUri.startsWith("data:image") || /^https?:\/\//i.test(otpauthUri)) {
+      setQrDataUrl(otpauthUri);
+      return undefined;
+    }
+
+    setQrBusy(true);
+    QRCode.toDataURL(otpauthUri, { width: 220, margin: 2, errorCorrectionLevel: "M" })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setQrDataUrl("");
+          setError("Authenticator link received, but the QR image could not be generated. Use the manual key below.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setQrBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [otpauthUri]);
 
   const handleEnable = async () => {
     if (!identifier) {
@@ -24,10 +61,18 @@ export default function SecuritySettings() {
     setLoading(true);
     setError("");
     setMessage("");
+    setOtpauthUri("");
+    setQrDataUrl("");
+    setManualSecret("");
     try {
       const result = await setupTwoFactor({ username: identifier, enable: true });
-      setQrCodeUri(result.qrCodeUri || "");
+      const uri = String(result.qrCodeUri || "").trim();
+      setOtpauthUri(uri);
+      setManualSecret(String(result.secret || "").trim());
       setMessage(result.message || "Two-factor authentication enabled.");
+      if (!uri) {
+        setError("2FA was enabled but no authenticator link was returned. Try again or contact support.");
+      }
       if (typeof updateUser === "function") {
         updateUser({ has2FA: true });
       }
@@ -72,10 +117,26 @@ export default function SecuritySettings() {
             </div>
           ) : null}
 
-          {qrCodeUri ? (
-            <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-4">
+          {otpauthUri || qrDataUrl || manualSecret ? (
+            <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-center">
               <p className="text-sm font-medium text-slate-800">Scan this QR code in your authenticator app</p>
-              <img src={qrCodeUri} alt="2FA QR code" className="mx-auto h-48 w-48 rounded bg-white p-2" />
+              {qrBusy ? (
+                <div className="mx-auto flex h-48 w-48 items-center justify-center rounded bg-white">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : qrDataUrl ? (
+                <img src={qrDataUrl} alt="2FA QR code" className="mx-auto h-48 w-48 rounded bg-white p-2" />
+              ) : (
+                <p className="text-sm text-slate-500">QR image unavailable — enter the key manually.</p>
+              )}
+              {manualSecret ? (
+                <div className="space-y-1 text-left">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Manual setup key</p>
+                  <code className="block break-all rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                    {manualSecret}
+                  </code>
+                </div>
+              ) : null}
               <p className="text-xs text-slate-500">
                 After scanning, sign out and sign in again to complete a 2FA challenge.
               </p>

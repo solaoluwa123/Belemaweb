@@ -387,23 +387,37 @@ export async function setupTwoFactor({ username, enable = true } = {}) {
     }),
   });
   assertAuthBusinessSuccess(response);
-  const data = unwrapPayload(response) || response;
+
+  // Meta lives on the NetworkResponse root — do not rely on unwrapPayload (it may dive into `data`).
+  const root = response && typeof response === "object" ? response : {};
+  const metaRaw = root.meta ?? root.Meta ?? null;
   let qrCodeUri = "";
-  const meta = data?.meta;
-  if (typeof meta === "string" && meta.trim()) {
+  if (typeof metaRaw === "string" && metaRaw.trim()) {
     try {
-      qrCodeUri = String(JSON.parse(meta)?.qrCodeUri || "").trim();
+      qrCodeUri = String(JSON.parse(metaRaw)?.qrCodeUri || "").trim();
     } catch {
       qrCodeUri = "";
     }
-  } else if (meta && typeof meta === "object") {
-    qrCodeUri = String(meta.qrCodeUri || "").trim();
+  } else if (metaRaw && typeof metaRaw === "object") {
+    qrCodeUri = String(metaRaw.qrCodeUri || "").trim();
   }
+
+  let secret = "";
+  if (qrCodeUri.startsWith("otpauth://")) {
+    try {
+      secret = String(new URL(qrCodeUri).searchParams.get("secret") || "").trim();
+    } catch {
+      const match = qrCodeUri.match(/[?&]secret=([^&]+)/i);
+      secret = match ? decodeURIComponent(match[1]) : "";
+    }
+  }
+
   return {
     enabled: enable,
     qrCodeUri,
-    message: String(data?.message || (enable ? "2FA enabled successfully" : "2FA disabled successfully")),
-    raw: data,
+    secret,
+    message: String(root.message || (enable ? "2FA enabled successfully" : "2FA disabled successfully")),
+    raw: root,
   };
 }
 

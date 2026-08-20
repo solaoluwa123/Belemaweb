@@ -143,6 +143,7 @@ export function getVendorFallbackMenu({ accountsDashboard = "/dashboard/accounts
     { label: "Transactions", path: "/transactions", icon: ArrowLeftRight },
     { label: "Wallets", path: "/wallets", icon: Eye },
     { label: "Wallet Activities", path: "/wallets/activities", icon: Activity },
+    { label: "Log Dispute", path: "/disputes/log", icon: AlertCircle },
   ];
 }
 
@@ -196,7 +197,9 @@ export function isVendorAllowedPath(pathname, accountsDashboard = "/dashboard/ac
   if (pathname.startsWith("/dashboard/statistics")) return true;
   if (pathname.startsWith("/settings/security")) return true;
   if (pathname.startsWith("/dashboard/live-monitoring")) return false;
-  if (pathname.startsWith("/disputes")) return false;
+  // Vendors: Log Dispute only — not list, arbitrated, or other dispute routes.
+  if (pathname === "/disputes/log" || pathname.startsWith("/disputes/log/")) return true;
+  if (pathname === "/disputes" || pathname.startsWith("/disputes/")) return false;
   if (pathname.startsWith("/wallets/institution-activity")) return false;
   if (pathname.startsWith("/admin/")) return false;
   if (pathname.startsWith("/approvals/")) return false;
