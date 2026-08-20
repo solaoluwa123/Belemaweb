@@ -106,6 +106,7 @@ export function canApproveSwitchDispute(user) {
 }
 
 export function canRequestStatusChange(user) {
+  // Admin-only immediate status change — no operator/vendor requests, no approval queue.
   if (!user) return false;
-  return isThirdPartyVendor(user) || isAdministrator(user) || isOperatorRole(user);
+  return isAdministrator(user);
 }

@@ -36,6 +36,7 @@ import InstitutionDetailPage from "./pages/dashboards/statistics/InstitutionDeta
 
 import TransactionList from "./pages/transactions/TransactionList";
 import TransactionDetails from "./pages/transactions/TransactionDetails";
+import TransactionStatusChange from "./pages/transactions/TransactionStatusChange";
 
 function TransactionsIndexRedirect() {
   return <Navigate to="/transactions" replace />;
@@ -55,7 +56,6 @@ import CreateWallet from "./pages/wallets/CreateWallet";
 import PendingUserApprovals from "./pages/approvals/PendingUserApprovals";
 import WalletApprovals from "./pages/approvals/WalletApprovals";
 import InstitutionApprovals from "./pages/approvals/InstitutionApprovals";
-import TransactionApprovalsAccounts from "./pages/approvals/TransactionApprovalsAccounts";
 import UsersManagement from "./pages/admin/UsersManagement";
 import OtherUsers from "./pages/admin/OtherUsers";
 import FinancialInstitutions from "./pages/admin/FinancialInstitutions";
@@ -125,6 +125,7 @@ export const router = createBrowserRouter(
       { path: "transactions", Component: TransactionList },
       { path: "settings/security", Component: SecuritySettings },
       { path: "transactions/live", Component: TransactionsIndexRedirect },
+      { path: "transactions/status-change", Component: TransactionStatusChange },
       { path: "transactions/:id", Component: TransactionDetails },
 
       { path: "disputes/log", Component: LogDispute },
@@ -143,7 +144,7 @@ export const router = createBrowserRouter(
       { path: "approvals/users", Component: PendingUserApprovals },
       { path: "approvals/wallets", Component: WalletApprovals },
       { path: "approvals/institutions", Component: InstitutionApprovals },
-      { path: "approvals/transactions-accounts", Component: TransactionApprovalsAccounts },
+      { path: "approvals/transactions-accounts", element: <Navigate to="/transactions/status-change" replace /> },
 
       { path: "admin/users", Component: UsersManagement },
       { path: "admin/other-users", Component: OtherUsers },

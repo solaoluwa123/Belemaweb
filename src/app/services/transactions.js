@@ -776,17 +776,28 @@ export async function requestTransactionStatusChange({
     throw new APIError("Transaction ID, new status, and reason are required.", 400, null);
   }
 
+  const label = String(status || newStatus).trim();
+  let responseCode = label;
+  const lower = label.toLowerCase();
+  if (lower === "successful" || lower === "success") responseCode = "00";
+  else if (lower === "failed" || lower === "failure") responseCode = "91";
+  else if (lower === "pending") responseCode = "09";
+
   const payload = {
     sessionid: transactionId,
     srcSessionid: transactionId,
     transactionId,
     username: String(username || "").trim(),
-    status: String(status || newStatus).trim(),
-    type: newStatus,
+    // Backend reads the new code from srcResponsecode (narration is reason only).
+    srcResponsecode: responseCode,
+    destResponseCode: responseCode,
+    status: responseCode,
+    type: label,
     narration: reason,
     responseCodeDefinition: reason,
     records: JSON.stringify({
-      requestedStatus: newStatus,
+      requestedStatus: label,
+      responseCode,
       reason,
     }),
   };

@@ -231,18 +231,24 @@ export default function TransactionDetails() {
     }
     setStatusSubmitting(true);
     try {
-      await requestTransactionStatusChange({
+      const result = await requestTransactionStatusChange({
         transactionId: transaction.sessionId || transaction.id,
         newStatus: statusTarget,
         reason: statusReason.trim(),
         username: user?.username || user?.email || "",
         status: statusTarget,
       });
-      toast.success("Transaction status change submitted for review.");
+      const status = String(result?.status || "").toLowerCase();
+      const message = String(result?.message || "").trim();
+      if (status === "failed" || status === "error") {
+        throw new APIError(message || "Status change failed.", 400, result);
+      }
+      toast.success(message || "Transaction status updated.");
       setStatusDialogOpen(false);
       setStatusReason("");
+      await loadTransaction();
     } catch (error) {
-      toast.error(error instanceof APIError ? error.message : "Unable to submit status change.");
+      toast.error(error instanceof APIError ? error.message : "Unable to change transaction status.");
     } finally {
       setStatusSubmitting(false);
     }
@@ -264,7 +270,7 @@ export default function TransactionDetails() {
         <div className="ml-auto flex gap-2">
           {canRequestStatusChange() ? (
             <Button variant="default" onClick={() => setStatusDialogOpen(true)} disabled={!transaction || isLoading}>
-              Request status change
+              Change status
             </Button>
           ) : null}
           <Button variant="outline" className="gap-2" onClick={loadTransaction} disabled={isLoading}>
@@ -277,22 +283,22 @@ export default function TransactionDetails() {
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Request status change</DialogTitle>
+            <DialogTitle>Change status</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-gray-600">
               Session: <strong>{transaction?.sessionId || id}</strong>
             </p>
+            <p className="text-xs text-amber-700">Applies immediately. No approval required.</p>
             <div className="space-y-2">
-              <Label>Proposed status</Label>
+              <Label>New status</Label>
               <Select value={statusTarget} onValueChange={setStatusTarget}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Successful">Successful</SelectItem>
-                  <SelectItem value="Failed">Failed</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Successful">Successful (00)</SelectItem>
+                  <SelectItem value="Failed">Failed (91)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -302,7 +308,7 @@ export default function TransactionDetails() {
                 id="vendor-status-reason"
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
-                placeholder="Required for submission"
+                placeholder="Required"
               />
             </div>
           </div>
@@ -312,7 +318,7 @@ export default function TransactionDetails() {
             </Button>
             <Button type="button" onClick={submitStatusChange} disabled={statusSubmitting} className="gap-2">
               {statusSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              Submit request
+              Apply now
             </Button>
           </DialogFooter>
         </DialogContent>

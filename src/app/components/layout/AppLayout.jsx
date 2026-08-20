@@ -21,6 +21,7 @@ import {
   Banknote,
   Scale,
   ClipboardList,
+  RefreshCcw,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -38,6 +39,12 @@ import { getVendorNavItems, isVendorAllowedPath } from "../../utils/transgateMen
 const accountsMenuBase = [
   { label: "Dashboard", path: "/dashboard/accounts", icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: "Transactions", path: "/transactions", icon: <ArrowLeftRight className="w-4 h-4" /> },
+  {
+    label: "Transaction Status Change",
+    path: "/transactions/status-change",
+    icon: <RefreshCcw className="w-4 h-4" />,
+    adminRoleOnly: true,
+  },
   {
     label: "Log Dispute",
     path: "/disputes/log",
@@ -61,12 +68,6 @@ const approvalsMenu = [
     label: "Institution Approvals",
     path: "/approvals/institutions",
     icon: <Building2 className="w-4 h-4" />,
-    makerCheckerApprovals: true,
-  },
-  {
-    label: "Transaction Status",
-    path: "/approvals/transactions-accounts",
-    icon: <ArrowLeftRight className="w-4 h-4" />,
     makerCheckerApprovals: true,
   },
   {
@@ -122,6 +123,8 @@ export default function AppLayout() {
     if (pathname.startsWith("/admin/")) return isOperator() || isAdmin();
 
     if (pathname.startsWith("/approvals/")) return isApprover() || isAdmin();
+
+    if (pathname.startsWith("/transactions/status-change")) return isAdmin();
 
     if (pathname.startsWith("/disputes/arbitrated")) {
       return isApprover() || isOperator();
