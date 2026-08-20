@@ -127,7 +127,7 @@ jobs:
             ok_fe=0
             for i in \$(seq 1 24); do
               api_code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:8077/sparkpayapi/ || true)
-              fe_code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18080/belema/ || true)
+              fe_code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18080/ || true)
               echo \"attempt \$i api=\$api_code fe=\$fe_code\"
               case \"\$api_code\" in 200|401|403|404) ok_api=1 ;; esac
               case \"\$fe_code\" in 200|301|302|304) ok_fe=1 ;; esac
