@@ -32,8 +32,9 @@ function formatDateTime(value) {
 
 /** Matches TransactionList card-style timestamps. */
 function formatCardDateTime(value) {
+  if (value == null || value === "" || value === "undefined" || value === "null") return "–";
   const d = parseBackendDate(value);
-  if (!d) return value == null ? "–" : String(value);
+  if (!d) return "–";
   return d
     .toLocaleString("en-GB", {
       year: "numeric",
@@ -45,6 +46,11 @@ function formatCardDateTime(value) {
       hour12: false,
     })
     .replace(",", "");
+}
+
+function displayField(value) {
+  if (value == null || value === "" || value === "undefined" || value === "null") return "–";
+  return String(value);
 }
 
 function formatDurationSecs(ms) {
@@ -373,23 +379,23 @@ export default function TransactionDetails() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                   <div>
                     <p className="text-gray-500">MTI</p>
-                    <p className="font-medium font-mono">{transaction.mti || "–"}</p>
+                    <p className="font-medium font-mono">{displayField(transaction.mti)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Masked identifier</p>
-                    <p className="font-medium font-mono">{transaction.maskedPan || "–"}</p>
+                    <p className="font-medium font-mono">{displayField(transaction.maskedPan)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">STAN</p>
-                    <p className="font-medium font-mono break-all">{transaction.stan || "–"}</p>
+                    <p className="font-medium font-mono break-all">{displayField(transaction.stan)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">RRN</p>
-                    <p className="font-medium font-mono break-all">{transaction.rrn || "–"}</p>
+                    <p className="font-medium font-mono break-all">{displayField(transaction.rrn)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Terminal ID</p>
-                    <p className="font-medium font-mono break-all">{transaction.terminalId || "–"}</p>
+                    <p className="font-medium font-mono break-all">{displayField(transaction.terminalId)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Duration</p>
@@ -405,31 +411,33 @@ export default function TransactionDetails() {
                   </div>
                   <div>
                     <p className="text-gray-500">Merchant ID</p>
-                    <p className="font-medium break-all">{transaction.merchantId || "–"}</p>
+                    <p className="font-medium break-all">{displayField(transaction.merchantId)}</p>
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-gray-500">Location</p>
-                    <p className="font-medium">{transaction.locationNameAddress || "–"}</p>
+                    <p className="font-medium">{displayField(transaction.locationNameAddress)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Processing code</p>
-                    <p className="font-medium font-mono">{transaction.processingCode || "–"}</p>
+                    <p className="font-medium font-mono">{displayField(transaction.processingCode)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">ACQ ID</p>
-                    <p className="font-medium font-mono break-all">{transaction.acqId || "–"}</p>
+                    <p className="font-medium font-mono break-all">{displayField(transaction.acqId)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">DEST ACQ ID</p>
-                    <p className="font-medium font-mono break-all">{transaction.destAcqId || "–"}</p>
+                    <p className="font-medium font-mono break-all">{displayField(transaction.destAcqId)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Approval code</p>
-                    <p className="font-medium font-mono">{transaction.approvalCode || "–"}</p>
+                    <p className="font-medium font-mono">{displayField(transaction.approvalCode)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Contact number</p>
-                    <p className="font-medium break-all">{transaction.contactNumber || transaction.cardHolderNumber || "–"}</p>
+                    <p className="font-medium break-all">
+                      {displayField(transaction.contactNumber || transaction.cardHolderNumber)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-500">Reversed</p>
@@ -437,7 +445,7 @@ export default function TransactionDetails() {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-gray-500">UUID</p>
-                    <p className="font-medium font-mono text-xs break-all">{transaction.uuid || "–"}</p>
+                    <p className="font-medium font-mono text-xs break-all">{displayField(transaction.uuid)}</p>
                   </div>
                 </div>
               </CardContent>

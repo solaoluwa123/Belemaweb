@@ -44,7 +44,23 @@ function unwrapPayload(value) {
 }
 
 function firstDefined(...values) {
-  return values.find((value) => value !== undefined && value !== null && value !== "");
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+  // Prefer the last arg as an explicit default (often ""). `.find()` would return
+  // `undefined` instead, and `String(undefined)` becomes the literal "undefined" in the UI.
+  return values.length > 0 ? values[values.length - 1] : undefined;
+}
+
+/**
+ * Avoid `String(undefined)` → `"undefined"` (truthy, so `|| "–"` fallbacks fail).
+ */
+function safeString(value, fallback = "") {
+  if (value === undefined || value === null) return fallback;
+  const s = String(value);
+  return s === "undefined" || s === "null" ? fallback : s;
 }
 
 function toNumber(value) {
@@ -140,14 +156,8 @@ function maskPanFromDigits(value) {
   return `${d.slice(0, 6)}******${d.slice(-4)}`;
 }
 
-function padNum(n, len) {
-  const x = typeof n === "string" ? parseInt(n, 10) : Number(n);
-  const v = Number.isFinite(x) ? Math.abs(Math.floor(x)) % 10 ** len : 0;
-  return String(v).padStart(len, "0");
-}
-
 function normalizeApiDateTime(value) {
-  const raw = String(value || "").trim();
+  const raw = safeString(value).trim();
   if (!raw) return "";
   // Backend commonly returns "YYYY-MM-DD HH:mm:ss"; Safari treats this as invalid.
   // Convert to ISO-like local time string so Date parsing works consistently.
@@ -155,19 +165,6 @@ function normalizeApiDateTime(value) {
     return raw.replace(" ", "T");
   }
   return raw;
-}
-
-/** Deterministic pseudo-UUID for demo rows when API omits uuid */
-function stableUuid(seed) {
-  let h = 2166136261;
-  for (let i = 0; i < String(seed).length; i++) {
-    h ^= String(seed).charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const a = (h >>> 0).toString(16).padStart(8, "0");
-  const b = Math.imul(h, 48271).toString(16).padStart(8, "0");
-  const c = (a + b).replace(/[^a-f0-9]/g, "").padEnd(12, "0").slice(0, 12);
-  return `${a.slice(0, 8)}-${a.slice(0, 4)}-4${b.slice(1, 4)}-8${b.slice(2, 5)}-${c}`;
 }
 
 /**
@@ -339,8 +336,8 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
   );
   const status = parseStatus(firstDefined(row.statusText, row.status, row.transactionStatus), responseCode);
 
-  const sessionId = String(firstDefined(row.srcSessionid, row.sessionId, row.session_id, row.transactionId, ""));
-  const srcAcct = String(firstDefined(row.srcAccountNumber, row.sourceAccountNumber, row.originator_account_number, row.from, ""));
+  const sessionId = safeString(firstDefined(row.srcSessionid, row.sessionId, row.session_id, row.transactionId, ""));
+  const srcAcct = safeString(firstDefined(row.srcAccountNumber, row.sourceAccountNumber, row.originator_account_number, row.from, ""));
   const dateTime = normalizeApiDateTime(
     firstDefined(
       row.transactiondate,
@@ -353,34 +350,24 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
     )
   );
 
-  let mti = String(firstDefined(row.message_type, row.mti, row.messageType, ""));
-  let maskedPan = String(firstDefined(row.maskedPan, row.masked_pan, row.maskedPAN, row.panMasked, ""));
+  // Card-switch fields (MTI/STAN/RRN/terminal/…) are usually absent on NIP/FT rows — leave blank, not fabricated.
+  const mti = safeString(firstDefined(row.message_type, row.mti, row.messageType, ""));
+  let maskedPan = safeString(firstDefined(row.maskedPan, row.masked_pan, row.maskedPAN, row.panMasked, ""));
   if (!maskedPan && srcAcct) maskedPan = maskPanFromDigits(srcAcct);
 
-  let stan = String(firstDefined(row.stan, row.system_trace_number, row.systemTraceNumber, ""));
-  if (!stan && sessionId) {
-    const digits = sessionId.replace(/\D/g, "");
-    const stanNum = digits ? parseInt(digits.slice(-8), 10) : index;
-    stan = padNum(Number.isFinite(stanNum) ? stanNum : index, 6);
-  }
-
-  let rrn = String(firstDefined(row.rrn, row.retrieval_ref_number, row.retrievalRefNumber, row.retrieval_ref_no, ""));
-  if (!rrn && sessionId) {
-    const n = (sessionId.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + index * 10007) % 10 ** 12;
-    rrn = String(n).padStart(12, "0");
-  }
-
-  const terminalId = String(firstDefined(row.terminal_id, row.terminalId, ""));
+  const stan = safeString(firstDefined(row.stan, row.system_trace_number, row.systemTraceNumber, ""));
+  const rrn = safeString(firstDefined(row.rrn, row.retrieval_ref_number, row.retrievalRefNumber, row.retrieval_ref_no, ""));
+  const terminalId = safeString(firstDefined(row.terminal_id, row.terminalId, ""));
   const requestTime = normalizeApiDateTime(
     firstDefined(row.requestTime, row.request_time, row.transaction_request_time, dateTime, "")
   );
   let responseTime = normalizeApiDateTime(firstDefined(row.responseTime, row.response_time, ""));
   if (!responseTime && status !== "Pending") {
-    responseTime = normalizeApiDateTime(firstDefined(row.responsedatetime, row.response_datetime, ""));
+    responseTime = normalizeApiDateTime(firstDefined(row.responsedatetime, row.response_datetime, dateTime, ""));
   }
 
-  const merchantId = String(firstDefined(row.merchant_id, row.merchantId, ""));
-  const locationNameAddress = String(
+  const merchantId = safeString(firstDefined(row.merchant_id, row.merchantId, ""));
+  const locationNameAddress = safeString(
     firstDefined(
       row.locationNameAddress,
       row.location_name_address,
@@ -390,15 +377,15 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
       ""
     )
   );
-  const processingCode = String(firstDefined(row.processing_code, row.processingCode, ""));
-  const acqId = String(
+  const processingCode = safeString(firstDefined(row.processing_code, row.processingCode, ""));
+  const acqId = safeString(
     firstDefined(row.acquiring_institution_id, row.acqId, row.acquirerId, row.acquirer_id, "")
   );
-  const destAcqId = String(
+  const destAcqId = safeString(
     firstDefined(row.destination_acquirer_id, row.destAcqId, row.destAcquirerId, row.dest_acquirer_id, "")
   );
-  const approvalCode = String(firstDefined(row.approval_code, row.approvalCode, ""));
-  const contactNumber = String(
+  const approvalCode = safeString(firstDefined(row.approval_code, row.approvalCode, ""));
+  const contactNumber = safeString(
     firstDefined(row.card_holder_number, row.cardHolderNumber, row.contactNumber, row.mobile, row.phone, "")
   );
 
@@ -406,16 +393,16 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
   let reversed = "";
   if (reversedRaw === true || reversedRaw === 1 || reversedRaw === "1") reversed = "yes";
   else if (reversedRaw === false || reversedRaw === 0 || reversedRaw === "0") reversed = "no";
-  else if (String(reversedRaw).trim()) reversed = String(reversedRaw).toLowerCase().includes("y") ? "yes" : "no";
+  else if (safeString(reversedRaw).trim()) reversed = safeString(reversedRaw).toLowerCase().includes("y") ? "yes" : "no";
 
-  let uuid = String(firstDefined(row.uuid, row.UUID, row.unique_id, row.uniqueLogCode, ""));
+  const uuid = safeString(firstDefined(row.uuid, row.UUID, row.unique_id, row.uniqueLogCode, ""));
 
   return {
-    id: String(firstDefined(row.id, row.transactionId, sessionId, row.paymentReference, index)),
+    id: safeString(firstDefined(row.id, row.transactionId, sessionId, row.paymentReference, index), `txn-${index}`),
     sessionId,
-    paymentReferenceNo: String(firstDefined(row.paymentReference, row.paymentReferenceNo, row.reference, "")),
-    channelCode: String(firstDefined(row.channelCode, row.channel, "")),
-    sourceAccountName: String(
+    paymentReferenceNo: safeString(firstDefined(row.paymentReference, row.paymentReferenceNo, row.reference, "")),
+    channelCode: safeString(firstDefined(row.channelCode, row.channel, "")),
+    sourceAccountName: safeString(
       firstDefined(row.srcAccountName, row.sourceAccountName, row.originator_account_name, row.fromName, ""),
     ),
     sourceAccountNumber: srcAcct,
@@ -436,10 +423,10 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
       ],
       institutionLookup
     ),
-    beneficiaryAccountName: String(
+    beneficiaryAccountName: safeString(
       firstDefined(row.destAccountName, row.beneficiaryAccountName, row.beneficiary_account_name, row.toName, ""),
     ),
-    beneficiaryAccountNumber: String(firstDefined(row.destAccountNumber, row.beneficiaryAccountNumber, row.to, "")),
+    beneficiaryAccountNumber: safeString(firstDefined(row.destAccountNumber, row.beneficiaryAccountNumber, row.to, "")),
     beneficiaryBank: resolveInstitutionDisplayName(
       [
         row.destInstitutionName,
@@ -457,11 +444,11 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
       ],
       institutionLookup
     ),
-    destinationNode: String(firstDefined(row.destNodeInstitutionName, row.destinationNode, "")),
-    sourceInstitutionCode: String(
+    destinationNode: safeString(firstDefined(row.destNodeInstitutionName, row.destinationNode, "")),
+    sourceInstitutionCode: safeString(
       firstDefined(row.srcInstitutioncode, row.srcInstitutionCode, row.sourceInstitutionCode, row.source_institution_code, ""),
     ),
-    destinationInstitutionCode: String(
+    destinationInstitutionCode: safeString(
       firstDefined(row.destInstitutioncode, row.destInstitutionCode, row.destinationInstitutionCode, row.destination_institution_code, ""),
     ),
     amount: toNumber(firstDefined(row.srcAmount, row.destAmount, row.amount)),
@@ -469,10 +456,10 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
     ftDurationMs: toNumber(firstDefined(row.txnDuration, row.ftDurationMs)),
     dateTime,
     responseCode: extractResponseCode(responseCode),
-    responseMessage: String(responseMessage),
-    narration: String(firstDefined(row.narration, "")),
-    type: String(firstDefined(row.type, row.transactionType, "")),
-    mti: mti || "0200",
+    responseMessage: safeString(responseMessage),
+    narration: safeString(firstDefined(row.narration, "")),
+    type: safeString(firstDefined(row.type, row.transactionType, "Funds Transfer")),
+    mti,
     maskedPan,
     stan,
     rrn,
@@ -487,12 +474,12 @@ function normalizeTransaction(row, index = 0, institutionLookup = null) {
     approvalCode,
     contactNumber,
     reversed,
-    uuid: uuid || stableUuid(`${sessionId}-${index}`),
-    requestedBy: String(firstDefined(row.requested_by, row.loggedBy, row.username, "")),
-    approvedBy: String(firstDefined(row.approved_by, row.resolvedBy, "")),
-    currentStatus: String(firstDefined(row.current_status, "")),
-    newStatus: String(firstDefined(row.new_status, "")),
-    timelineDate: String(firstDefined(row.timeline_date, row.dateModified, row.dateCreated, "")),
+    uuid,
+    requestedBy: safeString(firstDefined(row.requested_by, row.loggedBy, row.username, "")),
+    approvedBy: safeString(firstDefined(row.approved_by, row.resolvedBy, "")),
+    currentStatus: safeString(firstDefined(row.current_status, "")),
+    newStatus: safeString(firstDefined(row.new_status, "")),
+    timelineDate: safeString(firstDefined(row.timeline_date, row.dateModified, row.dateCreated, "")),
     raw: row,
   };
 }
