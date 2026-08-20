@@ -5,10 +5,8 @@ import { THIRD_PARTY_VENDOR_ROLE_ID } from "../utils/roleAccess";
 const DEV_TRANSGATE_MENU = [
   { label: "Dashboard", path: "/dashboard/accounts", icon: "dashboard" },
   { label: "Transactions", path: "/transactions", icon: "transactions" },
-  { label: "Log Dispute", path: "/disputes/log", icon: "disputes" },
-  { label: "Disputes", path: "/disputes", icon: "disputes" },
   { label: "Wallets", path: "/wallets", icon: "wallets" },
-  { label: "Wallet Activities", path: "/wallets/activities", icon: "wallets" },
+  { label: "Wallet Activities", path: "/wallets/activities", icon: "activity" },
 ];
 
 export function buildDevVendorUser(overrides = {}) {

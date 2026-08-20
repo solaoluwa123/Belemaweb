@@ -141,9 +141,6 @@ export function getVendorFallbackMenu({ accountsDashboard = "/dashboard/accounts
   return [
     { label: "Dashboard", path: accountsDashboard, icon: LayoutDashboard },
     { label: "Transactions", path: "/transactions", icon: ArrowLeftRight },
-    { label: "Log Dispute", path: "/disputes/log", icon: AlertCircle },
-    { label: "Disputes", path: "/disputes", icon: Scale },
-    { label: "Arbitrated Disputes", path: "/disputes/arbitrated", icon: Scale },
     { label: "Wallets", path: "/wallets", icon: Eye },
     { label: "Wallet Activities", path: "/wallets/activities", icon: Activity },
   ];
@@ -190,7 +187,6 @@ export const VENDOR_ALLOWED_ROUTE_PREFIXES = [
   "/dashboard/transgate",
   "/",
   "/transactions",
-  "/disputes",
   "/wallets",
   "/auth/",
 ];
@@ -200,6 +196,7 @@ export function isVendorAllowedPath(pathname, accountsDashboard = "/dashboard/ac
   if (pathname.startsWith("/dashboard/statistics")) return true;
   if (pathname.startsWith("/settings/security")) return true;
   if (pathname.startsWith("/dashboard/live-monitoring")) return false;
+  if (pathname.startsWith("/disputes")) return false;
   if (pathname.startsWith("/wallets/institution-activity")) return false;
   if (pathname.startsWith("/admin/")) return false;
   if (pathname.startsWith("/approvals/")) return false;

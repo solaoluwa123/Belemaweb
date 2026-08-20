@@ -127,9 +127,9 @@ export default function AppLayout() {
       return isApprover() || isOperator();
     }
 
-    if (pathname === "/disputes/log") return isOperator() || isAdmin() || isThirdPartyVendor();
+    if (pathname === "/disputes/log") return isOperator() || isAdmin();
     if (pathname === "/disputes" || pathname.startsWith("/disputes/")) {
-      return isApprover() || isOperator() || isAdmin() || isThirdPartyVendor();
+      return isApprover() || isOperator() || isAdmin();
     }
 
     if (pathname === "/wallets/create") return isOperator() || isAdmin();

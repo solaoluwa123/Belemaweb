@@ -94,14 +94,13 @@ export function canManageFI(user) {
 }
 
 export function canLogSwitchDispute(user, { isOperator = false } = {}) {
-  if (!user) return false;
-  if (isThirdPartyVendor(user)) return true;
+  if (!user || isThirdPartyVendor(user)) return false;
   return isOperator || isAdministrator(user);
 }
 
 export function canApproveSwitchDispute(user) {
-  if (!user) return false;
-  return isThirdPartyVendor(user);
+  if (!user || isThirdPartyVendor(user)) return false;
+  return isApproverRole(user) || isAdministrator(user);
 }
 
 export function canRequestStatusChange(user) {
