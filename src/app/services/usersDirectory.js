@@ -16,11 +16,71 @@ function firstDefined(...values) {
 }
 
 function mapApiStatusToUi(status) {
-  const s = String(status || "").toLowerCase();
+  const s = String(status || "").toLowerCase().trim();
   if (s === "approved" || s === "active") return "Active";
-  if (s === "pending") return "Pending";
+  if (s === "pending approval" || s === "pending") return "Pending Approval";
+  if (s === "pending edit") return "Pending Edit";
+  if (s === "pending delete") return "Pending Delete";
   if (s === "rejected" || s === "inactive") return "Inactive";
   return String(status || "Active").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function statusForPendingAction(actionType) {
+  const t = String(actionType || "").trim().toLowerCase();
+  if (t === "create") return "Pending Approval";
+  if (t === "edit") return "Pending Edit";
+  if (t === "delete") return "Pending Delete";
+  return "Pending Approval";
+}
+
+function identityKey(user) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (email) return `e:${email}`;
+  const username = String(user?.username || "").trim().toLowerCase();
+  if (username) return `u:${username}`;
+  return `id:${String(user?.id || "")}`;
+}
+
+/**
+ * Merge live directory users with pending ops from `*/get/actions`.
+ * - create → synthetic row with Pending Approval
+ * - edit/delete → overlay status on matching live user
+ */
+export function mergeUsersWithPendingActions(liveUsers, pendingActions = []) {
+  const live = Array.isArray(liveUsers) ? liveUsers.map((u) => ({ ...u })) : [];
+  const pending = Array.isArray(pendingActions) ? pendingActions : [];
+  const byKey = new Map();
+  for (const user of live) {
+    byKey.set(identityKey(user), user);
+  }
+
+  const createRows = [];
+  for (const raw of pending) {
+    if (!raw || typeof raw !== "object") continue;
+    const actionType = String(firstDefined(raw.actionType, raw.action_type, "")).trim().toLowerCase();
+    if (!actionType) continue;
+    const mapped = mapDirectoryUser({ ...raw, status: statusForPendingAction(actionType) });
+    mapped.pendingAction = actionType;
+    mapped.pendingId = String(firstDefined(raw.id, mapped.id));
+    mapped.isPendingCreate = actionType === "create";
+
+    if (actionType === "create") {
+      mapped.id = `pending-create-${mapped.pendingId}`;
+      createRows.push(mapped);
+      continue;
+    }
+
+    const key = identityKey(mapped);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.status = statusForPendingAction(actionType);
+      existing.pendingAction = actionType;
+      existing.pendingId = mapped.pendingId;
+      existing.isPendingCreate = false;
+    }
+  }
+
+  return [...live, ...createRows];
 }
 
 function normalizeRoleName(raw, fallback = "") {
@@ -45,7 +105,7 @@ export function mapDirectoryUser(row, index = 0) {
   const username = String(
     firstDefined(source.username, combinedName, source.email_address, source.email, `user_${index}`),
   ).trim();
-  const roleIdCandidate = firstDefined(source.roleid, source.roleId);
+  const roleIdCandidate = firstDefined(source.roleid, source.roleId, typeof source.role === "number" ? source.role : null);
   const roleId = roleIdCandidate != null && Number.isFinite(Number(roleIdCandidate)) ? Number(roleIdCandidate) : null;
 
   return {
@@ -54,7 +114,14 @@ export function mapDirectoryUser(row, index = 0) {
     email: String(firstDefined(source.email_address, source.email, "")).trim().toLowerCase(),
     phone: String(firstDefined(source.phone_number, source.phone, "")).trim(),
     roleId,
-    roleName: normalizeRoleName(firstDefined(source.role, source.roleName, source.role_name), ""),
+    roleName: normalizeRoleName(
+      firstDefined(
+        source.role_name,
+        source.roleName,
+        typeof source.role === "string" ? source.role : null,
+      ),
+      "",
+    ),
     status: mapApiStatusToUi(firstDefined(source.status, "Approved")),
     institutionCode: String(
       firstDefined(source.financial_institution_code, source.institution, source.institutionid_as_string, ""),
@@ -73,11 +140,41 @@ export async function fetchUsersDirectory() {
   return rows.map((row, index) => mapDirectoryUser(row, index)).filter((row) => isSystemUserRoleId(row.roleId));
 }
 
+/** Pending system-user ops (`GET /users/get/actions`). */
+export async function fetchUsersPendingActions() {
+  const payload = await apiClient.get(API_ENDPOINTS.admin.userActions);
+  return unwrapArray(payload);
+}
+
+/** Live system users merged with pending create/edit/delete. */
+export async function fetchUsersDirectoryWithPending() {
+  const [live, pending] = await Promise.all([
+    fetchUsersDirectory().catch(() => []),
+    fetchUsersPendingActions().catch(() => []),
+  ]);
+  return mergeUsersWithPendingActions(live, pending);
+}
+
 /** Directory list for other users (`GET /other-users/get`). */
 export async function fetchOtherUsersDirectory() {
   const payload = await apiClient.get(API_ENDPOINTS.admin.otherUsers);
   const rows = unwrapArray(payload);
   return rows.map((row, index) => mapDirectoryUser(row, index)).filter((row) => isOtherUserRoleId(row.roleId));
+}
+
+/** Pending other-user ops (`GET /other-users/get/actions`). */
+export async function fetchOtherUsersPendingActions() {
+  const payload = await apiClient.get(API_ENDPOINTS.admin.otherUserActions);
+  return unwrapArray(payload);
+}
+
+/** Live other users merged with pending create/edit/delete. */
+export async function fetchOtherUsersDirectoryWithPending() {
+  const [live, pending] = await Promise.all([
+    fetchOtherUsersDirectory().catch(() => []),
+    fetchOtherUsersPendingActions().catch(() => []),
+  ]);
+  return mergeUsersWithPendingActions(live, pending);
 }
 
 /**

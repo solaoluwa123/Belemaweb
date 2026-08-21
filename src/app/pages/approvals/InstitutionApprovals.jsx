@@ -77,8 +77,10 @@ export default function InstitutionApprovals() {
   // The previous version routed operators through `submitChangeRequest`, but that
   // helper just forwards to the same endpoints, so we call them directly here for a
   // simpler UX with consistent error/success handling.
-  const resolveId = (row) =>
-    String(row?.raw?.code ?? row?.raw?.institutionCode ?? row?.id ?? "").trim();
+  // Busy-state key and approval API id are the pending `tbl_nodes_pendings.id`.
+  const resolveId = (row) => String(row?.raw?.id ?? row?.id ?? "").trim();
+  const resolveCode = (row) =>
+    String(row?.raw?.code ?? row?.raw?.institutionCode ?? "").trim();
 
   const handleApprove = async (row) => {
     if (!requester) {
@@ -86,8 +88,9 @@ export default function InstitutionApprovals() {
       return;
     }
     const id = resolveId(row);
+    const code = resolveCode(row);
     if (!id) {
-      toast.error("Institution code is missing from this row.");
+      toast.error("Institution approval id is missing from this row.");
       return;
     }
     setErrorMessage("");
@@ -95,8 +98,8 @@ export default function InstitutionApprovals() {
     setPendingId(id);
     try {
       await approveInstitutionApproval(row, requester);
-      setSuccessMessage(`Institution ${id} approved.`);
-      toast.success(`Institution ${id} approved.`);
+      setSuccessMessage(`Institution ${code || id} approved.`);
+      toast.success(`Institution ${code || id} approved.`);
       await loadApprovals();
     } catch (error) {
       const msg = error instanceof APIError ? error.message : "Unable to approve institution.";
@@ -127,8 +130,9 @@ export default function InstitutionApprovals() {
   const confirmReject = async () => {
     if (!rejectTarget) return;
     const id = resolveId(rejectTarget);
+    const code = resolveCode(rejectTarget);
     if (!id) {
-      toast.error("Institution code is missing from this row.");
+      toast.error("Institution approval id is missing from this row.");
       return;
     }
     setErrorMessage("");
@@ -136,8 +140,8 @@ export default function InstitutionApprovals() {
     setPendingId(id);
     try {
       await rejectInstitutionApproval(rejectTarget, requester);
-      setSuccessMessage(`Institution ${id} rejected.`);
-      toast.success(`Institution ${id} rejected.`, {
+      setSuccessMessage(`Institution ${code || id} rejected.`);
+      toast.success(`Institution ${code || id} rejected.`, {
         description: rejectReason.trim()
           ? `Reason recorded locally: ${rejectReason.trim()}`
           : undefined,
@@ -159,7 +163,11 @@ export default function InstitutionApprovals() {
 
   const columns = [
     { key: "id", label: "Approval ID", sortable: true },
-    { key: "submittedBy", label: "Submitted By" },
+    {
+      key: "submittedBy",
+      label: "Submitted By",
+      render: (value) => (value && String(value).trim() ? String(value) : "—"),
+    },
     {
       key: "submittedDate",
       label: "Date",
@@ -167,7 +175,7 @@ export default function InstitutionApprovals() {
       render: (value) => formatBackendDateTime(value),
     },
     { key: "details", label: "Institution Details" },
-    { key: "status", label: "Status", render: (_value, row) => <StatusBadge status={row.status} /> },
+    { key: "status", label: "Status", render: (_value, row) => <StatusBadge status={row.status || "Pending"} /> },
   ];
 
   const actions = (row) => {

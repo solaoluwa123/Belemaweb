@@ -22,7 +22,8 @@ import { Navigate } from "react-router";
 import { ensureSystemUsersLoaded, getSystemUsers, SYSTEM_ROLES } from "../../store/systemUsersStore";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
-import { fetchRolesList, fetchUsersDirectory } from "../../services/usersDirectory";
+import { StatusBadge } from "../../components/shared/StatusBadge";
+import { fetchRolesList, fetchUsersDirectoryWithPending } from "../../services/usersDirectory";
 import { createUserWithApi, updateUserWithApi, deleteUserWithApi } from "../../services/usersAdmin";
 import { toast } from "sonner";
 
@@ -76,6 +77,7 @@ export default function UsersManagement() {
   });
   const [formError, setFormError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [editingUser, setEditingUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
   // Roles are stored as `[{ id, name }]` so we can submit the integer `roleid` the backend
@@ -104,7 +106,7 @@ export default function UsersManagement() {
   const refreshUserList = useCallback(async () => {
     try {
       const [apiUsers, apiRoles] = await Promise.all([
-        fetchUsersDirectory().catch(() => []),
+        fetchUsersDirectoryWithPending().catch(() => []),
         fetchRolesList({ minId: 1, maxId: 3 }).catch(() => []),
       ]);
       if (apiUsers.length) {
@@ -141,10 +143,29 @@ export default function UsersManagement() {
     };
   }, [refreshUserList]);
 
+  const statusOptions = useMemo(() => {
+    const seen = new Set();
+    for (const u of users) {
+      const s = String(u?.status || "").trim();
+      if (s) seen.add(s);
+    }
+    const preferred = ["Active", "Pending Approval", "Pending Edit", "Pending Delete", "Inactive"];
+    const ordered = preferred.filter((s) => seen.has(s));
+    for (const s of [...seen].sort()) {
+      if (!ordered.includes(s)) ordered.push(s);
+    }
+    return ordered;
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
+    let list = users;
+    if (statusFilter !== "all") {
+      const want = statusFilter.toLowerCase();
+      list = list.filter((u) => String(u.status || "").toLowerCase() === want);
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.trim().toLowerCase();
-    return users.filter(
+    return list.filter(
       (u) =>
         (u.username && u.username.toLowerCase().includes(q)) ||
         (u.email && u.email.toLowerCase().includes(q)) ||
@@ -152,17 +173,22 @@ export default function UsersManagement() {
         (u.roleName && u.roleName.toLowerCase().includes(q)) ||
         (u.status && u.status.toLowerCase().includes(q))
     );
-  }, [users, searchQuery]);
+  }, [users, searchQuery, statusFilter]);
 
   const columns = [
     { key: "username", label: "Username", sortable: true },
     { key: "email", label: "Email", sortable: true },
     { key: "phone", label: "Phone" },
     { key: "roleName", label: "Role" },
-    { key: "status", label: "Status" },
+    {
+      key: "status",
+      label: "Status",
+      render: (_value, row) => <StatusBadge status={row?.status || "Active"} />,
+    },
   ];
 
   const openEditModal = (user) => {
+    if (user?.isPendingCreate || user?.pendingAction) return;
     setEditingUser(user);
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -248,7 +274,11 @@ export default function UsersManagement() {
     if (!userToDelete) return;
     try {
       await deleteUserWithApi({ userId: userToDelete.id, username: userToDelete.username });
-      toast.success("User deleted successfully.");
+      toast.success(
+        isAdmin()
+          ? "User deleted successfully."
+          : "User delete submitted for approval.",
+      );
       setUserToDelete(null);
       await refreshUserList();
     } catch (e) {
@@ -256,12 +286,21 @@ export default function UsersManagement() {
     }
   };
 
-  const actions = (row) => (
-    <div className="flex justify-center gap-2">
-      <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
-      <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeleteUser(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
-    </div>
-  );
+  const actions = (row) => {
+    if (row?.isPendingCreate || row?.pendingAction) {
+      return (
+        <span className="text-xs text-amber-700" title="Awaiting Approver review">
+          Pending
+        </span>
+      );
+    }
+    return (
+      <div className="flex justify-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeleteUser(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
+      </div>
+    );
+  };
 
   const createUser = async () => {
     setFormError("");
@@ -318,7 +357,11 @@ export default function UsersManagement() {
         },
         instContext,
       );
-      toast.success("User created successfully.");
+      toast.success(
+        isAdmin()
+          ? "User created successfully."
+          : "User create submitted for approval.",
+      );
       setForm({
         username: "",
         email: "",
@@ -344,12 +387,12 @@ export default function UsersManagement() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900">System Users</h1>
-          <p className="text-2xl font-bold text-gray-900">Total: {users.length}</p>
+          <p className="text-2xl font-bold text-gray-900">Total: {filteredUsers.length}</p>
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
             {isAdmin()
               ? "Administrator creates, edits, and deletes users immediately."
               : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Pending User Approvals</strong>.</>
+                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Pending requests appear in this table as <strong>Pending Approval</strong> (also under <strong>Approvals → Pending User Approvals</strong>).</>
                 : "You can view system users."}
           </p>
         </div>
@@ -368,16 +411,33 @@ export default function UsersManagement() {
         ) : null}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search by username, email, phone, role or status..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-          aria-label="Search users"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search by username, email, phone, role or status..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search users"
+          />
+        </div>
+        <div className="w-[200px]">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger aria-label="Filter by status">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <DataTable data={filteredUsers} columns={columns} actions={canMutateUsers ? actions : undefined} />

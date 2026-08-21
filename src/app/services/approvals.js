@@ -55,21 +55,48 @@ function toNumber(value) {
 }
 
 function normalizeApprovalStatus(value) {
-  const raw = String(value || "Pending").trim();
+  const raw = String(value ?? "Pending").trim();
   const lower = raw.toLowerCase();
+  if (raw === "1" || lower === "true" || lower === "active") return "Active";
+  if (raw === "0" || raw === "-1" || lower === "false" || lower === "inactive" || lower === "suspended") {
+    return "Inactive";
+  }
   if (lower.includes("approve")) return "Approved";
   if (lower.includes("reject")) return "Rejected";
-  if (lower.includes("pending")) return "Pending";
-  return raw;
+  if (lower.includes("pending") || lower.includes("create") || lower.includes("edit") || lower.includes("activate") || lower.includes("deactivate")) {
+    return "Pending";
+  }
+  return raw || "Pending";
 }
 
 function normalizeApprovalItem(row, fallbackType = "Approval", index = 0) {
   const source = row && typeof row === "object" ? row : {};
+  const actionType = String(firstDefined(source.actionType, source.action_type, "")).trim();
+  const hasPendingAction = Boolean(actionType);
   return {
     id: String(firstDefined(source.id, source.userId, source.walletId, source.institutionCode, `APR${index + 1}`)),
     type: String(firstDefined(source.type, fallbackType)),
-    submittedBy: String(firstDefined(source.submittedBy, source.createdBy, source.username, source.email, "")),
-    submittedDate: String(firstDefined(source.submittedDate, source.dateCreated, source.createdAt, "")),
+    submittedBy: String(
+      firstDefined(
+        source.submittedBy,
+        source.createdBy,
+        source.created_by,
+        source.creator,
+        source.username,
+        source.email,
+        "",
+      ),
+    ),
+    submittedDate: String(
+      firstDefined(
+        source.submittedDate,
+        source.date_created,
+        source.dateCreated,
+        source.createdAt,
+        source.created_at,
+        "",
+      ),
+    ),
     details: String(
       firstDefined(
         source.details,
@@ -78,12 +105,15 @@ function normalizeApprovalItem(row, fallbackType = "Approval", index = 0) {
         source.accountName,
         source.walletName,
         source.institutionName,
+        source.institution_name,
         source.description,
         source.email,
-        ""
-      )
+        "",
+      ),
     ),
-    status: normalizeApprovalStatus(firstDefined(source.status, source.approvalStatus, "Pending")),
+    status: hasPendingAction
+      ? "Pending"
+      : normalizeApprovalStatus(firstDefined(source.status, source.approvalStatus, "Pending")),
     amount: toNumber(firstDefined(source.amount, source.balance)),
     raw: source,
   };
@@ -443,20 +473,58 @@ export async function rejectWalletApproval() {
 }
 
 export async function fetchInstitutionApprovals() {
-  const payload = await apiClient.get(API_ENDPOINTS.approvals.institutions);
-  return asArray(payload).map((row, index) => normalizeApprovalItem(row, "Institution", index));
+  // Pending registrations live in `tbl_nodes_pendings` via `/financial-institutions/get/actions`
+  // (not the live `/financial-institutions` directory, which exposes is_active as status "1").
+  const payload = await apiClient.get(API_ENDPOINTS.approvals.institutionActions);
+  return asArray(payload)
+    .map((row, index) => normalizeApprovalItem(row, "Institution", index))
+    .filter((row) => {
+      const actionType = String(row?.raw?.actionType || row?.raw?.action_type || "").trim();
+      return Boolean(actionType);
+    });
 }
 
-export async function approveInstitutionApproval(id) {
-  if (!id) throw new APIError("An institution approval ID is required.", 400, null);
-  return apiClient.put(API_ENDPOINTS.approvals.approveInstitution, { id, institutionId: id, approvalStatus: "Approved" });
+function institutionApprovalPayload(rowOrId, requester = "") {
+  const raw =
+    rowOrId && typeof rowOrId === "object"
+      ? rowOrId.raw && typeof rowOrId.raw === "object"
+        ? rowOrId.raw
+        : rowOrId
+      : null;
+  const id = Number(firstDefined(raw?.id, rowOrId?.id, typeof rowOrId === "number" ? rowOrId : null));
+  const actionType = String(firstDefined(raw?.actionType, raw?.action_type, "create")).trim().toLowerCase() || "create";
+  const created_by = String(requester || firstDefined(raw?.created_by, raw?.createdBy, "") || "").trim();
+  return { id, actionType, created_by };
 }
 
-export async function rejectInstitutionApproval(id) {
-  if (!id) {
-    return apiClient.put(API_ENDPOINTS.approvals.rejectInstitution, { approvalStatus: "Rejected" });
+export async function approveInstitutionApproval(rowOrId, requester = "") {
+  const { id, actionType, created_by } = institutionApprovalPayload(rowOrId, requester);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new APIError("An institution approval ID is required.", 400, null);
   }
-  return apiClient.put(API_ENDPOINTS.approvals.rejectInstitutionById(id), { id, approvalStatus: "Rejected" });
+  if (!created_by) {
+    throw new APIError("Approver identity is required.", 400, null);
+  }
+  return apiClient.put(API_ENDPOINTS.approvals.approveInstitution, {
+    id,
+    actionType,
+    created_by,
+  });
+}
+
+export async function rejectInstitutionApproval(rowOrId, requester = "") {
+  const { id, actionType, created_by } = institutionApprovalPayload(rowOrId, requester);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new APIError("An institution approval ID is required.", 400, null);
+  }
+  if (!created_by) {
+    throw new APIError("Reviewer identity is required.", 400, null);
+  }
+  return apiClient.put(API_ENDPOINTS.approvals.rejectInstitution, {
+    id,
+    actionType,
+    created_by,
+  });
 }
 
 /** `GET /users/get/actions` — roles/institutions directory for user forms. */

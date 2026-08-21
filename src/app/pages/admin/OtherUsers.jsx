@@ -24,7 +24,7 @@ import { APIError } from "../../services/api";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import {
   fetchLinkedEntitiesForRole,
-  fetchOtherUsersDirectory,
+  fetchOtherUsersDirectoryWithPending,
   fetchRolesList,
 } from "../../services/usersDirectory";
 import { createOtherUserWithApi, updateUserWithApi, deleteUserWithApi } from "../../services/usersAdmin";
@@ -83,6 +83,7 @@ export default function OtherUsers() {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [editingUser, setEditingUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
   const [roles, setRoles] = useState([]);
@@ -96,7 +97,7 @@ export default function OtherUsers() {
   const refreshUserList = useCallback(async () => {
     try {
       const [apiUsers, apiRoles] = await Promise.all([
-        fetchOtherUsersDirectory().catch(() => []),
+        fetchOtherUsersDirectoryWithPending().catch(() => []),
         fetchRolesList({ minId: 4, maxId: 8 }).catch(() => []),
       ]);
       setUsers(apiUsers);
@@ -145,10 +146,29 @@ export default function OtherUsers() {
     };
   }, [selectedRoleId]);
 
+  const statusOptions = useMemo(() => {
+    const seen = new Set();
+    for (const u of users) {
+      const s = String(u?.status || "").trim();
+      if (s) seen.add(s);
+    }
+    const preferred = ["Active", "Pending Approval", "Pending Edit", "Pending Delete", "Inactive"];
+    const ordered = preferred.filter((s) => seen.has(s));
+    for (const s of [...seen].sort()) {
+      if (!ordered.includes(s)) ordered.push(s);
+    }
+    return ordered;
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
+    let list = users;
+    if (statusFilter !== "all") {
+      const want = statusFilter.toLowerCase();
+      list = list.filter((u) => String(u.status || "").toLowerCase() === want);
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.trim().toLowerCase();
-    return users.filter(
+    return list.filter(
       (u) =>
         (u.username && u.username.toLowerCase().includes(q)) ||
         (u.email && u.email.toLowerCase().includes(q)) ||
@@ -157,7 +177,7 @@ export default function OtherUsers() {
         (u.institutionName && u.institutionName.toLowerCase().includes(q)) ||
         (u.status && u.status.toLowerCase().includes(q))
     );
-  }, [users, searchQuery]);
+  }, [users, searchQuery, statusFilter]);
 
   const columns = [
     { key: "username", label: "Username", sortable: true },
@@ -168,11 +188,12 @@ export default function OtherUsers() {
     {
       key: "status",
       label: "Status",
-      render: (value) => <StatusBadge status={value || "Unknown"} />,
+      render: (_value, row) => <StatusBadge status={row?.status || "Active"} />,
     },
   ];
 
   const openEditModal = (row) => {
+    if (row?.isPendingCreate || row?.pendingAction) return;
     setEditingUser(row);
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -255,7 +276,11 @@ export default function OtherUsers() {
     if (!userToDelete) return;
     try {
       await deleteUserWithApi({ userId: userToDelete.id, username: userToDelete.username });
-      toast.success("User deleted successfully.");
+      toast.success(
+        isAdmin()
+          ? "User deleted successfully."
+          : "User delete submitted for approval.",
+      );
       setUserToDelete(null);
       await refreshUserList();
     } catch (e) {
@@ -263,12 +288,21 @@ export default function OtherUsers() {
     }
   };
 
-  const actions = (row) => (
-    <div className="flex justify-center gap-2">
-      <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
-      <Button variant="ghost" size="icon" className="text-red-600" onClick={() => setUserToDelete(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
-    </div>
-  );
+  const actions = (row) => {
+    if (row?.isPendingCreate || row?.pendingAction) {
+      return (
+        <span className="text-xs text-amber-700" title="Awaiting Approver review">
+          Pending
+        </span>
+      );
+    }
+    return (
+      <div className="flex justify-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
+        <Button variant="ghost" size="icon" className="text-red-600" onClick={() => setUserToDelete(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
+      </div>
+    );
+  };
 
   const createUser = async () => {
     setFormError("");
@@ -350,12 +384,12 @@ export default function OtherUsers() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900">Other Users</h1>
-          <p className="text-2xl font-bold text-gray-900">Total: {users.length}</p>
+          <p className="text-2xl font-bold text-gray-900">Total: {filteredUsers.length}</p>
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
             {isAdmin()
               ? "Administrator creates, edits, and deletes other users (roles 4–8) immediately."
               : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Track requests under <strong>Approvals → Pending User Approvals</strong>.</>
+                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Pending requests appear in this table as <strong>Pending Approval</strong> (also under <strong>Approvals → Pending User Approvals</strong>).</>
                 : "You can view other users."}
           </p>
         </div>
@@ -375,16 +409,33 @@ export default function OtherUsers() {
         ) : null}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search by username, email, role or institution..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-          aria-label="Search other users"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search by username, email, role or institution..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search other users"
+          />
+        </div>
+        <div className="w-[200px]">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger aria-label="Filter by status">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <DataTable data={filteredUsers} columns={columns} actions={canMutateUsers ? actions : undefined} />

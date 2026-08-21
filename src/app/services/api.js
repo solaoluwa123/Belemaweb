@@ -118,6 +118,7 @@ export const API_ENDPOINTS = {
     users: '/users/get',
     otherUsers: '/other-users/get',
     userActions: '/users/get/actions',
+    otherUserActions: '/other-users/get/actions',
     createUser: '/users/create',
     createOtherUser: '/other-users/create',
     editUser: '/users/edit',
