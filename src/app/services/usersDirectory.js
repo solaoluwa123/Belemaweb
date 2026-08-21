@@ -80,7 +80,11 @@ export function mergeUsersWithPendingActions(liveUsers, pendingActions = []) {
     }
   }
 
-  return [...live, ...createRows];
+  // Pending creates first so operators see confirmation without scrolling past live users.
+  // Live users with pending edit/delete also float above fully active rows.
+  const pendingLive = live.filter((u) => Boolean(u.pendingAction));
+  const activeLive = live.filter((u) => !u.pendingAction);
+  return [...createRows, ...pendingLive, ...activeLive];
 }
 
 function normalizeRoleName(raw, fallback = "") {
