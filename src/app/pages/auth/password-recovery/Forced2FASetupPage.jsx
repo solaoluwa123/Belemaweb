@@ -5,26 +5,31 @@ import { useNavigate } from "react-router";
 import QRCode from "qrcode";
 import { AuthPageContainer, AuthCardLayout } from "../../../components/auth";
 import { Button } from "../../../components/ui/button";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "../../../components/ui/input-otp";
 import { AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
-import { setupTwoFactor } from "../../../services/auth";
+import { confirmTwoFactorSetup, setupTwoFactor } from "../../../services/auth";
 import { APIError } from "../../../services/api";
 
 /**
- * Required 2FA enrollment: immediately loads a scannable QR for the authenticator app.
+ * Required 2FA enrollment: load QR, then verify with OTP before unlocking the app.
  */
 export default function Forced2FASetupPage() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [otpauthUri, setOtpauthUri] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [manualSecret, setManualSecret] = useState("");
   const [qrBusy, setQrBusy] = useState(false);
-  const [enabled, setEnabled] = useState(false);
+  const [setupReady, setSetupReady] = useState(false);
+  const [otp, setOtp] = useState("");
   const autoStarted = useRef(false);
+  const verifyingRef = useRef(false);
+  const otpWrapRef = useRef(null);
 
   const identifier = user?.email || user?.username || "";
 
@@ -67,6 +72,25 @@ export default function Forced2FASetupPage() {
     };
   }, [otpauthUri]);
 
+  useEffect(() => {
+    if (!setupReady || (!qrDataUrl && !manualSecret)) return undefined;
+    const focusOtp = () => {
+      const root = otpWrapRef.current;
+      if (!root) return;
+      const input = root.querySelector('input[data-slot="input-otp"], input[autocomplete="one-time-code"], input');
+      if (input && typeof input.focus === "function") {
+        input.focus({ preventScroll: true });
+      }
+    };
+    focusOtp();
+    const raf = requestAnimationFrame(focusOtp);
+    const t = setTimeout(focusOtp, 50);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [setupReady, qrDataUrl, manualSecret]);
+
   const startSetup = useCallback(async () => {
     if (!identifier) {
       setError("Sign in again before enabling two-factor authentication.");
@@ -78,27 +102,26 @@ export default function Forced2FASetupPage() {
     setOtpauthUri("");
     setQrDataUrl("");
     setManualSecret("");
+    setSetupReady(false);
+    setOtp("");
     try {
       const result = await setupTwoFactor({ username: identifier, enable: true });
       const uri = String(result.qrCodeUri || "").trim();
       setOtpauthUri(uri);
       setManualSecret(String(result.secret || "").trim());
-      setMessage("Scan the QR code with Google Authenticator (or a similar app) on your phone.");
-      setEnabled(true);
+      setMessage("Scan the QR code with Google Authenticator (or a similar app), then enter the 6-digit code below.");
+      setSetupReady(true);
       if (!uri && !result.secret) {
-        setError("2FA was enabled but no authenticator QR was returned. Tap Retry.");
-      }
-      // Keep require2faSetup until Continue so app routes stay blocked in the SPA.
-      if (typeof updateUser === "function") {
-        updateUser({ has2FA: true });
+        setSetupReady(false);
+        setError("2FA setup started but no authenticator QR was returned. Tap Retry.");
       }
     } catch (err) {
-      setEnabled(false);
+      setSetupReady(false);
       setError(err instanceof APIError ? err.message : "Unable to start 2FA setup. Tap Retry.");
     } finally {
       setLoading(false);
     }
-  }, [identifier, updateUser]);
+  }, [identifier]);
 
   useEffect(() => {
     if (!user || user.mustChangePassword || !identifier || autoStarted.current) return;
@@ -106,14 +129,53 @@ export default function Forced2FASetupPage() {
     void startSetup();
   }, [user, identifier, startSetup]);
 
+  const handleVerify = useCallback(
+    async (code = otp) => {
+      const value = String(code || "").trim();
+      if (value.length !== 6) {
+        setError("Please enter the 6-digit code from your authenticator app.");
+        return;
+      }
+      if (!identifier) {
+        setError("Sign in again before confirming two-factor authentication.");
+        return;
+      }
+      if (verifyingRef.current) return;
+      verifyingRef.current = true;
+      setError("");
+      setVerifying(true);
+      try {
+        const result = await confirmTwoFactorSetup({ username: identifier, code: value });
+        if (typeof updateUser === "function") {
+          updateUser({
+            ...(result.user || {}),
+            has2FA: true,
+            require2faSetup: false,
+          });
+        }
+        navigate("/transactions", { replace: true });
+      } catch (err) {
+        setError(err instanceof APIError ? err.message : "Invalid verification code. Try again.");
+        setOtp("");
+      } finally {
+        setVerifying(false);
+        verifyingRef.current = false;
+      }
+    },
+    [identifier, navigate, otp, updateUser],
+  );
+
+  const handleOtpChange = (value) => {
+    setOtp(value);
+    if (error) setError("");
+    if (String(value || "").length === 6 && setupReady && !loading && !verifying) {
+      void handleVerify(value);
+    }
+  };
+
   if (user == null) return null;
 
-  const handleContinue = () => {
-    if (typeof updateUser === "function") {
-      updateUser({ has2FA: true, require2faSetup: false });
-    }
-    navigate("/transactions", { replace: true });
-  };
+  const canVerify = setupReady && !loading && !verifying && (!!qrDataUrl || !!manualSecret);
 
   return (
     <AuthPageContainer>
@@ -121,7 +183,7 @@ export default function Forced2FASetupPage() {
         icon={ShieldCheck}
         iconBgClassName="bg-emerald-700"
         title="Set up two-factor authentication"
-        description="Open your authenticator app on your phone and scan the barcode below. This is required before you can continue."
+        description="Scan the barcode with your authenticator app, then enter the 6-digit code to finish setup."
       >
         <div className="space-y-4">
           {error ? (
@@ -167,21 +229,48 @@ export default function Forced2FASetupPage() {
                 </code>
               </div>
             ) : null}
-            <p className="text-xs text-slate-500">
-              After scanning, use Continue. On your next sign-in you will enter the 6-digit code from the app.
-            </p>
           </div>
 
+          {setupReady && (qrDataUrl || manualSecret) ? (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-800 text-center">
+                Enter the 6-digit code from your authenticator app
+              </p>
+              <div ref={otpWrapRef} className="flex justify-center overflow-x-auto">
+                <InputOTP
+                  maxLength={6}
+                  value={otp}
+                  onChange={handleOtpChange}
+                  disabled={verifying || loading}
+                  autoFocus
+                  containerClassName="justify-center"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                >
+                  <InputOTPGroup className="gap-0.5 sm:gap-1">
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-2 sm:flex-row">
-            {!enabled || error ? (
+            {!setupReady || error ? (
               <Button
                 type="button"
                 className="w-full"
+                variant={!setupReady || error ? "default" : "outline"}
                 onClick={() => {
                   autoStarted.current = true;
                   void startSetup();
                 }}
-                disabled={loading || !identifier}
+                disabled={loading || verifying || !identifier}
               >
                 {loading ? (
                   <>
@@ -196,10 +285,17 @@ export default function Forced2FASetupPage() {
             <Button
               type="button"
               className="w-full"
-              onClick={handleContinue}
-              disabled={!enabled || loading || (!qrDataUrl && !manualSecret)}
+              onClick={() => handleVerify()}
+              disabled={!canVerify || otp.length !== 6}
             >
-              I have scanned — Continue
+              {verifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                "Verify and continue"
+              )}
             </Button>
           </div>
         </div>

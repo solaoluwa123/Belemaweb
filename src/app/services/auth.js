@@ -407,6 +407,70 @@ export async function verifyTwoFactorCode(code) {
   };
 }
 
+/**
+ * Confirm forced/settings 2FA enrollment with a TOTP using the current session token
+ * (not a pending login challenge). Backend activates two_fa_enabled on success.
+ */
+export async function confirmTwoFactorSetup({ username, code } = {}) {
+  const identifier = String(username || "").trim();
+  const otp = String(code || "").trim();
+  if (!identifier) {
+    throw new APIError("Username is required to confirm two-factor setup.", 400, null);
+  }
+  if (!/^\d{6}$/.test(otp)) {
+    throw new APIError("Enter the 6-digit code from your authenticator app.", 400, null);
+  }
+
+  const sessionToken = String(
+    localStorage.getItem(buildStorageKey(STORAGE_KEY_NAMES.AUTH_TOKEN)) || "",
+  ).trim();
+  if (!sessionToken) {
+    throw new APIError("Your session expired. Please sign in again.", 401, null);
+  }
+
+  const staticAuthorization = getApiAuthorizationHeader();
+  const response = await apiClient.request(API_ENDPOINTS.auth.verify2FA, {
+    method: "POST",
+    headers: {
+      ...(staticAuthorization && { Authorization: staticAuthorization }),
+      "auth-token": sessionToken,
+    },
+    body: JSON.stringify({
+      username: identifier,
+      password: otp,
+    }),
+  });
+
+  assertAuthBusinessSuccess(response);
+  let user = normalizeUser(response);
+  const nextSessionToken = String(user.sessionToken || "").trim();
+  if (!nextSessionToken) {
+    throw new APIError(
+      user.raw?.message || "Two-factor confirmation did not return a session.",
+      401,
+      user.raw || response,
+    );
+  }
+
+  if (user.roleName === "User" && user.roleId) {
+    const resolved = await resolveRoleFromRoleId(user.roleId, nextSessionToken);
+    if (resolved && resolved !== "User") {
+      user = { ...user, roleName: resolved };
+    }
+  }
+  localStorage.setItem(buildStorageKey(STORAGE_KEY_NAMES.AUTH_TOKEN), nextSessionToken);
+
+  return {
+    user: {
+      ...user,
+      has2FA: true,
+      require2faSetup: false,
+    },
+    sessionToken: nextSessionToken,
+    message: user.raw?.message || "Two-factor authentication confirmed.",
+  };
+}
+
 export async function setupTwoFactor({ username, enable = true } = {}) {
   if (!username) {
     throw new APIError("Username is required to set up two-factor authentication.", 400, null);
