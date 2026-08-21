@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Plus, Edit, Trash2, Search, Eye, EyeOff } from "lucide-react";
+import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { Navigate } from "react-router";
 import { ensureSystemUsersLoaded, getSystemUsers, SYSTEM_ROLES } from "../../store/systemUsersStore";
 import { useAuth } from "../../context/AuthContext";
@@ -42,28 +42,13 @@ function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value || "").trim());
 }
 
-function PasswordInput({ id, value, onChange, placeholder, autoComplete = "new-password", visible, onToggleVisible }) {
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        type={visible ? "text" : "password"}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="pr-10"
-      />
-      <button
-        type="button"
-        onClick={onToggleVisible}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 rounded"
-        aria-label={visible ? "Hide password" : "Show password"}
-      >
-        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
+function titleCaseName(value) {
+  const s = String(value || "").trim().replace(/\s+/g, " ");
+  if (!s) return "";
+  return s
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
 }
 
 export default function UsersManagement() {
@@ -73,13 +58,9 @@ export default function UsersManagement() {
   const requester = String(user?.username || user?.email || "").trim();
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
     username: "",
     email: "",
-    password: "",
-    confirmPassword: "",
     phone: "",
     roleName: "Operator",
     status: "Active",
@@ -196,10 +177,19 @@ export default function UsersManagement() {
   }, [users, searchQuery, statusFilter]);
 
   const columns = [
-    { key: "username", label: "Username", sortable: true },
+    {
+      key: "username",
+      label: "Username",
+      sortable: true,
+      render: (value) => titleCaseName(value) || "—",
+    },
     { key: "email", label: "Email", sortable: true },
     { key: "phone", label: "Phone" },
-    { key: "roleName", label: "Role" },
+    {
+      key: "roleName",
+      label: "Role",
+      render: (value) => titleCaseName(value) || value || "—",
+    },
     {
       key: "status",
       label: "Status",
@@ -210,13 +200,9 @@ export default function UsersManagement() {
   const openEditModal = (user) => {
     if (user?.isPendingCreate || user?.pendingAction) return;
     setEditingUser(user);
-    setShowPassword(false);
-    setShowConfirmPassword(false);
     setForm({
-      username: user.username,
+      username: titleCaseName(user.username),
       email: user.email,
-      password: "",
-      confirmPassword: "",
       phone: user.phone || "",
       roleName: user.roleName,
       status: user.status,
@@ -237,14 +223,6 @@ export default function UsersManagement() {
     }
     if (!isValidEmail(form.email)) {
       setFormError("Enter a valid email address (e.g. name@example.com).");
-      return;
-    }
-    if (form.password && form.password.length < 8) {
-      setFormError("Password must be at least 8 characters.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setFormError("Passwords do not match.");
       return;
     }
     if (!requester) {
@@ -274,7 +252,6 @@ export default function UsersManagement() {
           roleName: form.roleName,
           roleId,
           status: form.status,
-          password: form.password || undefined,
           creator: requester,
         },
         instContext,
@@ -285,7 +262,7 @@ export default function UsersManagement() {
           : "User edit submitted for approval.",
       );
       setEditingUser(null);
-      setForm({ username: "", email: "", password: "", confirmPassword: "", phone: "", roleName: "Operator", status: "Active" });
+      setForm({ username: "", email: "", phone: "", roleName: "Operator", status: "Active" });
       await refreshUserList();
     } catch (e) {
       setFormError(e instanceof APIError ? e.message : "Unable to update user.");
@@ -405,8 +382,6 @@ export default function UsersManagement() {
       setForm({
         username: "",
         email: "",
-        password: "",
-        confirmPassword: "",
         phone: "",
         roleName: "Operator",
         status: "Active",
@@ -433,14 +408,10 @@ export default function UsersManagement() {
           <Button
             className="gap-2 shrink-0"
             onClick={() => {
-              setShowPassword(false);
-              setShowConfirmPassword(false);
               setFormError("");
               setForm({
                 username: "",
                 email: "",
-                password: "",
-                confirmPassword: "",
                 phone: "",
                 roleName: createRoleChoices[0] || "Operator",
                 status: "Active",
@@ -632,30 +603,6 @@ export default function UsersManagement() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="edit-password">New password (optional)</Label>
-                <PasswordInput
-                  id="edit-password"
-                  value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Leave blank to keep current"
-                  visible={showPassword}
-                  onToggleVisible={() => setShowPassword((v) => !v)}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="edit-confirm-password">Confirm new password</Label>
-                <PasswordInput
-                  id="edit-confirm-password"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  placeholder="Confirm if changing"
-                  visible={showConfirmPassword}
-                  onToggleVisible={() => setShowConfirmPassword((v) => !v)}
-                />
               </div>
             </div>
             <div className="flex flex-wrap gap-3">

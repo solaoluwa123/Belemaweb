@@ -12,10 +12,23 @@ function splitName(username, email) {
   const u = String(username || "").trim();
   if (u.includes(" ")) {
     const [a, ...rest] = u.split(/\s+/);
-    return { firstname: a, surname: rest.join(" ") || "." };
+    return {
+      firstname: capitalizeWords(a),
+      surname: capitalizeWords(rest.join(" ")) || ".",
+    };
   }
   const local = String(email || "").split("@")[0] || "user";
-  return { firstname: u || local, surname: "." };
+  return { firstname: capitalizeWords(u || local), surname: "." };
+}
+
+/** Title-case each whitespace-separated word (e.g. "john doe" → "John Doe"). */
+function capitalizeWords(value) {
+  const s = String(value || "").trim().replace(/\s+/g, " ");
+  if (!s || s === ".") return s;
+  return s
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
 }
 
 function toRoleId(value) {
@@ -87,7 +100,7 @@ export async function createUserWithApi(
   const assignedPassword = String(password || "");
 
   const body = {
-    username: String(username).trim(),
+    username: capitalizeWords(String(username).trim()),
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
@@ -146,7 +159,7 @@ export async function createOtherUserWithApi(
   // Blank password → API generates and emails a temporary password.
   const assignedPassword = String(password || "");
   const body = {
-    username: String(username).trim(),
+    username: capitalizeWords(String(username).trim()),
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
@@ -171,7 +184,7 @@ export async function createOtherUserWithApi(
  *   - `roleid` = numeric role id of the user being edited
  */
 export async function updateUserWithApi(
-  { id, username, email, phone, roleId, status, password, creator },
+  { id, username, email, phone, roleId, status, creator },
   context = {}
 ) {
   if (id == null) throw new APIError("User id is required.", 400, null);
@@ -194,7 +207,7 @@ export async function updateUserWithApi(
 
   const body = {
     id: typeof id === "string" && /^\d+$/.test(id) ? Number(id) : id,
-    username: String(username).trim(),
+    username: capitalizeWords(String(username).trim()),
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
@@ -206,10 +219,6 @@ export async function updateUserWithApi(
   if (scopedInst) {
     body.financial_institution_code = scopedInst;
     if (context.institutionName) body.financial_institution_name = String(context.institutionName).trim();
-  }
-  if (password) {
-    body.password = String(password);
-    body.security = String(password);
   }
 
   return apiClient.post(API_ENDPOINTS.admin.editUser, body);
