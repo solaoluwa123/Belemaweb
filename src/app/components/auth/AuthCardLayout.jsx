@@ -9,7 +9,7 @@ import { cn } from "../ui/utils";
  */
 export function AuthCardLayout({
   icon: IconComponent,
-  iconBgClassName = "bg-blue-600",
+  iconBgClassName = "bg-primary",
   iconClassName,
   title,
   description,

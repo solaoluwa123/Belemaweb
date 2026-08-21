@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
     <AuthPageContainer>
       <AuthCardLayout
         icon={Lock}
-        iconBgClassName="bg-blue-600"
+        iconBgClassName="bg-primary"
         title="Create new password"
         description="Your password must meet the following requirements. Enter and confirm your new password."
       >

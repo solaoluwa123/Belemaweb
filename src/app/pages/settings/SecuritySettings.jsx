@@ -95,7 +95,7 @@ export default function SecuritySettings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldCheck className="h-5 w-5 text-green-600" />
+            <ShieldCheck className="h-5 w-5 text-primary" />
             Two-factor authentication
           </CardTitle>
           <CardDescription>

@@ -163,7 +163,7 @@ export default function TransactionDetails() {
       {
         label: "Response Received",
         date: responseAt,
-        tone: "bg-blue-600",
+        tone: "bg-primary",
       },
       {
         label: "Request Sent",

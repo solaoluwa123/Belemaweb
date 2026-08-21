@@ -78,8 +78,8 @@ export default function TwoFactorAuth() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
-              <ShieldCheck className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+              <ShieldCheck className="w-8 h-8 text-primary-foreground" />
             </div>
           </div>
           <div>
@@ -127,7 +127,7 @@ export default function TwoFactorAuth() {
             <button
               type="button"
               onClick={() => navigate("/login")}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-primary hover:underline"
             >
               Back to login
             </button>

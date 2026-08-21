@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
     <AuthPageContainer>
       <AuthCardLayout
         icon={KeyRound}
-        iconBgClassName="bg-blue-600"
+        iconBgClassName="bg-primary"
         title="Reset password"
         description="Enter your account email. If an account exists, you will receive instructions to reset your password."
       >

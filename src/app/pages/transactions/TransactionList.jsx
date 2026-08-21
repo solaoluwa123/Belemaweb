@@ -586,7 +586,7 @@ export default function TransactionList() {
           </Popover>
             <Button
               size="sm"
-              className="h-9 shrink-0 bg-blue-600 hover:bg-blue-700"
+              className="h-9 shrink-0"
               disabled={filteredTransactions.length === 0}
               onClick={handleDownload}
             >
@@ -630,7 +630,7 @@ export default function TransactionList() {
               <Filter className="h-4 w-4" />
               Advanced filters
               {advancedFiltersActive ? (
-                <span className="ml-1 rounded-full bg-blue-600 px-1.5 py-0 text-[10px] font-semibold text-white">On</span>
+                <span className="ml-1 rounded-full bg-primary px-1.5 py-0 text-[10px] font-semibold text-primary-foreground">On</span>
               ) : null}
             </Button>
             <Label htmlFor="quick-search" className="sr-only">
@@ -813,7 +813,7 @@ export default function TransactionList() {
             </Button>
             <Button
               type="button"
-              className="h-10 w-full bg-blue-600 font-semibold uppercase tracking-wide text-white hover:bg-blue-700 sm:order-3 sm:w-auto"
+              className="h-10 w-full font-semibold uppercase tracking-wide sm:order-3 sm:w-auto"
               onClick={() => setAdvancedFiltersApplied({ ...advancedFiltersDraft })}
             >
               Filter
@@ -905,14 +905,14 @@ export default function TransactionList() {
                       <button
                         type="button"
                         onClick={() => navigate(`/transactions/${encodeURIComponent(row.sessionId || row.id)}`)}
-                        className="text-blue-600 hover:text-blue-700 hover:underline text-sm font-medium"
+                        className="text-primary hover:text-[var(--primary-hover)] hover:underline text-sm font-medium"
                       >
                         View details
                       </button>
                       <button
                         type="button"
                         onClick={() => downloadReceipt(row)}
-                        className="text-blue-600 hover:text-blue-700 hover:underline text-sm font-medium"
+                        className="text-primary hover:text-[var(--primary-hover)] hover:underline text-sm font-medium"
                       >
                         Download receipt
                       </button>

@@ -52,7 +52,7 @@ export default function TokenValidationPage() {
     <AuthPageContainer>
       <AuthCardLayout
         icon={ShieldCheck}
-        iconBgClassName="bg-blue-600"
+        iconBgClassName="bg-primary"
         title="Verifying secure link"
         description="Please wait while we verify your reset link. Do not close this window."
       >
