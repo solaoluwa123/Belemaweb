@@ -596,7 +596,7 @@ export default function TransactionList() {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 md:flex-row md:items-start md:justify-between">
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-slate-600">Show</span>
             <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
@@ -616,23 +616,12 @@ export default function TransactionList() {
               · {totalCount ? `${recordsFrom}–${recordsTo} of ${totalCount}` : "0 rows"}
             </span>
           </div>
-          <div className="flex w-full flex-col items-stretch gap-2 md:ml-auto md:w-full md:max-w-sm md:items-end">
-            <Label htmlFor="quick-search" className="sr-only">
-              Quick search
-            </Label>
-            <Input
-              id="quick-search"
-              type="search"
-              placeholder="Quick search: session ID, reference, names, status…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-full md:max-w-sm"
-            />
+          <div className="flex w-full flex-row flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto">
             <Button
               type="button"
               variant={filtersOpen || advancedFiltersActive ? "secondary" : "outline"}
               size="sm"
-              className="h-9 w-full gap-1.5 md:w-auto md:min-w-[11rem]"
+              className="h-9 shrink-0 gap-1.5"
               onClick={() => {
                 if (filtersOpen) return;
                 openAdvancedFilters();
@@ -644,6 +633,17 @@ export default function TransactionList() {
                 <span className="ml-1 rounded-full bg-blue-600 px-1.5 py-0 text-[10px] font-semibold text-white">On</span>
               ) : null}
             </Button>
+            <Label htmlFor="quick-search" className="sr-only">
+              Quick search
+            </Label>
+            <Input
+              id="quick-search"
+              type="search"
+              placeholder="Quick search: session ID, reference, names, status…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 min-w-[12rem] flex-1 sm:w-72 sm:flex-none md:w-80"
+            />
           </div>
         </div>
       </div>

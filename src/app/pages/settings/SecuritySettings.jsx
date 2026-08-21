@@ -101,7 +101,7 @@ export default function SecuritySettings() {
           <CardDescription>
             {user?.has2FA
               ? "2FA is enabled. On the next sign-in you will be asked for a 6-digit authenticator code."
-              : "Enable 2FA to require a code from Google Authenticator (or similar) after your password."}
+              : "Enable 2FA to require a code from Google Authenticator after your password."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
