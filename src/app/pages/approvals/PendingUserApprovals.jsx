@@ -32,8 +32,8 @@ function isAdminCreateRequest(row) {
 }
 
 export default function PendingUserApprovals() {
-  const { user, isApprover } = useAuth();
-  const canApprove = isApprover();
+  const { user, isApprover, isAdmin } = useAuth();
+  const canApprove = isApprover() || isAdmin();
   const approverIdentity = String(user?.username || user?.email || "").trim();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,7 +134,7 @@ export default function PendingUserApprovals() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-red-600 hover:bg-red-50"
+            className="text-emerald-600 hover:bg-emerald-50"
             onClick={() => handleApprove(row)}
             aria-label="Approve"
             disabled={!approverIdentity || !String(row?.raw?.actionType ?? row?.raw?.actiontype ?? "").trim()}
@@ -142,7 +142,7 @@ export default function PendingUserApprovals() {
           >
             <CheckCircle className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-red-600 hover:bg-red-50" onClick={() => handleReject(row)} aria-label="Reject">
+          <Button variant="ghost" size="icon" className="text-rose-600 hover:bg-rose-50" onClick={() => handleReject(row)} aria-label="Reject">
             <XCircle className="w-4 h-4" />
           </Button>
         </>

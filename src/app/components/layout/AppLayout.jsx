@@ -272,7 +272,7 @@ export default function AppLayout() {
       if (item.disputeReadAccess && !isApprover() && !isOperator() && !isAdmin()) return false;
       if (item.makerCheckerApprovals && !isApprover() && !isAdmin()) return false;
       if (item.approverOnly && !isApprover() && !isAdmin()) return false;
-      if (item.fundQueueNav && (!isApprover() || isAdmin())) return false;
+      if (item.fundQueueNav && !isApprover() && !isAdmin()) return false;
       if (item.requesterOnly && !isOperator() && !isAdmin()) return false;
       if (item.hideForAdmin && isAdmin()) return false;
       return true;

@@ -26,8 +26,8 @@ import { toast } from "sonner";
 import { formatBackendDateTime } from "../../utils/formatters";
 
 export default function TransactionApprovalsAccounts() {
-  const { user, isApprover, isOperator } = useAuth();
-  const canApprove = isApprover();
+  const { user, isApprover, isOperator, isAdmin } = useAuth();
+  const canApprove = isApprover() || isAdmin();
   const canSubmit = isOperator();
   const requester = String(user?.username || user?.email || "").trim();
   const [items, setItems] = useState([]);

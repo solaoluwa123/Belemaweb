@@ -376,8 +376,8 @@ export function AuthProvider({ children }) {
   /** Operator (and similar day-to-day roles): may submit maker–checker requests only — not approvals. */
   const canSubmitRequests = () => isOperator() && !isThirdPartyVendor();
 
-  /** Approver: may action pending approvals only — not submit operator requests. */
-  const canApproveRequests = () => isApprover() && !isThirdPartyVendor();
+  /** Approver or Admin: may action pending approvals — not submit operator requests. */
+  const canApproveRequests = () => (isApprover() || isAdmin()) && !isThirdPartyVendor();
 
   return (
     <AuthContext.Provider

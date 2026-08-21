@@ -27,8 +27,8 @@ import {
 import { formatBackendDateTime } from "../../utils/formatters";
 
 export default function WalletApprovals() {
-  const { user, isApprover } = useAuth();
-  const canApprove = isApprover();
+  const { user, isApprover, isAdmin } = useAuth();
+  const canApprove = isApprover() || isAdmin();
   const [activeRows, setActiveRows] = useState([]);
   const [dismissedRows, setDismissedRows] = useState([]);
   const [view, setView] = useState("active"); // "active" | "dismissed"
