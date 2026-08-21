@@ -131,6 +131,25 @@ function inferMustChangePassword(payload) {
   return value.includes("change password") || value.includes("password expired") || value.includes("password reset");
 }
 
+function flagFromPayload(data, ...keys) {
+  for (const key of keys) {
+    if (data?.[key] === undefined || data?.[key] === null) continue;
+    const n = Number(data[key]);
+    if (Number.isFinite(n)) return n === 1;
+    const s = String(data[key]).trim().toLowerCase();
+    if (s === "true" || s === "yes") return true;
+    if (s === "false" || s === "no" || s === "0") return false;
+  }
+  return false;
+}
+
+/** Shared post-login routing: password change first, then required 2FA setup. */
+export function getPostAuthRedirectPath(user) {
+  if (user?.mustChangePassword) return "/auth/force-password-change";
+  if (user?.require2faSetup) return "/auth/force-2fa-setup";
+  return "/transactions";
+}
+
 function hasIdentity(user) {
   const hasId =
     user?.id !== undefined &&
@@ -203,7 +222,9 @@ function normalizeUser(payload) {
     transgateMenu: normalizeMenuList(data.transgateMenu ?? data.transgate_menu),
     sparkpayMenu: normalizeMenuList(data.sparkpayMenu ?? data.sparkpay_menu),
     has2FA: Number(data.twofaenabled ?? data.twoFaEnabled ?? data.has2FA ?? 0) === 1,
-    mustChangePassword: inferMustChangePassword(data),
+    mustChangePassword:
+      flagFromPayload(data, "mustChangePassword", "must_change_password") || inferMustChangePassword(data),
+    require2faSetup: flagFromPayload(data, "require2faSetup", "require_2fa_setup"),
     authSource: "live",
     sessionToken: String(
       data.session_token ||
@@ -445,20 +466,26 @@ export async function requestPasswordRecovery(identifier) {
   });
 }
 
-export async function updatePasswordWithApi(user, newPassword) {
-  if (!user?.id) {
+export async function updatePasswordWithApi(user, newPassword, currentPassword = "") {
+  if (!user?.email && !user?.username) {
     throw new APIError("A valid authenticated user is required to update the password.", 400, user);
+  }
+  const current = String(currentPassword || "").trim();
+  if (!current) {
+    throw new APIError("Current password is required.", 400, null);
   }
 
   return apiClient.request(API_ENDPOINTS.auth.updatePassword, {
     method: "POST",
     body: JSON.stringify({
       id: user.id,
-      username: user.username,
+      username: user.email || user.username,
       email_address: user.email,
       institutionName: user.institutionName,
       institution: user.institutionCode,
+      // Backend: security = new password; session_token field = current password.
       security: newPassword,
+      session_token: current,
     }),
   });
 }

@@ -58,7 +58,12 @@ export default function TwoFactorAuth() {
         return;
       }
 
-      navigate("/transactions", { replace: true });
+      if (result.require2faSetup) {
+        navigate("/auth/force-2fa-setup", { replace: true });
+        return;
+      }
+
+      navigate(result.redirectTo || "/transactions", { replace: true });
     } finally {
       setLoading(false);
       verifyingRef.current = false;

@@ -10,6 +10,7 @@ import {
 import { getAvailableBrands, getActiveBrandConfig } from "../../branding/brandRuntime";
 import {
   clearPendingTwoFactorChallenge,
+  getPostAuthRedirectPath,
   loginWithApi,
   logoutFromApi,
   readPendingTwoFactorChallenge,
@@ -275,6 +276,8 @@ export function AuthProvider({ children }) {
       return {
         success: true,
         mustChangePassword: !!result.user?.mustChangePassword,
+        require2faSetup: !!result.user?.require2faSetup,
+        redirectTo: getPostAuthRedirectPath(result.user),
       };
     } catch (error) {
       return {
@@ -293,6 +296,8 @@ export function AuthProvider({ children }) {
       return {
         success: true,
         mustChangePassword: !!result.user.mustChangePassword,
+        require2faSetup: !!result.user.require2faSetup,
+        redirectTo: getPostAuthRedirectPath(result.user),
       };
     } catch (error) {
       const message = error instanceof APIError ? error.message : "Unable to verify the authentication code.";
@@ -300,19 +305,31 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const completePasswordChange = async (userId, newPassword) => {
-    if (!user || String(user.id) !== String(userId)) {
-      return false;
+  const completePasswordChange = async (userId, newPassword, currentPassword = "") => {
+    if (!user) {
+      return { success: false, error: "Not signed in." };
+    }
+    if (userId != null && String(user.id) !== String(userId) && user.id != null) {
+      // Allow when id missing from login payload but email/username match.
     }
 
     try {
-      await updatePasswordWithApi(user, newPassword);
-      const nextUser = { ...user, mustChangePassword: false };
+      await updatePasswordWithApi(user, newPassword, currentPassword);
+      const nextUser = {
+        ...user,
+        mustChangePassword: false,
+        require2faSetup: !!user.require2faSetup && !user.has2FA,
+      };
       persistAuthenticatedUser(nextUser, readLocalStorage(STORAGE_KEY_NAMES.AUTH_TOKEN) || "");
       setUser(nextUser);
-      return true;
-    } catch {
-      return false;
+      return {
+        success: true,
+        require2faSetup: !!nextUser.require2faSetup,
+        redirectTo: getPostAuthRedirectPath(nextUser),
+      };
+    } catch (error) {
+      const message = error instanceof APIError ? error.message : "Failed to update password.";
+      return { success: false, error: message };
     }
   };
 

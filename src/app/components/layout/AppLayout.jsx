@@ -138,9 +138,23 @@ export default function AppLayout() {
   };
 
   useEffect(() => {
-    if (user && user.mustChangePassword && location.pathname !== "/auth/force-password-change") {
+    if (!user) return;
+    const allowedForce =
+      location.pathname === "/auth/force-password-change" ||
+      location.pathname === "/auth/force-2fa-setup";
+    if (user.mustChangePassword && location.pathname !== "/auth/force-password-change") {
       navigate("/auth/force-password-change", { replace: true });
+      return;
     }
+    if (
+      !user.mustChangePassword &&
+      user.require2faSetup &&
+      location.pathname !== "/auth/force-2fa-setup"
+    ) {
+      navigate("/auth/force-2fa-setup", { replace: true });
+      return;
+    }
+    if (allowedForce) return;
   }, [user, location.pathname, navigate]);
 
   useEffect(() => {

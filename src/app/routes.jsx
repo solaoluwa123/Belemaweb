@@ -23,6 +23,7 @@ import {
   AccountLockedPage,
 } from "./pages/auth/password-recovery";
 import ForcedPasswordChangePage from "./pages/auth/password-recovery/ForcedPasswordChangePage";
+import Forced2FASetupPage from "./pages/auth/password-recovery/Forced2FASetupPage";
 import SecuritySettings from "./pages/settings/SecuritySettings";
 
 import TransgateDashboard from "./pages/dashboards/TransgateDashboard";
@@ -92,6 +93,10 @@ export const router = createBrowserRouter(
   {
     path: "/auth/force-password-change",
     Component: ForcedPasswordChangePage,
+  },
+  {
+    path: "/auth/force-2fa-setup",
+    Component: Forced2FASetupPage,
   },
   {
     path: "/activate",

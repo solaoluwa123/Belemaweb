@@ -88,11 +88,7 @@ export default function Login() {
         return;
       }
 
-      if (result.mustChangePassword) {
-        navigate("/auth/force-password-change", { replace: true });
-        return;
-      }
-      navigate("/transactions", { replace: true });
+      navigate(result.redirectTo || "/transactions", { replace: true });
     }, 600);
   };
 

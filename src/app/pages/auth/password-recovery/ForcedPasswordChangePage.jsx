@@ -16,8 +16,10 @@ const REQUIREMENTS_ID = "force-password-requirements";
  * Same UX as Reset Password: strength meter + requirement indicators.
  */
 export default function ForcedPasswordChangePage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export default function ForcedPasswordChangePage() {
 
   const requirementsMet = meetsAllPasswordRequirements(password);
   const passwordsMatch = password && confirm && password === confirm;
-  const canSubmit = requirementsMet && passwordsMatch;
+  const canSubmit = Boolean(currentPassword) && requirementsMet && passwordsMatch;
 
   if (user == null) return null;
 
@@ -39,19 +41,23 @@ export default function ForcedPasswordChangePage() {
     e.preventDefault();
     setError("");
     if (!canSubmit) return;
-    if (!user?.id) {
+    if (!user?.email && !user?.username) {
       setError("Session expired. Please log in again.");
       navigate("/login", { replace: true });
       return;
     }
     setLoading(true);
     setTimeout(async () => {
-      const ok = await completePasswordChange(user.id, password);
+      const result = await completePasswordChange(user.id, password, currentPassword);
       setLoading(false);
-      if (ok) {
-        navigate("/transactions", { replace: true });
+      if (result?.success) {
+        const nextPath =
+          result.require2faSetup || user.require2faSetup
+            ? "/auth/force-2fa-setup"
+            : "/transactions";
+        navigate(nextPath, { replace: true });
       } else {
-        setError("Failed to update password. Try again.");
+        setError(result?.error || "Failed to update password. Try again.");
       }
     }, 600);
   };
@@ -62,7 +68,7 @@ export default function ForcedPasswordChangePage() {
         icon={ShieldAlert}
         iconBgClassName="bg-amber-600"
         title="Password change required"
-        description="Your password has expired. You must set a new password to continue. This is required for security compliance."
+        description="You must set a new password before continuing. Use your temporary password as the current password."
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -74,6 +80,30 @@ export default function ForcedPasswordChangePage() {
               <span>{error}</span>
             </div>
           )}
+          <div className="space-y-2">
+            <Label htmlFor="force-current-password">Current password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <Input
+                id="force-current-password"
+                type={showCurrent ? "text" : "password"}
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="pl-10 pr-10"
+                placeholder="Temporary / current password"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 rounded"
+                aria-label={showCurrent ? "Hide password" : "Show password"}
+              >
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="force-new-password">New password</Label>
             <div className="relative">
