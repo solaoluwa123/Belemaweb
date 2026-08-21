@@ -56,8 +56,8 @@ export async function createUserWithApi(
   { username, email, password, phone, roleId, status, creator },
   context = {}
 ) {
-  if (!username?.trim() || !email?.trim() || !password) {
-    throw new APIError("Username, email, and password are required.", 400, null);
+  if (!username?.trim() || !email?.trim()) {
+    throw new APIError("Username and email are required.", 400, null);
   }
   const numericRoleId = toRoleId(roleId);
   if (numericRoleId === undefined) {
@@ -83,6 +83,8 @@ export async function createUserWithApi(
   const { firstname, surname } = splitName(username, email);
   const inst = String(context.institutionCode || "").trim();
   const scopedInst = inst && inst !== "-1" ? inst : "";
+  // Blank password → API generates and emails a temporary password.
+  const assignedPassword = String(password || "");
 
   const body = {
     username: String(username).trim(),
@@ -90,8 +92,8 @@ export async function createUserWithApi(
     surname,
     email_address: String(email).trim().toLowerCase(),
     phone_number: String(phone || "").trim(),
-    password: String(password),
-    security: String(password),
+    password: assignedPassword,
+    security: assignedPassword,
     roleid: numericRoleId,
     // NOTE: `role` is intentionally the creator's identity, not a role-name string. See contract
     // comment above. The backend uses this to look up the calling admin's row in tbl_user_details.
@@ -119,8 +121,8 @@ export async function createOtherUserWithApi(
   { username, email, password, phone, roleId, status, creator },
   context = {}
 ) {
-  if (!username?.trim() || !email?.trim() || !password) {
-    throw new APIError("Username, email, and password are required.", 400, null);
+  if (!username?.trim() || !email?.trim()) {
+    throw new APIError("Username and email are required.", 400, null);
   }
   const numericRoleId = toRoleId(roleId);
   if (numericRoleId === undefined || numericRoleId < 4 || numericRoleId > 8) {
@@ -141,14 +143,16 @@ export async function createOtherUserWithApi(
   }
 
   const { firstname, surname } = splitName(username, email);
+  // Blank password → API generates and emails a temporary password.
+  const assignedPassword = String(password || "");
   const body = {
     username: String(username).trim(),
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
     phone_number: String(phone || "").trim(),
-    password: String(password),
-    security: String(password),
+    password: assignedPassword,
+    security: assignedPassword,
     roleid: numericRoleId,
     role: creatorIdentity,
     status: mapUiStatusToApi(status),

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Link, useParams, useLocation, useNavigate } from "react-router";
+import { useParams, useLocation, useNavigate } from "react-router";
 import {
   Table,
   TableBody,
@@ -274,26 +274,6 @@ export default function InstitutionContacts() {
           </Button>
         </div>
       </div>
-      <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-        {adminUser ? (
-          <>
-            As an administrator, create and edit apply immediately. Delete is admin-only. Track other
-            pending user work in{" "}
-            <Link to="/approvals/users" className="underline font-medium">
-              Pending User Approvals
-            </Link>
-            .
-          </>
-        ) : (
-          <>
-            Create and edit contacts require approver sign-off. Track requests in{" "}
-            <Link to="/approvals/users" className="underline font-medium">
-              Pending User Approvals
-            </Link>
-            . Only administrators can delete contacts.
-          </>
-        )}
-      </p>
       {loadError ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{loadError}</div>
       ) : null}

@@ -318,18 +318,6 @@ export default function OtherUsers() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!form.password) {
-      setFormError("Password is required.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setFormError("Password must be at least 8 characters.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setFormError("Passwords do not match.");
-      return;
-    }
     const role = findRole(form.roleName);
     if (role?.id == null) {
       setFormError("Please select a valid role.");
@@ -349,7 +337,6 @@ export default function OtherUsers() {
         {
           username: form.username.trim(),
           email: form.email.trim(),
-          password: form.password,
           phone: form.phone.trim(),
           roleName: form.roleName,
           roleId: role.id,
@@ -385,13 +372,6 @@ export default function OtherUsers() {
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900">Other Users</h1>
           <p className="text-2xl font-bold text-gray-900">Total: {filteredUsers.length}</p>
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
-            {isAdmin()
-              ? "Administrator creates, edits, and deletes other users (roles 4–8) immediately."
-              : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Pending requests appear in this table as <strong>Pending Approval</strong> (also under <strong>Approvals → Pending User Approvals</strong>).</>
-                : "You can view other users."}
-          </p>
         </div>
         {canMutateUsers ? (
           <Button
@@ -519,30 +499,6 @@ export default function OtherUsers() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="other-password">Password</Label>
-                <PasswordInput
-                  id="other-password"
-                  value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Min 8 characters"
-                  visible={showPassword}
-                  onToggleVisible={() => setShowPassword((v) => !v)}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="other-confirm-password">Confirm password</Label>
-                <PasswordInput
-                  id="other-confirm-password"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  placeholder="Confirm password"
-                  visible={showConfirmPassword}
-                  onToggleVisible={() => setShowConfirmPassword((v) => !v)}
-                />
-              </div>
             </div>
           </div>
           <DialogFooter>

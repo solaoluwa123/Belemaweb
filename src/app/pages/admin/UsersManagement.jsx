@@ -365,18 +365,6 @@ export default function UsersManagement() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!form.password) {
-      setFormError("Password is required.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setFormError("Password must be at least 8 characters.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setFormError("Passwords do not match.");
-      return;
-    }
     if (!createRoleChoices.includes(form.roleName)) {
       setFormError("Please select a valid role. Administrator accounts cannot be created here.");
       return;
@@ -401,7 +389,6 @@ export default function UsersManagement() {
         {
           username: form.username.trim(),
           email: form.email.trim(),
-          password: form.password,
           phone: form.phone.trim(),
           roleName: form.roleName,
           roleId,
@@ -441,13 +428,6 @@ export default function UsersManagement() {
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-gray-900">System Users</h1>
           <p className="text-2xl font-bold text-gray-900">Total: {filteredUsers.length}</p>
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
-            {isAdmin()
-              ? <>Administrators can create Approver/Operator users immediately. <strong>Administrator</strong> accounts cannot be created or deleted here (max 2, server-enforced).</>
-              : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. You cannot create, promote to, or delete <strong>Administrator</strong> accounts. Pending requests appear in this table and under <strong>Approvals → Pending User Approvals</strong>.</>
-                : "You can view system users."}
-          </p>
         </div>
         {canMutateUsers ? (
           <Button
@@ -564,30 +544,6 @@ export default function UsersManagement() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="new-password">Password</Label>
-                <PasswordInput
-                  id="new-password"
-                  value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Min 8 characters"
-                  visible={showPassword}
-                  onToggleVisible={() => setShowPassword((v) => !v)}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="new-confirm-password">Confirm password</Label>
-                <PasswordInput
-                  id="new-confirm-password"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  placeholder="Confirm password"
-                  visible={showConfirmPassword}
-                  onToggleVisible={() => setShowConfirmPassword((v) => !v)}
-                />
               </div>
             </div>
             <div className="flex flex-wrap gap-3">

@@ -49,7 +49,6 @@ const accountsMenuBase = [
     path: "/disputes/arbitrated",
     icon: <Scale className="w-4 h-4" />,
     disputeReadAccess: true,
-    hideForAdmin: true,
   },
 ];
 
@@ -119,7 +118,7 @@ export default function AppLayout() {
     if (pathname.startsWith("/transactions/status-change")) return isAdmin();
 
     if (pathname.startsWith("/disputes/arbitrated")) {
-      return isApprover() || isOperator();
+      return isApprover() || isOperator() || isAdmin();
     }
 
     if (pathname === "/disputes/log" || pathname.startsWith("/disputes/log/")) {
