@@ -212,6 +212,14 @@ export default function AppLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  // Hide all app pages until forced password change / 2FA enrollment is done.
+  if (user.mustChangePassword) {
+    return <Navigate to="/auth/force-password-change" replace />;
+  }
+  if (user.require2faSetup) {
+    return <Navigate to="/auth/force-2fa-setup" replace />;
+  }
+
   const handleLogout = () => {
     logout();
     navigate("/login");

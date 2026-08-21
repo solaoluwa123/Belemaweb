@@ -321,6 +321,18 @@ export async function loginWithApi(identifier, password) {
     }
   }
 
+  // Must enroll first — never send to OTP-only challenge while setup is required.
+  if (user.require2faSetup) {
+    clearPendingTwoFactorChallenge();
+    localStorage.setItem(buildStorageKey(STORAGE_KEY_NAMES.AUTH_TOKEN), sessionToken);
+    return {
+      requiresTwoFactor: false,
+      user,
+      sessionToken,
+      message: user.raw?.message || "2FA setup required",
+    };
+  }
+
   if (user.has2FA) {
     writePendingTwoFactorChallenge({
       identifier,

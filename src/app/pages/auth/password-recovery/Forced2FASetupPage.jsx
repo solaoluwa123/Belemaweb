@@ -7,7 +7,7 @@ import { AuthPageContainer, AuthCardLayout } from "../../../components/auth";
 import { Button } from "../../../components/ui/button";
 import { AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
-import { setupTwoFactor, getPostAuthRedirectPath } from "../../../services/auth";
+import { setupTwoFactor } from "../../../services/auth";
 import { APIError } from "../../../services/api";
 
 /**
@@ -88,8 +88,9 @@ export default function Forced2FASetupPage() {
       if (!uri && !result.secret) {
         setError("2FA was enabled but no authenticator QR was returned. Tap Retry.");
       }
+      // Keep require2faSetup until Continue so app routes stay blocked in the SPA.
       if (typeof updateUser === "function") {
-        updateUser({ has2FA: true, require2faSetup: false });
+        updateUser({ has2FA: true });
       }
     } catch (err) {
       setEnabled(false);
@@ -108,13 +109,10 @@ export default function Forced2FASetupPage() {
   if (user == null) return null;
 
   const handleContinue = () => {
-    const next = getPostAuthRedirectPath({
-      ...user,
-      mustChangePassword: false,
-      require2faSetup: false,
-      has2FA: true,
-    });
-    navigate(next, { replace: true });
+    if (typeof updateUser === "function") {
+      updateUser({ has2FA: true, require2faSetup: false });
+    }
+    navigate("/transactions", { replace: true });
   };
 
   return (
