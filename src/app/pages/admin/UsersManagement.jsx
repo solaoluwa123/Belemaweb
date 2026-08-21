@@ -25,6 +25,15 @@ import { APIError } from "../../services/api";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { fetchRolesList, fetchUsersDirectoryWithPending } from "../../services/usersDirectory";
 import { createUserWithApi, updateUserWithApi, deleteUserWithApi } from "../../services/usersAdmin";
+import {
+  canDeleteSystemUser,
+  filterSystemRolesForCreate,
+  filterSystemRolesForEdit,
+  isAdministratorAccount,
+  isAdministratorRoleId,
+  isAdministratorRoleLabel,
+  ROLE_IDS,
+} from "../../utils/roleAccess";
 import { toast } from "sonner";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -85,7 +94,18 @@ export default function UsersManagement() {
   // create/edit submission catches that and shows a clear error instead of silently posting
   // `roleid = 0` and creating role-less users.
   const [roles, setRoles] = useState(() => SYSTEM_ROLES.map((name) => ({ id: null, name })));
-  const roleChoices = useMemo(() => roles.map((r) => r.name), [roles]);
+  const createRoleChoices = useMemo(
+    () => filterSystemRolesForCreate(roles).map((r) => r.name),
+    [roles],
+  );
+  const editRoleChoices = useMemo(
+    () =>
+      filterSystemRolesForEdit(roles, {
+        actorIsOperator: isOperator(),
+        targetIsAdmin: isAdministratorAccount(editingUser),
+      }).map((r) => r.name),
+    [roles, editingUser, isOperator],
+  );
   const findRoleId = useCallback(
     (name) => roles.find((r) => r.name === name)?.id ?? null,
     [roles],
@@ -238,6 +258,12 @@ export default function UsersManagement() {
       );
       return;
     }
+    if (isOperator()
+        && (isAdministratorRoleId(roleId) || isAdministratorRoleLabel(form.roleName))
+        && !isAdministratorAccount(editingUser)) {
+      setFormError("Operators cannot assign the Administrator role.");
+      return;
+    }
     try {
       await updateUserWithApi(
         {
@@ -266,12 +292,21 @@ export default function UsersManagement() {
     }
   };
 
-  const confirmDeleteUser = (user) => {
-    setUserToDelete(user);
+  const confirmDeleteUser = (row) => {
+    if (!canDeleteSystemUser(row)) {
+      toast.error("Administrator accounts cannot be deleted.");
+      return;
+    }
+    setUserToDelete(row);
   };
 
   const doDeleteUser = async () => {
     if (!userToDelete) return;
+    if (!canDeleteSystemUser(userToDelete)) {
+      toast.error("Administrator accounts cannot be deleted.");
+      setUserToDelete(null);
+      return;
+    }
     try {
       await deleteUserWithApi({ userId: userToDelete.id, username: userToDelete.username });
       toast.success(
@@ -294,10 +329,24 @@ export default function UsersManagement() {
         </span>
       );
     }
+    const allowDelete = canDeleteSystemUser(row);
     return (
       <div className="flex justify-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
-        <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeleteUser(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
+        {allowDelete ? (
+          <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeleteUser(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-slate-300"
+            disabled
+            aria-label="Administrator accounts cannot be deleted"
+            title="Administrator accounts cannot be deleted"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     );
   };
@@ -328,8 +377,8 @@ export default function UsersManagement() {
       setFormError("Passwords do not match.");
       return;
     }
-    if (!roleChoices.includes(form.roleName)) {
-      setFormError("Please select a valid role.");
+    if (!createRoleChoices.includes(form.roleName)) {
+      setFormError("Please select a valid role. Administrator accounts cannot be created here.");
       return;
     }
     if (!requester) {
@@ -341,6 +390,10 @@ export default function UsersManagement() {
       setFormError(
         `Role "${form.roleName}" doesn't have a server id loaded yet. Please reload the page so /roles/get can resolve the numeric role id.`,
       );
+      return;
+    }
+    if (roleId === ROLE_IDS.ADMINISTRATOR || isAdministratorRoleLabel(form.roleName)) {
+      setFormError("Creating Administrator accounts is not allowed.");
       return;
     }
     try {
@@ -390,9 +443,9 @@ export default function UsersManagement() {
           <p className="text-2xl font-bold text-gray-900">Total: {filteredUsers.length}</p>
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 max-w-2xl">
             {isAdmin()
-              ? "Administrator creates, edits, and deletes users immediately."
+              ? <>Administrators can create Approver/Operator users immediately. <strong>Administrator</strong> accounts cannot be created or deleted here (max 2, server-enforced).</>
               : isOperator()
-                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. Pending requests appear in this table as <strong>Pending Approval</strong> (also under <strong>Approvals → Pending User Approvals</strong>).</>
+                ? <>Add, edit, and delete actions are submitted for <strong>Approver</strong> review. You cannot create, promote to, or delete <strong>Administrator</strong> accounts. Pending requests appear in this table and under <strong>Approvals → Pending User Approvals</strong>.</>
                 : "You can view system users."}
           </p>
         </div>
@@ -403,6 +456,15 @@ export default function UsersManagement() {
               setShowPassword(false);
               setShowConfirmPassword(false);
               setFormError("");
+              setForm({
+                username: "",
+                email: "",
+                password: "",
+                confirmPassword: "",
+                phone: "",
+                roleName: createRoleChoices[0] || "Operator",
+                status: "Active",
+              });
               setOpen(true);
             }}
           >
@@ -495,7 +557,7 @@ export default function UsersManagement() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roleChoices.map((role) => (
+                    {createRoleChoices.map((role) => (
                       <SelectItem key={role} value={role}>
                         {role}
                       </SelectItem>
@@ -607,7 +669,7 @@ export default function UsersManagement() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roleChoices.map((role) => (
+                    {editRoleChoices.map((role) => (
                       <SelectItem key={role} value={role}>
                         {role}
                       </SelectItem>

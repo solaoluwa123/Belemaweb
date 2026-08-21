@@ -12,6 +12,24 @@ import {
   rejectUserApproval,
 } from "../../services/approvals";
 import { formatBackendDateTime } from "../../utils/formatters";
+import { isAdministratorAccount, ROLE_IDS } from "../../utils/roleAccess";
+
+function isAdminDeleteRequest(row) {
+  const actionType = String(row?.raw?.actionType ?? row?.raw?.actiontype ?? "").trim().toLowerCase();
+  if (actionType !== "delete") return false;
+  return isAdministratorAccount({
+    roleId: row?.raw?.roleid ?? row?.raw?.roleId ?? row?.raw?.role,
+    roleName: row?.raw?.role_name ?? row?.raw?.roleName,
+    raw: row?.raw,
+  });
+}
+
+function isAdminCreateRequest(row) {
+  const actionType = String(row?.raw?.actionType ?? row?.raw?.actiontype ?? "").trim().toLowerCase();
+  if (actionType !== "create") return false;
+  const roleId = Number(row?.raw?.roleid ?? row?.raw?.roleId ?? row?.raw?.role);
+  return roleId === ROLE_IDS.ADMINISTRATOR || isAdministratorAccount(row?.raw);
+}
 
 export default function PendingUserApprovals() {
   const { user, isApprover } = useAuth();
@@ -105,9 +123,13 @@ export default function PendingUserApprovals() {
     { key: "status", label: "Status", render: (value, row) => <StatusBadge status={row.status} type="approval" /> },
   ];
 
-  const actions = (row) => (
+  const actions = (row) => {
+    const blockedAdminDelete = isAdminDeleteRequest(row);
+    const blockedAdminCreate = isAdminCreateRequest(row);
+    const blocked = blockedAdminDelete || blockedAdminCreate;
+    return (
     <div className="flex gap-2">
-      {row.status === "Pending" && canApprove && (
+      {row.status === "Pending" && canApprove && !blocked && (
         <>
           <Button
             variant="ghost"
@@ -125,11 +147,29 @@ export default function PendingUserApprovals() {
           </Button>
         </>
       )}
+      {row.status === "Pending" && canApprove && blocked && (
+        <>
+          <span
+            className="text-xs text-amber-700 self-center max-w-[12rem]"
+            title={
+              blockedAdminDelete
+                ? "Administrator accounts cannot be deleted"
+                : "Administrator accounts cannot be created through approvals"
+            }
+          >
+            {blockedAdminDelete ? "Admin delete blocked" : "Admin create blocked"}
+          </span>
+          <Button variant="ghost" size="icon" className="text-red-600 hover:bg-red-50" onClick={() => handleReject(row)} aria-label="Reject">
+            <XCircle className="w-4 h-4" />
+          </Button>
+        </>
+      )}
       {row.status === "Pending" && !canApprove && (
         <span className="text-sm text-gray-500">Awaiting approval</span>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">

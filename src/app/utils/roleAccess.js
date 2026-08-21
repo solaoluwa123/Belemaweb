@@ -109,3 +109,45 @@ export function canRequestStatusChange(user) {
   if (!user) return false;
   return isAdministrator(user);
 }
+
+export function isAdministratorRoleId(roleId) {
+  return toRoleId(roleId) === ROLE_IDS.ADMINISTRATOR;
+}
+
+export function isAdministratorRoleLabel(name) {
+  const r = String(name || "").trim().toLowerCase();
+  if (!r) return false;
+  if (r.includes("approver")) return false;
+  return r === "admin" || r.includes("administrator");
+}
+
+/** True when a directory/approval row is an Administrator account. */
+export function isAdministratorAccount(row) {
+  if (!row) return false;
+  return (
+    isAdministratorRoleId(row.roleId ?? row.roleid ?? row.raw?.roleid ?? row.raw?.role)
+    || isAdministratorRoleLabel(row.roleName ?? row.role ?? row.raw?.role_name)
+  );
+}
+
+/**
+ * System-user roles offered on create. Administrator cannot be created via the app
+ * (Admin / Operator / Approver are all blocked server-side).
+ */
+export function filterSystemRolesForCreate(roles = []) {
+  return roles.filter((r) => !isAdministratorRoleId(r?.id) && !isAdministratorRoleLabel(r?.name));
+}
+
+/**
+ * System-user roles on edit. Operators cannot promote someone to Administrator;
+ * they may leave an existing Admin as Admin or demote them.
+ */
+export function filterSystemRolesForEdit(roles = [], { actorIsOperator = false, targetIsAdmin = false } = {}) {
+  if (!actorIsOperator || targetIsAdmin) return roles;
+  return filterSystemRolesForCreate(roles);
+}
+
+/** Administrators cannot be deleted/deactivated by anyone via the app. */
+export function canDeleteSystemUser(row) {
+  return !isAdministratorAccount(row);
+}
