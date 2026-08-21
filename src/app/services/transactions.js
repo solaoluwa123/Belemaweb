@@ -725,8 +725,10 @@ export async function searchTransactionsBySessionIds(sessionIds, extraBody = {})
   if (!ids.length) {
     throw new APIError("At least one session id is required.", 400, null);
   }
+  const csv = ids.join(",");
   const body = {
     ...extraBody,
+    srcSessionid: csv,
     sessionIds: ids,
     records: JSON.stringify(ids),
   };
