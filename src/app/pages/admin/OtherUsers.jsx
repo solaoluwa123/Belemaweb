@@ -21,6 +21,7 @@ import { Plus, Edit, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { Navigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
+import { StatusBadge } from "../../components/shared/StatusBadge";
 import {
   fetchLinkedEntitiesForRole,
   fetchOtherUsersDirectory,
@@ -164,7 +165,11 @@ export default function OtherUsers() {
     { key: "phone", label: "Phone" },
     { key: "roleName", label: "Role" },
     { key: "institutionName", label: "Institution" },
-    { key: "status", label: "Status" },
+    {
+      key: "status",
+      label: "Status",
+      render: (value) => <StatusBadge status={value || "Unknown"} />,
+    },
   ];
 
   const openEditModal = (row) => {

@@ -96,7 +96,7 @@ function formatReversed(value) {
 export default function TransactionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isOperator, canRequestStatusChange, user, requiresInstitutionScope } = useAuth();
+  const { canRequestStatusChange, canLogSwitchDispute, user, requiresInstitutionScope } = useAuth();
   const [transaction, setTransaction] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -512,7 +512,7 @@ export default function TransactionDetails() {
                   <Download className="w-4 h-4" />
                   Download Receipt
                 </Button>
-                {isOperator() && (
+                {canLogSwitchDispute() && (
                   <Button variant="outline" className="w-full" onClick={() => navigate("/disputes/log")}>
                     Log Dispute
                   </Button>

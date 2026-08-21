@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   Wallet,
-  AlertCircle,
   Users,
   Building2,
   ShieldCheck,
@@ -44,13 +43,6 @@ const accountsMenuBase = [
     path: "/transactions/status-change",
     icon: <RefreshCcw className="w-4 h-4" />,
     adminRoleOnly: true,
-  },
-  {
-    label: "Log Dispute",
-    path: "/disputes/log",
-    icon: <AlertCircle className="w-4 h-4" />,
-    requesterOnly: true,
-    hideForAdmin: true,
   },
   {
     label: "Arbitrated Disputes",
@@ -131,7 +123,7 @@ export default function AppLayout() {
     }
 
     if (pathname === "/disputes/log" || pathname.startsWith("/disputes/log/")) {
-      return isOperator() || isAdmin() || isThirdPartyVendor();
+      return isThirdPartyVendor();
     }
     if (pathname === "/disputes" || pathname.startsWith("/disputes/")) {
       return isApprover() || isOperator() || isAdmin();

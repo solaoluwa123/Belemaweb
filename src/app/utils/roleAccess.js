@@ -94,10 +94,9 @@ export function canManageFI(user) {
 }
 
 export function canLogSwitchDispute(user, { isOperator = false } = {}) {
-  // Third-party vendors may log disputes for their FI; approve remains non-vendor.
+  // Log Dispute is vendor-only; platform staff use Arbitrated Disputes.
   if (!user) return false;
-  if (isThirdPartyVendor(user)) return true;
-  return isOperator || isAdministrator(user);
+  return isThirdPartyVendor(user);
 }
 
 export function canApproveSwitchDispute(user) {
