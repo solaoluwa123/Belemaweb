@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import QRCode from "qrcode";
 import { AuthPageContainer, AuthCardLayout } from "../../../components/auth";
@@ -11,7 +11,7 @@ import { setupTwoFactor, getPostAuthRedirectPath } from "../../../services/auth"
 import { APIError } from "../../../services/api";
 
 /**
- * Required 2FA enrollment when app.require-2fa is on and the user has not enabled 2FA.
+ * Required 2FA enrollment: immediately loads a scannable QR for the authenticator app.
  */
 export default function Forced2FASetupPage() {
   const navigate = useNavigate();
@@ -24,6 +24,7 @@ export default function Forced2FASetupPage() {
   const [manualSecret, setManualSecret] = useState("");
   const [qrBusy, setQrBusy] = useState(false);
   const [enabled, setEnabled] = useState(false);
+  const autoStarted = useRef(false);
 
   const identifier = user?.email || user?.username || "";
 
@@ -48,7 +49,7 @@ export default function Forced2FASetupPage() {
       return undefined;
     }
     setQrBusy(true);
-    QRCode.toDataURL(otpauthUri, { width: 220, margin: 2, errorCorrectionLevel: "M" })
+    QRCode.toDataURL(otpauthUri, { width: 240, margin: 2, errorCorrectionLevel: "M" })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);
       })
@@ -66,9 +67,7 @@ export default function Forced2FASetupPage() {
     };
   }, [otpauthUri]);
 
-  if (user == null) return null;
-
-  const handleEnable = async () => {
+  const startSetup = useCallback(async () => {
     if (!identifier) {
       setError("Sign in again before enabling two-factor authentication.");
       return;
@@ -84,20 +83,29 @@ export default function Forced2FASetupPage() {
       const uri = String(result.qrCodeUri || "").trim();
       setOtpauthUri(uri);
       setManualSecret(String(result.secret || "").trim());
-      setMessage(result.message || "Two-factor authentication enabled.");
+      setMessage("Scan the QR code with Google Authenticator (or a similar app) on your phone.");
       setEnabled(true);
       if (!uri && !result.secret) {
-        setError("2FA was enabled but no authenticator link was returned. Try again or contact support.");
+        setError("2FA was enabled but no authenticator QR was returned. Tap Retry.");
       }
       if (typeof updateUser === "function") {
         updateUser({ has2FA: true, require2faSetup: false });
       }
     } catch (err) {
-      setError(err instanceof APIError ? err.message : "Unable to enable two-factor authentication.");
+      setEnabled(false);
+      setError(err instanceof APIError ? err.message : "Unable to start 2FA setup. Tap Retry.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [identifier, updateUser]);
+
+  useEffect(() => {
+    if (!user || user.mustChangePassword || !identifier || autoStarted.current) return;
+    autoStarted.current = true;
+    void startSetup();
+  }, [user, identifier, startSetup]);
+
+  if (user == null) return null;
 
   const handleContinue = () => {
     const next = getPostAuthRedirectPath({
@@ -114,8 +122,8 @@ export default function Forced2FASetupPage() {
       <AuthCardLayout
         icon={ShieldCheck}
         iconBgClassName="bg-emerald-700"
-        title="Two-factor authentication required"
-        description="Your organization requires authenticator-based 2FA before you can use the app. Scan the QR code, then continue."
+        title="Set up two-factor authentication"
+        description="Open your authenticator app on your phone and scan the barcode below. This is required before you can continue."
       >
         <div className="space-y-4">
           {error ? (
@@ -127,54 +135,75 @@ export default function Forced2FASetupPage() {
               <span>{error}</span>
             </div>
           ) : null}
-          {message ? (
+          {message && !error ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
               {message}
             </div>
           ) : null}
 
-          {otpauthUri || qrDataUrl || manualSecret ? (
-            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
-              <p className="text-sm font-medium text-slate-800">Scan this QR code in your authenticator app</p>
-              {qrBusy ? (
-                <div className="mx-auto flex h-48 w-48 items-center justify-center rounded bg-white">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                </div>
-              ) : qrDataUrl ? (
-                <img src={qrDataUrl} alt="2FA QR code" className="mx-auto h-48 w-48 rounded bg-white p-2" />
-              ) : (
-                <p className="text-sm text-slate-500">QR image unavailable — enter the key manually.</p>
-              )}
-              {manualSecret ? (
-                <div className="space-y-1 text-left">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Manual setup key</p>
-                  <code className="block break-all rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
-                    {manualSecret}
-                  </code>
-                </div>
-              ) : null}
-              <p className="text-xs text-slate-500">
-                On your next sign-in you will be asked for a 6-digit authenticator code.
-              </p>
-            </div>
-          ) : null}
+          <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+            <p className="text-sm font-medium text-slate-800">Scan this barcode with your phone</p>
+            {loading || qrBusy ? (
+              <div className="mx-auto flex h-56 w-56 flex-col items-center justify-center gap-2 rounded bg-white">
+                <Loader2 className="h-7 w-7 animate-spin text-slate-400" />
+                <span className="text-xs text-slate-500">Preparing QR code…</span>
+              </div>
+            ) : qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="Two-factor authentication QR barcode"
+                className="mx-auto h-56 w-56 rounded bg-white p-2"
+              />
+            ) : (
+              <div className="mx-auto flex h-56 w-56 items-center justify-center rounded bg-white px-4 text-sm text-slate-500">
+                QR not ready yet. Use Retry if this stays empty.
+              </div>
+            )}
+            {manualSecret ? (
+              <div className="space-y-1 text-left">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Or enter this key manually
+                </p>
+                <code className="block break-all rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                  {manualSecret}
+                </code>
+              </div>
+            ) : null}
+            <p className="text-xs text-slate-500">
+              After scanning, use Continue. On your next sign-in you will enter the 6-digit code from the app.
+            </p>
+          </div>
 
-          {!enabled ? (
-            <Button type="button" className="w-full" onClick={handleEnable} disabled={loading || !identifier}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enabling…
-                </>
-              ) : (
-                "Enable 2FA"
-              )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {!enabled || error ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => {
+                  autoStarted.current = true;
+                  void startSetup();
+                }}
+                disabled={loading || !identifier}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Preparing…
+                  </>
+                ) : (
+                  "Retry QR setup"
+                )}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              className="w-full"
+              onClick={handleContinue}
+              disabled={!enabled || loading || (!qrDataUrl && !manualSecret)}
+            >
+              I have scanned — Continue
             </Button>
-          ) : (
-            <Button type="button" className="w-full" onClick={handleContinue}>
-              Continue
-            </Button>
-          )}
+          </div>
         </div>
       </AuthCardLayout>
     </AuthPageContainer>
