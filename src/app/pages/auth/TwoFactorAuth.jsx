@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
@@ -12,30 +12,65 @@ export default function TwoFactorAuth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { pendingTwoFactor, verifyTwoFactor } = useAuth();
+  const verifyingRef = useRef(false);
+  const otpWrapRef = useRef(null);
 
-  const handleVerify = async () => {
-    if (otp.length !== 6) {
+  useEffect(() => {
+    const focusOtp = () => {
+      const root = otpWrapRef.current;
+      if (!root) return;
+      const input = root.querySelector('input[data-slot="input-otp"], input[autocomplete="one-time-code"], input');
+      if (input && typeof input.focus === "function") {
+        input.focus({ preventScroll: true });
+      }
+    };
+    focusOtp();
+    const raf = requestAnimationFrame(focusOtp);
+    const t = setTimeout(focusOtp, 50);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, []);
+
+  const handleVerify = async (code = otp) => {
+    const value = String(code || "").trim();
+    if (value.length !== 6) {
       setError("Please enter a 6-digit code");
       return;
     }
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
 
     setError("");
     setLoading(true);
 
-    const result = await verifyTwoFactor(otp);
-    setLoading(false);
+    try {
+      const result = await verifyTwoFactor(value);
 
-    if (!result.success) {
-      setError(result.error || "Invalid verification code");
-      return;
+      if (!result.success) {
+        setError(result.error || "Invalid verification code");
+        return;
+      }
+
+      if (result.mustChangePassword) {
+        navigate("/auth/force-password-change", { replace: true });
+        return;
+      }
+
+      navigate("/transactions", { replace: true });
+    } finally {
+      setLoading(false);
+      verifyingRef.current = false;
     }
+  };
 
-    if (result.mustChangePassword) {
-      navigate("/auth/force-password-change", { replace: true });
-      return;
+  const handleOtpChange = (value) => {
+    setOtp(value);
+    if (error) setError("");
+    if (String(value || "").length === 6 && pendingTwoFactor && !loading) {
+      void handleVerify(value);
     }
-
-    navigate("/transactions", { replace: true });
   };
 
   return (
@@ -63,8 +98,16 @@ export default function TwoFactorAuth() {
             </div>
           )}
 
-          <div className="flex justify-center overflow-x-auto">
-            <InputOTP maxLength={6} value={otp} onChange={setOtp} containerClassName="justify-center">
+          <div ref={otpWrapRef} className="flex justify-center overflow-x-auto">
+            <InputOTP
+              maxLength={6}
+              value={otp}
+              onChange={handleOtpChange}
+              autoFocus
+              containerClassName="justify-center"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+            >
               <InputOTPGroup className="gap-0.5 sm:gap-1">
                 <InputOTPSlot index={0} />
                 <InputOTPSlot index={1} />
@@ -76,12 +119,13 @@ export default function TwoFactorAuth() {
             </InputOTP>
           </div>
 
-          <Button onClick={handleVerify} className="w-full" disabled={loading || otp.length !== 6 || !pendingTwoFactor}>
+          <Button onClick={() => handleVerify()} className="w-full" disabled={loading || otp.length !== 6 || !pendingTwoFactor}>
             {loading ? "Verifying..." : "Verify"}
           </Button>
 
           <div className="text-center">
             <button
+              type="button"
               onClick={() => navigate("/login")}
               className="text-sm text-blue-600 hover:underline"
             >
