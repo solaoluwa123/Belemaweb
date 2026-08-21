@@ -42,7 +42,7 @@ function identityKey(user) {
 }
 
 /**
- * Merge live directory users with pending ops from `*/get/actions`.
+ * Merge live directory users with pending ops from get/actions endpoints.
  * - create → synthetic row with Pending Approval
  * - edit/delete → overlay status on matching live user
  */
