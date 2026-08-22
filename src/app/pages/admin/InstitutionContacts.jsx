@@ -25,11 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Plus, Edit, Trash2, ArrowLeft, Loader2, RefreshCcw } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Loader2, RefreshCcw, ShieldOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
 import { CHANGE_RESOURCE_TYPES, submitChangeRequest } from "../../services/changeRequests";
 import { fetchContactsForInstitution } from "../../services/financialInstitutions";
+import { resetUser2faWithApi } from "../../services/usersAdmin";
 import { toast } from "sonner";
 import { formatBackendDate } from "../../utils/formatters";
 import {
@@ -95,6 +96,7 @@ export default function InstitutionContacts() {
   const [addOpen, setAddOpen] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
   const [contactToDelete, setContactToDelete] = useState(null);
+  const [contactToReset2fa, setContactToReset2fa] = useState(null);
   const [formError, setFormError] = useState("");
   const emptyForm = { fullName: "", email: "", mobile: "" };
   const [form, setForm] = useState(emptyForm);
@@ -261,6 +263,32 @@ export default function InstitutionContacts() {
     }
   };
 
+  const handleReset2fa = async () => {
+    if (!contactToReset2fa) return;
+    if (!requester) {
+      toast.error("Your session is missing a username or email for the request.");
+      return;
+    }
+    if (!contactToReset2fa.email) {
+      toast.error("Contact email is required to reset 2FA.");
+      return;
+    }
+    try {
+      await resetUser2faWithApi({
+        email: contactToReset2fa.email,
+        creator: requester,
+      });
+      toast.success(
+        adminUser
+          ? "2FA reset successfully. The contact must set up 2FA again on next login."
+          : "2FA reset submitted for approval."
+      );
+      setContactToReset2fa(null);
+    } catch (e) {
+      toast.error(e instanceof APIError ? e.message : "Unable to reset 2FA.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -369,6 +397,16 @@ export default function InstitutionContacts() {
                         aria-label={`Edit ${row.fullName}`}
                       >
                         <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-amber-700 hover:text-amber-800"
+                        onClick={() => setContactToReset2fa(row)}
+                        aria-label={`Reset 2FA for ${row.fullName}`}
+                        title="Reset 2FA"
+                      >
+                        <ShieldOff className="w-4 h-4" />
                       </Button>
                       {adminUser ? (
                         <Button
@@ -529,6 +567,25 @@ export default function InstitutionContacts() {
             <Button variant="destructive" onClick={handleDelete}>
               Delete
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!contactToReset2fa} onOpenChange={(open) => !open && setContactToReset2fa(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset 2FA</DialogTitle>
+          </DialogHeader>
+          <p className="py-2 text-gray-600">
+            Reset two-factor authentication for <strong>{contactToReset2fa?.fullName}</strong> (
+            {contactToReset2fa?.email})? They will set up 2FA again on their next login.
+            {!adminUser ? " This will be submitted for approval." : ""}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactToReset2fa(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReset2fa}>Reset 2FA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

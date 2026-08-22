@@ -30,6 +30,7 @@ function statusForPendingAction(actionType) {
   if (t === "create") return "Pending Approval";
   if (t === "edit") return "Pending Edit";
   if (t === "delete") return "Pending Delete";
+  if (t === "reset_2fa") return "Pending 2FA Reset";
   return "Pending Approval";
 }
 

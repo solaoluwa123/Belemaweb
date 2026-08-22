@@ -226,6 +226,36 @@ export async function updateUserWithApi(
 }
 
 /**
+ * Admin: clears 2FA immediately. Operator: queues reset_2fa for approval.
+ * Pass user id and/or email (email required for institution contacts).
+ */
+export async function resetUser2faWithApi({ id, email, creator } = {}) {
+  const creatorIdentity = String(creator || "").trim();
+  if (!creatorIdentity) {
+    throw new APIError(
+      "Missing creator identity. Pass the logged-in user's email or username as `creator`.",
+      400,
+      null
+    );
+  }
+  const emailAddress = String(email || "").trim().toLowerCase();
+  const userId =
+    id != null && String(id).trim() !== "" && !String(id).startsWith("pending-")
+      ? (typeof id === "string" && /^\d+$/.test(id) ? Number(id) : id)
+      : null;
+  if ((userId == null || userId === 0) && !emailAddress) {
+    throw new APIError("User id or email is required to reset 2FA.", 400, null);
+  }
+  const body = {
+    role: creatorIdentity,
+    username: creatorIdentity,
+  };
+  if (userId != null && userId !== 0) body.id = userId;
+  if (emailAddress) body.email_address = emailAddress;
+  return apiClient.post(API_ENDPOINTS.admin.reset2fa, body);
+}
+
+/**
  * OpenAPI: `DELETE /users/{userid}/{username}`.
  */
 export async function deleteUserWithApi({ userId, username }) {

@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Search, ShieldOff } from "lucide-react";
 import { Navigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
@@ -27,7 +27,7 @@ import {
   fetchOtherUsersDirectoryWithPending,
   fetchRolesList,
 } from "../../services/usersDirectory";
-import { createOtherUserWithApi, updateUserWithApi, deleteUserWithApi } from "../../services/usersAdmin";
+import { createOtherUserWithApi, updateUserWithApi, deleteUserWithApi, resetUser2faWithApi } from "../../services/usersAdmin";
 import { toast } from "sonner";
 import {
   isValidNgPhoneLocal,
@@ -74,6 +74,7 @@ export default function OtherUsers() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingUser, setEditingUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userToReset2fa, setUserToReset2fa] = useState(null);
   const [roles, setRoles] = useState([]);
   const [entities, setEntities] = useState([]);
   const roleChoices = useMemo(() => roles.map((r) => r.name), [roles]);
@@ -140,7 +141,7 @@ export default function OtherUsers() {
       const s = String(u?.status || "").trim();
       if (s) seen.add(s);
     }
-    const preferred = ["Active", "Pending Approval", "Pending Edit", "Pending Delete", "Inactive"];
+    const preferred = ["Active", "Pending Approval", "Pending Edit", "Pending Delete", "Pending 2FA Reset", "Inactive"];
     const ordered = preferred.filter((s) => seen.has(s));
     for (const s of [...seen].sort()) {
       if (!ordered.includes(s)) ordered.push(s);
@@ -277,6 +278,30 @@ export default function OtherUsers() {
     }
   };
 
+  const doReset2fa = async () => {
+    if (!userToReset2fa) return;
+    if (!requester) {
+      toast.error("Your session is missing a username or email for the request.");
+      return;
+    }
+    try {
+      await resetUser2faWithApi({
+        id: userToReset2fa.id,
+        email: userToReset2fa.email,
+        creator: requester,
+      });
+      toast.success(
+        isAdmin()
+          ? "2FA reset successfully. The user must set up 2FA again on next login."
+          : "2FA reset submitted for approval.",
+      );
+      setUserToReset2fa(null);
+      await refreshUserList();
+    } catch (e) {
+      toast.error(e instanceof APIError ? e.message : "Unable to reset 2FA.");
+    }
+  };
+
   const actions = (row) => {
     if (row?.isPendingCreate || row?.pendingAction) {
       return (
@@ -288,6 +313,16 @@ export default function OtherUsers() {
     return (
       <div className="flex justify-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => openEditModal(row)} aria-label="Edit user"><Edit className="w-4 h-4" /></Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-amber-700"
+          onClick={() => setUserToReset2fa(row)}
+          aria-label="Reset 2FA"
+          title="Reset 2FA"
+        >
+          <ShieldOff className="w-4 h-4" />
+        </Button>
         <Button variant="ghost" size="icon" className="text-red-600" onClick={() => setUserToDelete(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
       </div>
     );
@@ -602,6 +637,24 @@ export default function OtherUsers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserToDelete(null)}>Cancel</Button>
             <Button variant="destructive" onClick={doDeleteUser}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!userToReset2fa && canMutateUsers} onOpenChange={(openState) => !openState && setUserToReset2fa(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset 2FA</DialogTitle>
+          </DialogHeader>
+          <p className="py-2 text-gray-600">
+            Reset two-factor authentication for{" "}
+            <strong>{userToReset2fa?.fullName || userToReset2fa?.username}</strong> ({userToReset2fa?.email})?
+            They will set up 2FA again on their next login.
+            {!isAdmin() ? " This will be submitted for approval." : ""}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUserToReset2fa(null)}>Cancel</Button>
+            <Button onClick={doReset2fa}>Reset 2FA</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

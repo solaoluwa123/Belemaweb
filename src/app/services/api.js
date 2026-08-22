@@ -122,6 +122,7 @@ export const API_ENDPOINTS = {
     createUser: '/users/create',
     createOtherUser: '/other-users/create',
     editUser: '/users/edit',
+    reset2fa: '/users/reset-2fa',
     rejectUser: (id) => `/users/reject/${id}`,
     deleteUser: (userId, username) => `/users/${userId}/${username}`,
     institutions: '/financial-institutions',
