@@ -83,7 +83,7 @@ export default function InstitutionContacts() {
   const [editingContact, setEditingContact] = useState(null);
   const [contactToDelete, setContactToDelete] = useState(null);
   const [formError, setFormError] = useState("");
-  const emptyForm = { fullName: "", email: "", mobile: "", password: "", confirmPassword: "" };
+  const emptyForm = { fullName: "", email: "", mobile: "" };
   const [form, setForm] = useState(emptyForm);
 
   const filteredContacts = useMemo(() => {
@@ -117,18 +117,6 @@ export default function InstitutionContacts() {
       setFormError("Email is required.");
       return;
     }
-    if (!form.password) {
-      setFormError("Password is required. The contact will use it to sign in.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setFormError("Password must be at least 8 characters.");
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setFormError("Password and confirmation do not match.");
-      return;
-    }
     try {
       await submitChangeRequest({
         resourceType: CHANGE_RESOURCE_TYPES.INSTITUTION_CONTACT_CREATE,
@@ -138,13 +126,12 @@ export default function InstitutionContacts() {
           fullName: form.fullName.trim(),
           email: form.email.trim(),
           mobile: form.mobile.trim() || "",
-          password: form.password,
         },
         requestedBy: requester,
       });
       toast.success(
         adminUser
-          ? "Contact created."
+          ? "Contact created. A temporary password will be emailed."
           : "Contact creation submitted for approval."
       );
       setForm(emptyForm);
@@ -412,32 +399,6 @@ export default function InstitutionContacts() {
                 value={form.mobile}
                 onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value }))}
                 placeholder="+234 800 000 0000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-password">Password *</Label>
-              <Input
-                id="add-password"
-                type="password"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                placeholder="Contact sign-in password"
-                required
-                minLength={8}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-confirm-password">Confirm password *</Label>
-              <Input
-                id="add-confirm-password"
-                type="password"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
-                placeholder="Re-enter password"
-                required
-                minLength={8}
               />
             </div>
             <DialogFooter>

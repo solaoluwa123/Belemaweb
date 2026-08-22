@@ -467,9 +467,8 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
       //   role         — *caller's email/username* (used for `GetUserRole(role, sessiontoken)`)
       //   institution  — the institution code (NOT `financial_institution_code`)
       //   firstname, surname, phone_number, email_address
-      //   security     — password seeded for the contact's nested user account
-      // Missing any of these (especially `role`, `institution`, or `security`) causes the
-      // nested `UsersInterface.Create` call to fail and the handler returns 500.
+      //   security     — optional; blank → API generates temporary password for welcome email
+      // Missing role or institution causes the nested CreateOther call to fail.
       const caller = String(requestedBy || "").trim();
       if (!caller) {
         throw new APIError(
@@ -482,10 +481,8 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
       if (!institutionCode) {
         throw new APIError("Institution code is required to create a contact.", 400, payload);
       }
+      // Blank security → API generates a temporary password and emails it.
       const password = String(payload.password || "").trim();
-      if (!password) {
-        throw new APIError("Password is required to create a contact.", 400, payload);
-      }
       const body = {
         role: caller,
         username: caller,
