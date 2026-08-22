@@ -1,4 +1,5 @@
 export * from './formatters';
+export * from './phone';
 export * from './security';
 export {
   isValidEmail,

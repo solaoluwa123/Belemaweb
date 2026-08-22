@@ -32,6 +32,11 @@ import { CHANGE_RESOURCE_TYPES, submitChangeRequest } from "../../services/chang
 import { fetchContactsForInstitution } from "../../services/financialInstitutions";
 import { toast } from "sonner";
 import { formatBackendDate } from "../../utils/formatters";
+import {
+  isValidNgPhoneLocal,
+  toLocalPhoneDigits,
+  toStoredPhoneNumber,
+} from "../../utils/phone";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
@@ -39,20 +44,7 @@ function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value || "").trim());
 }
 
-/** DB phone_number is varchar(14). Keep digits and a leading +, drop spaces/dashes. */
-function normalizePhoneNumber(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const hasPlus = raw.startsWith("+");
-  const digits = raw.replace(/\D/g, "");
-  return ((hasPlus ? "+" : "") + digits).slice(0, 14);
-}
-
-function isValidPhoneNumber(value) {
-  const n = normalizePhoneNumber(value);
-  if (!n) return true;
-  return /^\+?\d{7,14}$/.test(n) && n.length <= 14;
-}
+const PHONE_ERROR = "Enter a valid 10-digit mobile number (e.g. 8012345678).";
 
 function mapContactRow(c, institutionCode) {
   return {
@@ -142,8 +134,8 @@ export default function InstitutionContacts() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!isValidPhoneNumber(form.mobile)) {
-      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+    if (!isValidNgPhoneLocal(form.mobile)) {
+      setFormError(PHONE_ERROR);
       return;
     }
     try {
@@ -154,7 +146,7 @@ export default function InstitutionContacts() {
           institutionCode,
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
-          mobile: normalizePhoneNumber(form.mobile),
+          mobile: toStoredPhoneNumber(form.mobile),
         },
         requestedBy: requester,
       });
@@ -184,7 +176,7 @@ export default function InstitutionContacts() {
       ...emptyForm,
       fullName: row.fullName ?? "",
       email: row.email ?? "",
-      mobile: row.mobile ?? "",
+      mobile: toLocalPhoneDigits(row.mobile),
     });
     setFormError("");
   };
@@ -209,8 +201,8 @@ export default function InstitutionContacts() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!isValidPhoneNumber(form.mobile)) {
-      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+    if (!isValidNgPhoneLocal(form.mobile)) {
+      setFormError(PHONE_ERROR);
       return;
     }
     try {
@@ -222,7 +214,7 @@ export default function InstitutionContacts() {
           contactId: editingContact.id,
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
-          mobile: normalizePhoneNumber(form.mobile),
+          mobile: toStoredPhoneNumber(form.mobile),
         },
         requestedBy: requester,
       });
@@ -430,14 +422,25 @@ export default function InstitutionContacts() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-mobile">Mobile</Label>
-              <Input
-                id="add-mobile"
-                type="tel"
-                value={form.mobile}
-                onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value }))}
-                placeholder="e.g. 08012345678 or +2348012345678"
-                maxLength={18}
-              />
+              <div className="border-input flex h-9 w-full items-center overflow-hidden rounded-md border bg-input-background">
+                <span className="text-muted-foreground shrink-0 select-none border-r px-3 text-sm">+234</span>
+                <Input
+                  id="add-mobile"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  value={form.mobile}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      mobile: e.target.value.replace(/\D/g, "").slice(0, 10),
+                    }))
+                  }
+                  placeholder="8012345678"
+                  maxLength={10}
+                  className="h-full border-0 bg-transparent shadow-none focus-visible:ring-0"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
@@ -481,14 +484,25 @@ export default function InstitutionContacts() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-mobile">Mobile</Label>
-              <Input
-                id="edit-mobile"
-                type="tel"
-                value={form.mobile}
-                onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value }))}
-                placeholder="e.g. 08012345678 or +2348012345678"
-                maxLength={18}
-              />
+              <div className="border-input flex h-9 w-full items-center overflow-hidden rounded-md border bg-input-background">
+                <span className="text-muted-foreground shrink-0 select-none border-r px-3 text-sm">+234</span>
+                <Input
+                  id="edit-mobile"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  value={form.mobile}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      mobile: e.target.value.replace(/\D/g, "").slice(0, 10),
+                    }))
+                  }
+                  placeholder="8012345678"
+                  maxLength={10}
+                  className="h-full border-0 bg-transparent shadow-none focus-visible:ring-0"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditingContact(null)}>

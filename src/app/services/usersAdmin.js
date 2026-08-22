@@ -1,4 +1,5 @@
 import { API_ENDPOINTS, APIError, apiClient } from "./api";
+import { normalizeToStoredPhone } from "../utils/phone";
 
 function mapUiStatusToApi(uiStatus) {
   const u = String(uiStatus || "Active");
@@ -104,7 +105,7 @@ export async function createUserWithApi(
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
-    phone_number: String(phone || "").trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "").slice(0, 14),
+    phone_number: normalizeToStoredPhone(phone),
     password: assignedPassword,
     security: assignedPassword,
     roleid: numericRoleId,
@@ -163,7 +164,7 @@ export async function createOtherUserWithApi(
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
-    phone_number: String(phone || "").trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "").slice(0, 14),
+    phone_number: normalizeToStoredPhone(phone),
     password: assignedPassword,
     security: assignedPassword,
     roleid: numericRoleId,
@@ -211,7 +212,7 @@ export async function updateUserWithApi(
     firstname,
     surname,
     email_address: String(email).trim().toLowerCase(),
-    phone_number: String(phone || "").trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "").slice(0, 14),
+    phone_number: normalizeToStoredPhone(phone),
     roleid: numericRoleId,
     role: creatorIdentity,
     status: mapUiStatusToApi(status),

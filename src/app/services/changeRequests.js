@@ -1,5 +1,6 @@
 import { API_ENDPOINTS, apiClient, APIError } from "./api";
 import { createDispute } from "./disputes";
+import { normalizeToStoredPhone } from "../utils/phone";
 import {
   approveInstitutionApproval,
   approveUserApproval,
@@ -490,11 +491,7 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
         institution: institutionCode,
         firstname,
         surname,
-        phone_number: String(payload.mobile || "")
-          .trim()
-          .replace(/[^\d+]/g, "")
-          .replace(/(?!^)\+/g, "")
-          .slice(0, 14),
+        phone_number: normalizeToStoredPhone(payload.mobile),
         email_address: String(payload.email || "").trim().toLowerCase(),
         security: password,
 
@@ -502,11 +499,7 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
         // backend ignores any field it doesn't read off `UserModel`, so leaving
         // them in keeps logs/diagnostics easier to correlate.
         fullName: payload.fullName,
-        mobile: String(payload.mobile || "")
-          .trim()
-          .replace(/[^\d+]/g, "")
-          .replace(/(?!^)\+/g, "")
-          .slice(0, 14),
+        mobile: normalizeToStoredPhone(payload.mobile),
         institutionCode,
         financial_institution_code: institutionCode,
       };
@@ -541,11 +534,11 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
         institution: institutionCode,
         firstname,
         surname,
-        phone_number: payload.mobile || "",
+        phone_number: normalizeToStoredPhone(payload.mobile),
         email_address: payload.email,
 
         fullName: payload.fullName,
-        mobile: payload.mobile || "",
+        mobile: normalizeToStoredPhone(payload.mobile),
         institutionCode,
         financial_institution_code: institutionCode,
       });

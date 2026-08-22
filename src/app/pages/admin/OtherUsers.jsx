@@ -29,6 +29,11 @@ import {
 } from "../../services/usersDirectory";
 import { createOtherUserWithApi, updateUserWithApi, deleteUserWithApi } from "../../services/usersAdmin";
 import { toast } from "sonner";
+import {
+  isValidNgPhoneLocal,
+  toLocalPhoneDigits,
+  toStoredPhoneNumber,
+} from "../../utils/phone";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
@@ -36,21 +41,7 @@ function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value || "").trim());
 }
 
-/** DB phone_number is varchar(14). Keep digits and a leading +, drop spaces/dashes. */
-function normalizePhoneNumber(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const hasPlus = raw.startsWith("+");
-  const digits = raw.replace(/\D/g, "");
-  const normalized = (hasPlus ? "+" : "") + digits;
-  return normalized.slice(0, 14);
-}
-
-function isValidPhoneNumber(value) {
-  const n = normalizePhoneNumber(value);
-  if (!n) return true;
-  return /^\+?\d{7,14}$/.test(n) && n.length <= 14;
-}
+const PHONE_ERROR = "Enter a valid 10-digit mobile number (e.g. 8012345678).";
 
 function titleCaseName(value) {
   const s = String(value || "").trim().replace(/\s+/g, " ");
@@ -204,7 +195,7 @@ export default function OtherUsers() {
     setForm({
       username: titleCaseName(row.username),
       email: row.email,
-      phone: row.phone || "",
+      phone: toLocalPhoneDigits(row.phone),
       roleName: row.roleName,
       institutionId: row.institutionCode || "",
       status: row.status,
@@ -227,8 +218,8 @@ export default function OtherUsers() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!isValidPhoneNumber(form.phone)) {
-      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+    if (!isValidNgPhoneLocal(form.phone)) {
+      setFormError(PHONE_ERROR);
       return;
     }
     if (!requester) {
@@ -248,7 +239,7 @@ export default function OtherUsers() {
           id: editingUser.id,
           username: form.username.trim(),
           email: form.email.trim(),
-          phone: normalizePhoneNumber(form.phone),
+          phone: toStoredPhoneNumber(form.phone),
           roleName: form.roleName,
           roleId: role.id,
           status: form.status,
@@ -315,8 +306,8 @@ export default function OtherUsers() {
       setFormError("Enter a valid email address (e.g. name@example.com).");
       return;
     }
-    if (!isValidPhoneNumber(form.phone)) {
-      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+    if (!isValidNgPhoneLocal(form.phone)) {
+      setFormError(PHONE_ERROR);
       return;
     }
     const role = findRole(form.roleName);
@@ -338,7 +329,7 @@ export default function OtherUsers() {
         {
           username: form.username.trim(),
           email: form.email.trim(),
-          phone: normalizePhoneNumber(form.phone),
+          phone: toStoredPhoneNumber(form.phone),
           roleName: form.roleName,
           roleId: role.id,
           status: form.status,
@@ -454,14 +445,25 @@ export default function OtherUsers() {
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
                 <Label htmlFor="other-phone">Phone number</Label>
-                <Input
-                  id="other-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="e.g. 08012345678 or +2348012345678"
-                  maxLength={18}
-                />
+                <div className="border-input flex h-9 w-full items-center overflow-hidden rounded-md border bg-input-background">
+                  <span className="text-muted-foreground shrink-0 select-none border-r px-3 text-sm">+234</span>
+                  <Input
+                    id="other-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                    placeholder="8012345678"
+                    maxLength={10}
+                    className="h-full border-0 bg-transparent shadow-none focus-visible:ring-0"
+                  />
+                </div>
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
                 <Label>User Role</Label>
@@ -541,14 +543,25 @@ export default function OtherUsers() {
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
                 <Label htmlFor="edit-other-phone">Phone number</Label>
-                <Input
-                  id="edit-other-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="e.g. 08012345678 or +2348012345678"
-                  maxLength={18}
-                />
+                <div className="border-input flex h-9 w-full items-center overflow-hidden rounded-md border bg-input-background">
+                  <span className="text-muted-foreground shrink-0 select-none border-r px-3 text-sm">+234</span>
+                  <Input
+                    id="edit-other-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                    placeholder="8012345678"
+                    maxLength={10}
+                    className="h-full border-0 bg-transparent shadow-none focus-visible:ring-0"
+                  />
+                </div>
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
                 <Label>User Role</Label>
