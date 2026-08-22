@@ -33,6 +33,27 @@ import { fetchContactsForInstitution } from "../../services/financialInstitution
 import { toast } from "sonner";
 import { formatBackendDate } from "../../utils/formatters";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+function isValidEmail(value) {
+  return EMAIL_PATTERN.test(String(value || "").trim());
+}
+
+/** DB phone_number is varchar(14). Keep digits and a leading +, drop spaces/dashes. */
+function normalizePhoneNumber(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const hasPlus = raw.startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  return ((hasPlus ? "+" : "") + digits).slice(0, 14);
+}
+
+function isValidPhoneNumber(value) {
+  const n = normalizePhoneNumber(value);
+  if (!n) return true;
+  return /^\+?\d{7,14}$/.test(n) && n.length <= 14;
+}
+
 function mapContactRow(c, institutionCode) {
   return {
     id: c.id,
@@ -117,6 +138,14 @@ export default function InstitutionContacts() {
       setFormError("Email is required.");
       return;
     }
+    if (!isValidEmail(form.email)) {
+      setFormError("Enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+    if (!isValidPhoneNumber(form.mobile)) {
+      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+      return;
+    }
     try {
       await submitChangeRequest({
         resourceType: CHANGE_RESOURCE_TYPES.INSTITUTION_CONTACT_CREATE,
@@ -124,8 +153,8 @@ export default function InstitutionContacts() {
         payload: {
           institutionCode,
           fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          mobile: form.mobile.trim() || "",
+          email: form.email.trim().toLowerCase(),
+          mobile: normalizePhoneNumber(form.mobile),
         },
         requestedBy: requester,
       });
@@ -176,6 +205,14 @@ export default function InstitutionContacts() {
       setFormError("Email is required.");
       return;
     }
+    if (!isValidEmail(form.email)) {
+      setFormError("Enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+    if (!isValidPhoneNumber(form.mobile)) {
+      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
+      return;
+    }
     try {
       await submitChangeRequest({
         resourceType: CHANGE_RESOURCE_TYPES.INSTITUTION_CONTACT_UPDATE,
@@ -184,8 +221,8 @@ export default function InstitutionContacts() {
           institutionCode,
           contactId: editingContact.id,
           fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          mobile: form.mobile.trim(),
+          email: form.email.trim().toLowerCase(),
+          mobile: normalizePhoneNumber(form.mobile),
         },
         requestedBy: requester,
       });
@@ -398,7 +435,8 @@ export default function InstitutionContacts() {
                 type="tel"
                 value={form.mobile}
                 onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value }))}
-                placeholder="+234 800 000 0000"
+                placeholder="e.g. 08012345678 or +2348012345678"
+                maxLength={18}
               />
             </div>
             <DialogFooter>
@@ -448,7 +486,8 @@ export default function InstitutionContacts() {
                 type="tel"
                 value={form.mobile}
                 onChange={(e) => setForm((p) => ({ ...p, mobile: e.target.value }))}
-                placeholder="+234 800 000 0000"
+                placeholder="e.g. 08012345678 or +2348012345678"
+                maxLength={18}
               />
             </div>
             <DialogFooter>

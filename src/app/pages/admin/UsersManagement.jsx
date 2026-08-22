@@ -36,10 +36,26 @@ import {
 } from "../../utils/roleAccess";
 import { toast } from "sonner";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
 function isValidEmail(value) {
   return EMAIL_PATTERN.test(String(value || "").trim());
+}
+
+/** DB phone_number is varchar(14). Keep digits and a leading +, drop spaces/dashes. */
+function normalizePhoneNumber(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const hasPlus = raw.startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  const normalized = (hasPlus ? "+" : "") + digits;
+  return normalized.slice(0, 14);
+}
+
+function isValidPhoneNumber(value) {
+  const n = normalizePhoneNumber(value);
+  if (!n) return true; // optional
+  return /^\+?\d{7,14}$/.test(n) && n.length <= 14;
 }
 
 function titleCaseName(value) {
@@ -179,7 +195,7 @@ export default function UsersManagement() {
   const columns = [
     {
       key: "username",
-      label: "Username",
+      label: "Full Name",
       sortable: true,
       render: (value) => titleCaseName(value) || "—",
     },
@@ -214,7 +230,7 @@ export default function UsersManagement() {
     if (!editingUser) return;
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Username is required.");
+      setFormError("Full name is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -223,6 +239,10 @@ export default function UsersManagement() {
     }
     if (!isValidEmail(form.email)) {
       setFormError("Enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+    if (!isValidPhoneNumber(form.phone)) {
+      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
       return;
     }
     if (!requester) {
@@ -248,7 +268,7 @@ export default function UsersManagement() {
           id: editingUser.id,
           username: form.username.trim(),
           email: form.email.trim(),
-          phone: form.phone.trim(),
+          phone: normalizePhoneNumber(form.phone),
           roleName: form.roleName,
           roleId,
           status: form.status,
@@ -331,7 +351,7 @@ export default function UsersManagement() {
   const createUser = async () => {
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Username is required.");
+      setFormError("Full name is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -340,6 +360,10 @@ export default function UsersManagement() {
     }
     if (!isValidEmail(form.email)) {
       setFormError("Enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+    if (!isValidPhoneNumber(form.phone)) {
+      setFormError("Enter a valid phone number (max 14 characters, e.g. 08012345678 or +2348012345678).");
       return;
     }
     if (!createRoleChoices.includes(form.roleName)) {
@@ -366,7 +390,7 @@ export default function UsersManagement() {
         {
           username: form.username.trim(),
           email: form.email.trim(),
-          phone: form.phone.trim(),
+          phone: normalizePhoneNumber(form.phone),
           roleName: form.roleName,
           roleId,
           status: form.status,
@@ -466,12 +490,12 @@ export default function UsersManagement() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="new-username">Username</Label>
+                <Label htmlFor="new-username">Full Name</Label>
                 <Input
                   id="new-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter username"
+                  placeholder="Enter full name"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
@@ -495,7 +519,8 @@ export default function UsersManagement() {
                   type="tel"
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="e.g. +234 800 000 0000"
+                  placeholder="e.g. 08012345678 or +2348012345678"
+                  maxLength={18}
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
@@ -554,12 +579,12 @@ export default function UsersManagement() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="edit-username">Username</Label>
+                <Label htmlFor="edit-username">Full Name</Label>
                 <Input
                   id="edit-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter username"
+                  placeholder="Enter full name"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
@@ -583,7 +608,8 @@ export default function UsersManagement() {
                   type="tel"
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="e.g. +234 800 000 0000"
+                  placeholder="e.g. 08012345678 or +2348012345678"
+                  maxLength={18}
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">

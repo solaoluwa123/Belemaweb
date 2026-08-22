@@ -490,15 +490,23 @@ async function submitDirectResourceAction({ resourceType, payload, requestedBy }
         institution: institutionCode,
         firstname,
         surname,
-        phone_number: payload.mobile || "",
-        email_address: payload.email,
+        phone_number: String(payload.mobile || "")
+          .trim()
+          .replace(/[^\d+]/g, "")
+          .replace(/(?!^)\+/g, "")
+          .slice(0, 14),
+        email_address: String(payload.email || "").trim().toLowerCase(),
         security: password,
 
         // Compatibility fields — harmless duplicates the older shape sent. The
         // backend ignores any field it doesn't read off `UserModel`, so leaving
         // them in keeps logs/diagnostics easier to correlate.
         fullName: payload.fullName,
-        mobile: payload.mobile || "",
+        mobile: String(payload.mobile || "")
+          .trim()
+          .replace(/[^\d+]/g, "")
+          .replace(/(?!^)\+/g, "")
+          .slice(0, 14),
         institutionCode,
         financial_institution_code: institutionCode,
       };
