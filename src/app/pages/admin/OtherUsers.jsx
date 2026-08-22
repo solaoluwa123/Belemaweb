@@ -158,6 +158,7 @@ export default function OtherUsers() {
     const q = searchQuery.trim().toLowerCase();
     return list.filter(
       (u) =>
+        (u.fullName && u.fullName.toLowerCase().includes(q)) ||
         (u.username && u.username.toLowerCase().includes(q)) ||
         (u.email && u.email.toLowerCase().includes(q)) ||
         (u.phone && String(u.phone).toLowerCase().includes(q)) ||
@@ -169,7 +170,7 @@ export default function OtherUsers() {
 
   const columns = [
     {
-      key: "username",
+      key: "fullName",
       label: "Full Name",
       sortable: true,
       render: (value) => titleCaseName(value) || "—",
@@ -193,7 +194,7 @@ export default function OtherUsers() {
     if (row?.isPendingCreate || row?.pendingAction) return;
     setEditingUser(row);
     setForm({
-      username: titleCaseName(row.username),
+      username: titleCaseName(row.fullName || row.username),
       email: row.email,
       phone: toLocalPhoneDigits(row.phone),
       roleName: row.roleName,
@@ -384,7 +385,7 @@ export default function OtherUsers() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by username, email, role or institution..."
+            placeholder="Search by full name, email, role or institution..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -596,7 +597,7 @@ export default function OtherUsers() {
             <DialogTitle>Delete user</DialogTitle>
           </DialogHeader>
           <p className="py-2 text-gray-600">
-            Are you sure you want to delete <strong>{userToDelete?.username}</strong> ({userToDelete?.email})? This action cannot be undone.
+            Are you sure you want to delete <strong>{userToDelete?.fullName || userToDelete?.username}</strong> ({userToDelete?.email})? This action cannot be undone.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserToDelete(null)}>Cancel</Button>

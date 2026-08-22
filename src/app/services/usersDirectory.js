@@ -103,19 +103,45 @@ function normalizeRoleName(raw, fallback = "") {
  */
 export function mapDirectoryUser(row, index = 0) {
   const source = row && typeof row === "object" ? row : {};
-  const first = String(firstDefined(source.firstname, source.firstName, "") || "").trim();
-  const last = String(firstDefined(source.surname, source.lastName, "") || "").trim();
+  const cleanPart = (v) => {
+    const s = String(v || "").trim();
+    return !s || s === "." ? "" : s;
+  };
+  const first = cleanPart(firstDefined(source.firstname, source.firstName, ""));
+  const last = cleanPart(firstDefined(source.surname, source.lastName, ""));
   const combinedName = [first, last].filter(Boolean).join(" ").trim();
-  const username = String(
-    firstDefined(source.username, combinedName, source.email_address, source.email, `user_${index}`),
-  ).trim();
+  const rawUsername = String(firstDefined(source.username, "") || "").trim();
+  const email = String(firstDefined(source.email_address, source.email, "")).trim().toLowerCase();
+
+  const looksLikeEmail = (value) => {
+    const t = String(value || "").trim().toLowerCase();
+    if (!t) return false;
+    return t.includes("@") || (email && t === email);
+  };
+
+  // Prefer firstname + surname for display; many legacy rows store email in `username`.
+  let fullName = "";
+  if (combinedName && !looksLikeEmail(combinedName)) {
+    fullName = combinedName;
+  } else if (rawUsername && !looksLikeEmail(rawUsername)) {
+    fullName = rawUsername;
+  } else if (combinedName) {
+    fullName = combinedName;
+  } else {
+    fullName = rawUsername || email || `user_${index}`;
+  }
+
+  const username = rawUsername || email || `user_${index}`;
   const roleIdCandidate = firstDefined(source.roleid, source.roleId, typeof source.role === "number" ? source.role : null);
   const roleId = roleIdCandidate != null && Number.isFinite(Number(roleIdCandidate)) ? Number(roleIdCandidate) : null;
 
   return {
     id: String(firstDefined(source.id, source.userId, `USR${index + 1}`)),
     username,
-    email: String(firstDefined(source.email_address, source.email, "")).trim().toLowerCase(),
+    fullName,
+    firstname: first,
+    surname: last,
+    email,
     phone: String(firstDefined(source.phone_number, source.phone, "")).trim(),
     roleId,
     roleName: normalizeRoleName(
