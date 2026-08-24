@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Plus, Edit, Trash2, ArrowLeft, Loader2, RefreshCcw, ShieldOff } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Loader2, RefreshCcw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
 import { CHANGE_RESOURCE_TYPES, submitChangeRequest } from "../../services/changeRequests";
@@ -406,7 +406,7 @@ export default function InstitutionContacts() {
                         aria-label={`Reset 2FA for ${row.fullName}`}
                         title="Reset 2FA"
                       >
-                        <ShieldOff className="w-4 h-4" />
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
                       </Button>
                       {adminUser ? (
                         <Button

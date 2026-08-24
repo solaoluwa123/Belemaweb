@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Plus, Edit, Trash2, Search, ShieldOff } from "lucide-react";
+import { Plus, Edit, Trash2, Search, ShieldCheck } from "lucide-react";
 import { Navigate } from "react-router";
 import { ensureSystemUsersLoaded, getSystemUsers, SYSTEM_ROLES } from "../../store/systemUsersStore";
 import { useAuth } from "../../context/AuthContext";
@@ -355,7 +355,7 @@ export default function UsersManagement() {
           aria-label="Reset 2FA"
           title="Reset 2FA"
         >
-          <ShieldOff className="w-4 h-4" />
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
         </Button>
         {allowDelete ? (
           <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeleteUser(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
