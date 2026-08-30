@@ -1,6 +1,10 @@
 import { cn } from "../ui/utils";
 import { useBrand } from "../../../branding/useBrand";
 
+/**
+ * Brand logo / wordmark. `variant="light"` for dark surfaces; `variant="dark"` for light surfaces.
+ * Official PNGs ship on black — `blendBlack` uses screen blend to drop the matte.
+ */
 export function ETranzactWordmark({
   className,
   iconClassName,
@@ -8,8 +12,21 @@ export function ETranzactWordmark({
   subtitle,
   showSubtitle = false,
   compact = false,
+  /** @type {"light" | "dark"} */
+  variant = "dark",
+  markOnly = false,
+  blendBlack = true,
 }) {
   const { brand } = useBrand();
+  const logos = brand.logos ?? {};
+
+  const src = markOnly
+    ? variant === "light"
+      ? logos.iconLight ?? logos.icon
+      : logos.iconDark ?? logos.icon
+    : variant === "light"
+      ? logos.wordmarkLight ?? logos.wordmark
+      : logos.wordmarkDark ?? logos.wordmark;
 
   return (
     <div
@@ -21,13 +38,18 @@ export function ETranzactWordmark({
       )}
     >
       <img
-        src={brand.logos.wordmark}
-        alt={brand.logos.alt || brand.displayName}
-        className={cn("h-[1em] w-auto object-contain", compact && "h-[0.95em]", iconClassName)}
+        src={src}
+        alt={logos.alt || brand.displayName}
+        className={cn(
+          "h-[1em] w-auto max-w-full object-contain object-left",
+          compact && "h-[0.95em]",
+          blendBlack && "mix-blend-screen",
+          iconClassName,
+        )}
       />
       {showSubtitle ? (
         <p className="mt-1 text-xs font-medium uppercase tracking-[0.22em] text-sidebar-accent-foreground">
-          {subtitle || brand.displayName}
+          {subtitle || brand.productText?.shellSubtitle || brand.tagline}
         </p>
       ) : null}
     </div>

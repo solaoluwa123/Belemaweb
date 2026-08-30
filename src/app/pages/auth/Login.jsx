@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { FaEye, FaEyeSlash, FaLeaf, FaLock, FaGoogle, FaLinkedin, FaFacebook } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaLock, FaGoogle, FaLinkedin, FaFacebook } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { detectSuspiciousPatterns, rateLimiter, sanitizeInput } from "../../utils/security";
 import { ETranzactWordmark } from "../../components/branding/ETranzactWordmark";
-import { LoginFinanceHero } from "../../components/branding/LoginFinanceHero";
+import { BrandPattern } from "../../components/branding/BrandPattern";
 import { useBrand } from "../../../branding/useBrand";
 import { readLocalStorage, removeLocalStorage, setLocalStorage, STORAGE_KEY_NAMES } from "../../config/storage";
 
@@ -102,11 +102,20 @@ export default function Login() {
     >
       <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl md:flex-row">
         <div
-          className="flex min-h-[220px] flex-col items-center justify-center md:w-1/2 md:rounded-br-none md:rounded-tr-[120px]"
+          className="relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden md:w-1/2 md:rounded-br-none md:rounded-tr-[120px]"
           style={{ backgroundColor: brand.theme.loginHero || brand.theme.sidebar }}
         >
-          <div className="px-5 sm:px-8">
-            <LoginFinanceHero className="w-[220px] sm:w-[260px] md:w-[360px]" />
+          <BrandPattern opacity={0.2} />
+          <div className="relative z-10 px-6 py-10 sm:px-10">
+            <ETranzactWordmark
+              markOnly
+              variant="light"
+              className="mx-auto"
+              textClassName="text-[7rem] sm:text-[9rem] md:text-[11rem]"
+            />
+            <p className="mt-4 max-w-xs text-center text-sm italic text-[#CEF445]/90 sm:text-base">
+              {brand.tagline}
+            </p>
           </div>
         </div>
 
@@ -116,18 +125,12 @@ export default function Login() {
             backgroundImage: `linear-gradient(to bottom right, ${brand.theme.authPanelFrom}, ${brand.theme.authPanelVia}, ${brand.theme.authPanelTo})`,
           }}
         >
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <FaLeaf className="absolute left-4 top-8 text-3xl rotate-[-18deg] sm:left-8 sm:top-10 sm:text-5xl" style={{ color: brand.theme.leafPrimary }} />
-            <FaLeaf className="absolute right-4 top-12 text-3xl rotate-[22deg] sm:right-8 sm:top-16 sm:text-4xl" style={{ color: brand.theme.leafSecondary }} />
-            <FaLeaf className="absolute left-5 bottom-16 text-4xl rotate-[16deg] sm:left-10 sm:bottom-20 sm:text-6xl" style={{ color: brand.theme.leafTertiary }} />
-            <FaLeaf className="absolute right-6 bottom-8 text-4xl rotate-[-24deg] sm:right-14 sm:bottom-12 sm:text-5xl" style={{ color: brand.theme.leafPrimary }} />
-            <FaLeaf className="absolute left-1/2 top-1/3 hidden text-4xl rotate-[38deg] sm:block" style={{ color: brand.theme.leafTertiary }} />
-            <FaLeaf className="absolute right-1/3 bottom-1/3 hidden text-3xl rotate-[-10deg] sm:block" style={{ color: brand.theme.leafSecondary }} />
-          </div>
+          <BrandPattern opacity={0.08} />
 
           <ETranzactWordmark
-            className="relative z-10"
-            textClassName="h-[78px] w-[120px] text-[1.6rem] sm:h-[100px] sm:w-[150px] sm:text-[2.3rem]"
+            variant="dark"
+            className="relative z-10 w-full max-w-[300px] sm:max-w-[360px]"
+            textClassName="text-[1.75rem] sm:text-[2.15rem]"
           />
 
           <div className="relative z-10 mt-4 flex w-full max-w-sm flex-col items-center sm:mt-5">

@@ -1,4 +1,8 @@
-import wordmark from "../../../assets/balema_logo.png";
+import logoLight from "../../../assets/belema/logo-light.png";
+import logoDark from "../../../assets/belema/logo-dark.png";
+import logoMarkLight from "../../../assets/belema/logo-mark-light.png";
+import logoMarkDark from "../../../assets/belema/logo-mark-dark.png";
+import pattern from "../../../assets/belema/pattern.png";
 
 /** @deprecated Prefer `belema` brand. Kept so older `?brand=etranzact` / localStorage still show Belema. */
 export const etranzactBrand = {
@@ -10,11 +14,17 @@ export const etranzactBrand = {
     documentTitle: "Belema Financial Technology Limited",
   },
   logos: {
-    wordmark,
-    icon: wordmark,
-    alt: "Belema Financial Technology Limited",
+    wordmark: logoDark,
+    wordmarkDark: logoDark,
+    wordmarkLight: logoLight,
+    icon: logoMarkDark,
+    iconDark: logoMarkDark,
+    iconLight: logoMarkLight,
+    alt: "BelemaFintech",
   },
-  images: {},
+  images: {
+    pattern,
+  },
   routes: {
     accountsDashboard: "/dashboard/accounts",
     liveMonitoring: "/dashboard/live-monitoring",

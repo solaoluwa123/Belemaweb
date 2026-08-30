@@ -30,8 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { FaLeaf } from "react-icons/fa";
 import { ETranzactWordmark } from "../branding/ETranzactWordmark";
+import { BrandPattern } from "../branding/BrandPattern";
 import { useBrand } from "../../../branding/useBrand";
 import { getVendorNavItems, isVendorAllowedPath } from "../../utils/transgateMenu";
 
@@ -286,22 +286,15 @@ export default function AppLayout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <FaLeaf className="absolute left-3 top-16 text-5xl rotate-[-18deg]" style={{ color: brand.theme.leafPrimary }} />
-          <FaLeaf className="absolute right-4 top-28 text-4xl rotate-[28deg]" style={{ color: brand.theme.leafSecondary }} />
-          <FaLeaf className="absolute left-6 top-1/2 text-6xl rotate-[14deg]" style={{ color: brand.theme.leafTertiary }} />
-          <FaLeaf className="absolute right-3 bottom-28 text-5xl rotate-[-20deg]" style={{ color: brand.theme.leafPrimary }} />
-          <FaLeaf className="absolute left-8 bottom-10 text-4xl rotate-[36deg]" style={{ color: brand.theme.leafSecondary }} />
-        </div>
+        <BrandPattern opacity={0.16} />
 
         <div className="relative z-10 border-b border-sidebar-border p-4">
           <div className="flex items-start justify-between gap-2">
             <ETranzactWordmark
               compact
-              showSubtitle
-              subtitle={brand.productText.shellSubtitle}
+              variant="light"
               className="text-sidebar-foreground min-w-0 flex-1"
-              textClassName="text-[1.8rem] text-sidebar-accent-foreground"
+              textClassName="text-[1.35rem] sm:text-[1.5rem]"
             />
             <Button
               type="button"
@@ -577,7 +570,7 @@ export default function AppLayout() {
               <span className="w-10 shrink-0" aria-hidden />
             )}
             <div className="min-w-0">
-              <ETranzactWordmark compact textClassName="text-[1.25rem] sm:text-[1.6rem]" />
+              <ETranzactWordmark compact variant="dark" textClassName="text-[1.1rem] sm:text-[1.35rem]" />
             </div>
           </div>
 

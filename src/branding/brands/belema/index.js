@@ -1,19 +1,32 @@
-import wordmark from "../../../assets/balema_logo.png";
+import logoLight from "../../../assets/belema/logo-light.png";
+import logoDark from "../../../assets/belema/logo-dark.png";
+import logoMarkLight from "../../../assets/belema/logo-mark-light.png";
+import logoMarkDark from "../../../assets/belema/logo-mark-dark.png";
+import pattern from "../../../assets/belema/pattern.png";
 
 export const belemaBrand = {
   id: "belema",
-  displayName: "Belema Financial Technology Limited",
+  displayName: "BelemaFintech",
   shortName: "Belema",
-  tagline: "Switching Platform",
+  tagline: "...promoting financial Inclusion...",
   meta: {
-    documentTitle: "Belema Financial Technology Limited",
+    documentTitle: "BelemaFintech — Switching Platform",
   },
   logos: {
-    wordmark,
-    icon: wordmark,
-    alt: "Belema Financial Technology Limited",
+    /** Full wordmark on light surfaces (dark green type). */
+    wordmark: logoDark,
+    wordmarkDark: logoDark,
+    /** Full wordmark on dark surfaces (lime type). */
+    wordmarkLight: logoLight,
+    /** Icon-only marks. */
+    icon: logoMarkDark,
+    iconDark: logoMarkDark,
+    iconLight: logoMarkLight,
+    alt: "BelemaFintech",
   },
-  images: {},
+  images: {
+    pattern,
+  },
   routes: {
     accountsDashboard: "/dashboard/accounts",
     liveMonitoring: "/dashboard/live-monitoring",
