@@ -3,7 +3,7 @@ import { useBrand } from "../../../branding/useBrand";
 
 /**
  * Brand logo / wordmark. `variant="light"` for dark surfaces; `variant="dark"` for light surfaces.
- * Official PNGs ship on black — `blendBlack` uses screen blend to drop the matte.
+ * Official PNGs ship on black — use `surface="dark"` (screen blend) on dark panels; `surface="light"` on white headers.
  */
 export function ETranzactWordmark({
   className,
@@ -14,11 +14,14 @@ export function ETranzactWordmark({
   compact = false,
   /** @type {"light" | "dark"} */
   variant = "dark",
+  /** @type {"light" | "dark"} Background the logo sits on — controls matte removal blend. */
+  surface = "dark",
   markOnly = false,
-  blendBlack = true,
+  blendBlack,
 }) {
   const { brand } = useBrand();
   const logos = brand.logos ?? {};
+  const useBlend = blendBlack ?? surface === "dark";
 
   const src = markOnly
     ? variant === "light"
@@ -27,6 +30,12 @@ export function ETranzactWordmark({
     : variant === "light"
       ? logos.wordmarkLight ?? logos.wordmark
       : logos.wordmarkDark ?? logos.wordmark;
+
+  const blendClass = useBlend
+    ? "mix-blend-screen"
+    : surface === "light"
+      ? "mix-blend-multiply"
+      : "";
 
   return (
     <div
@@ -43,7 +52,7 @@ export function ETranzactWordmark({
         className={cn(
           "h-[1em] w-auto max-w-full object-contain object-left",
           compact && "h-[0.95em]",
-          blendBlack && "mix-blend-screen",
+          blendClass,
           iconClassName,
         )}
       />

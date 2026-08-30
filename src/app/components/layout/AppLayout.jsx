@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { ETranzactWordmark } from "../branding/ETranzactWordmark";
+import { BrandHeaderLockup } from "../branding/BrandHeaderLockup";
 import { BrandPattern } from "../branding/BrandPattern";
 import { useBrand } from "../../../branding/useBrand";
 import { getVendorNavItems, isVendorAllowedPath } from "../../utils/transgateMenu";
@@ -569,9 +570,7 @@ export default function AppLayout() {
             ) : (
               <span className="w-10 shrink-0" aria-hidden />
             )}
-            <div className="min-w-0">
-              <ETranzactWordmark compact variant="dark" textClassName="text-[1.1rem] sm:text-[1.35rem]" />
-            </div>
+            <BrandHeaderLockup className="min-w-0 flex-1 sm:flex-none" />
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-4">
