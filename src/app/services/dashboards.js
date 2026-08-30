@@ -129,34 +129,85 @@ function endOfLocalDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 0);
 }
 
-/**
- * Dashboard metrics and charts are scoped to the selected calendar day only.
- * If that day has no transactions, the UI shows an empty state instead of zeros.
- * `isCurrent` tells the API to read live vs archive tables for that day window.
- */
-function buildDateRangeParams(date) {
-  if (!date) return {};
-  const selectedDate = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(selectedDate.getTime())) return {};
+/** Dashboard auto-refresh interval when the selected range includes today. */
+export const DASHBOARD_AUTO_REFRESH_MS = 30_000;
 
-  const day = startOfLocalDay(selectedDate);
+/** Normalize and order a dashboard date range (local calendar days). */
+export function normalizeDashboardDateRange(range) {
+  const fallback = startOfLocalDay(new Date());
+  const rawStart = range?.start instanceof Date ? range.start : range?.start ? new Date(range.start) : fallback;
+  const rawEnd = range?.end instanceof Date ? range.end : range?.end ? new Date(range.end) : rawStart;
+  let start = startOfLocalDay(rawStart);
+  let end = startOfLocalDay(rawEnd);
+  if (Number.isNaN(start.getTime())) start = fallback;
+  if (Number.isNaN(end.getTime())) end = start;
+  if (start.getTime() > end.getTime()) {
+    const swap = start;
+    start = end;
+    end = swap;
+  }
+  return { start, end };
+}
+
+export function formatDashboardRangeLabel(range) {
+  const { start, end } = normalizeDashboardDateRange(range);
+  if (start.getTime() === end.getTime()) {
+    return start.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startFmt = start.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: sameYear ? undefined : "numeric",
+  });
+  const endFmt = end.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${startFmt} – ${endFmt}`;
+}
+
+/** True when the range includes any part of today (local time). */
+export function dashboardRangeIncludesToday(range) {
+  const { start, end } = normalizeDashboardDateRange(range);
   const today = startOfLocalDay(new Date());
-  const isToday =
-    day.getFullYear() === today.getFullYear() &&
-    day.getMonth() === today.getMonth() &&
-    day.getDate() === today.getDate();
+  const todayEnd = endOfLocalDay(new Date());
+  return start.getTime() <= todayEnd.getTime() && end.getTime() >= today.getTime();
+}
+
+/**
+ * Dashboard metrics and charts for a selected date range (defaults to one day).
+ * `isCurrent` tells the API to read live vs archive tables when the range includes today.
+ */
+function buildDateRangeParams(dateOrRange) {
+  if (!dateOrRange) return {};
+
+  let start;
+  let end;
+
+  if (typeof dateOrRange === "object" && !(dateOrRange instanceof Date) && (dateOrRange.start || dateOrRange.end)) {
+    ({ start, end } = normalizeDashboardDateRange(dateOrRange));
+    end = endOfLocalDay(end);
+    start = startOfLocalDay(start);
+  } else {
+    const selectedDate = dateOrRange instanceof Date ? dateOrRange : new Date(dateOrRange);
+    if (Number.isNaN(selectedDate.getTime())) return {};
+    start = startOfLocalDay(selectedDate);
+    end = endOfLocalDay(selectedDate);
+  }
 
   return {
-    startDate: formatDashboardRangeDateParam(day),
-    endDate: formatDashboardRangeDateParam(endOfLocalDay(day)),
-    isCurrent: isToday ? "true" : "false",
+    startDate: formatDashboardRangeDateParam(start),
+    endDate: formatDashboardRangeDateParam(end),
+    isCurrent: dashboardRangeIncludesToday({ start, end }) ? "true" : "false",
   };
 }
 
-/** Same selected-day window as `buildDateRangeParams`, as `Date` objects for `/transactions/q/search`. */
-function getDashboardRangeAsDates(date) {
-  if (!date) return null;
-  const selectedDate = date instanceof Date ? date : new Date(date);
+/** Selected range as `Date` objects for `/transactions/q/search`. */
+function getDashboardRangeAsDates(dateOrRange) {
+  if (!dateOrRange) return null;
+  if (typeof dateOrRange === "object" && !(dateOrRange instanceof Date) && (dateOrRange.start || dateOrRange.end)) {
+    const { start, end } = normalizeDashboardDateRange(dateOrRange);
+    return { start: startOfLocalDay(start), end: endOfLocalDay(end) };
+  }
+  const selectedDate = dateOrRange instanceof Date ? dateOrRange : new Date(dateOrRange);
   if (Number.isNaN(selectedDate.getTime())) return null;
   const day = startOfLocalDay(selectedDate);
   return { start: day, end: endOfLocalDay(day) };
@@ -741,6 +792,25 @@ function buildLiveMonitoringDateRange() {
   };
 }
 
+function buildSuccessFailurePie(summary) {
+  const total = Number(summary?.totalTransactions ?? 0);
+  const success = Number(summary?.successCount ?? 0);
+  if (total <= 0) return [];
+  const failed = Math.max(0, total - success);
+  if (success === 0 && failed === 0) return [];
+  return [
+    { name: "Successful", value: success },
+    { name: "Failed / Other", value: failed },
+  ].filter((row) => row.value > 0);
+}
+
+function buildChannelPieRows(channelRows) {
+  if (!Array.isArray(channelRows) || !channelRows.length) return [];
+  return channelRows
+    .map((row) => ({ name: row.channel, value: Number(row.count) || 0 }))
+    .filter((row) => row.name && row.value > 0);
+}
+
 async function fetchOrNull(endpoint, params) {
   try {
     return await apiClient.get(endpoint, params);
@@ -800,12 +870,18 @@ async function fetchTransactionsForDashboardFallback(scope, dateParams) {
   }
 }
 
-export async function fetchAccountsDashboardData({ institutionCode, date, requireInstitutionScope = false } = {}) {
+export async function fetchAccountsDashboardData({
+  institutionCode,
+  date,
+  dateRange,
+  requireInstitutionScope = false,
+} = {}) {
   const scope = institutionCodeForDashboardScope(institutionCode);
   if (requireInstitutionScope && !scope) {
     throw new Error("Institution code is required to load dashboard data.");
   }
-  const dateParams = buildDateRangeParams(date);
+  const resolvedRange = dateRange ?? (date ? { start: date, end: date } : null);
+  const dateParams = buildDateRangeParams(resolvedRange);
   const pagedDateParams = withPagination(dateParams);
   const averageTimeParams = {
     ...dateParams,
@@ -906,10 +982,9 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
     const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
     let successVolumes7d = normalizeSuccessVolumes(successPayload, byDatePayload || byDateOnlyPayload);
     if ((!successVolumes7d || successVolumes7d.length < 1) && byDateMeta?.successCount > 0) {
-      const label =
-        date instanceof Date && !Number.isNaN(date.getTime())
-          ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
-          : "Today";
+      const label = resolvedRange
+        ? formatDashboardRangeLabel(resolvedRange)
+        : "Selected range";
       successVolumes7d = [{ date: label, volume: byDateMeta.successCount }];
     }
     const transactionsByChannel = normalizeChannelRows(channelsPayload);
@@ -928,12 +1003,14 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
       transactionsByChannel: hasTransactions ? transactionsByChannel : [],
       failureByInstitution: [],
       averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
+      successFailurePie: hasTransactions ? buildSuccessFailurePie(summary) : [],
+      channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
       rawSummary: summary,
     };
   }
 
   const txnSearchPromise = (async () => {
-    const range = getDashboardRangeAsDates(date);
+    const range = getDashboardRangeAsDates(resolvedRange);
     if (!range) return { rows: [], metaAgg: null };
     try {
       return await fetchTransactionSearchRaw(
@@ -1045,17 +1122,20 @@ export async function fetchAccountsDashboardData({ institutionCode, date, requir
     transactionsByChannel: hasTransactions ? transactionsByChannel : [],
     failureByInstitution: hasTransactions ? failureByInstitution : [],
     averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
+    successFailurePie: hasTransactions ? buildSuccessFailurePie(summary) : [],
+    channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
     rawSummary: summary,
   };
 }
 
-export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, date } = {}) {
+export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, date, dateRange } = {}) {
   const scope = institutionCodeForDashboardScope(institutionCode);
   if (!scope) return [];
 
+  const resolvedRange = dateRange ?? (date ? { start: date, end: date } : null);
   const payload = await fetchOrNull(
     API_ENDPOINTS.dashboards.topFailedResponseCodesByInstitution(scope),
-    withPagination(buildDateRangeParams(date))
+    withPagination(buildDateRangeParams(resolvedRange))
   );
 
   return normalizeResponseCodes(normalizeFailedCodes(payload));

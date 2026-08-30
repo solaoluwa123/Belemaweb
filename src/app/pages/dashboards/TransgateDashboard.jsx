@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { StatisticsSection } from "../../components/dashboard/StatisticsSection";
@@ -12,71 +12,96 @@ import {
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
-import { Calendar, CALENDAR_YEAR_MIN, CALENDAR_YEAR_MAX } from "../../components/ui/calendar";
-import { format } from "date-fns";
 import {
   ArrowLeftRight,
   Banknote,
   CheckCircle,
   Filter,
-  CalendarIcon,
   Loader2,
   RefreshCcw,
+  Radio,
 } from "lucide-react";
 import { Card, CardContent } from "../../components/ui/card";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
-import { fetchAccountsDashboardData } from "../../services/dashboards";
+import {
+  DASHBOARD_AUTO_REFRESH_MS,
+  dashboardRangeIncludesToday,
+  fetchAccountsDashboardData,
+  formatDashboardRangeLabel,
+  normalizeDashboardDateRange,
+} from "../../services/dashboards";
 import { APIError } from "../../services/api";
+import {
+  DashboardDateRangePicker,
+  dashboardRangeSummary,
+} from "../../components/dashboard/DashboardDateRangePicker";
 
-/** Default to today so the dashboard loads the current calendar day. */
-const DEFAULT_STATS_DATE = (() => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-})();
+const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
+  start: new Date(),
+  end: new Date(),
+});
 
 export default function TransgateDashboard() {
   const { user, isAdmin, isThirdPartyVendor } = useAuth();
   const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "" : "all";
   const { brand } = useBrand();
-  const [statsDate, setStatsDate] = useState(() => DEFAULT_STATS_DATE);
+  const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [modalInstitution, setModalInstitution] = useState("all");
-  const [modalDate, setModalDate] = useState(() => DEFAULT_STATS_DATE);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [modalDateRange, setModalDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsData, setStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const loadSeq = useRef(0);
 
-  const loadDashboard = async () => {
-    setIsLoading(true);
-    setErrorMessage("");
+  const loadDashboard = useCallback(
+    async ({ silent = false } = {}) => {
+      const seq = ++loadSeq.current;
+      if (silent) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setErrorMessage("");
 
-    try {
-      const data = await fetchAccountsDashboardData({
-        institutionCode:
-          isThirdPartyVendor()
-            ? user?.institutionCode || null
-            : statsInstitution !== "all"
-              ? statsInstitution
-              : !isAdmin()
-                ? user?.institutionCode || null
-                : null,
-        date: statsDate,
-        requireInstitutionScope: isThirdPartyVendor(),
-      });
-      setStatsData(data);
-    } catch (error) {
-      const message = error instanceof APIError ? error.message : "Unable to load dashboard data.";
-      setStatsData(null);
-      setErrorMessage(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const data = await fetchAccountsDashboardData({
+          institutionCode:
+            isThirdPartyVendor()
+              ? user?.institutionCode || null
+              : statsInstitution !== "all"
+                ? statsInstitution
+                : !isAdmin()
+                  ? user?.institutionCode || null
+                  : null,
+          dateRange: statsDateRange,
+          requireInstitutionScope: isThirdPartyVendor(),
+        });
+        if (seq !== loadSeq.current) return;
+        setStatsData(data);
+        setLastUpdatedAt(new Date());
+      } catch (error) {
+        if (seq !== loadSeq.current) return;
+        const message = error instanceof APIError ? error.message : "Unable to load dashboard data.";
+        if (!silent) {
+          setStatsData(null);
+        }
+        setErrorMessage(message);
+      } finally {
+        if (seq !== loadSeq.current) return;
+        if (silent) {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
+      }
+    },
+    [statsInstitution, statsDateRange, user?.institutionCode, user?.roleId, isThirdPartyVendor, isAdmin],
+  );
 
   useEffect(() => {
     if (isThirdPartyVendor() && user?.institutionCode) {
@@ -93,7 +118,17 @@ export default function TransgateDashboard() {
       return;
     }
     loadDashboard();
-  }, [statsInstitution, statsDate, user?.institutionCode, user?.roleId]);
+  }, [statsInstitution, statsDateRange, user?.institutionCode, user?.roleId, loadDashboard]);
+
+  const isLiveRange = dashboardRangeIncludesToday(statsDateRange);
+
+  useEffect(() => {
+    if (!isLiveRange || (isThirdPartyVendor() && !user?.institutionCode)) return undefined;
+    const timer = window.setInterval(() => {
+      loadDashboard({ silent: true });
+    }, DASHBOARD_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [isLiveRange, loadDashboard, user?.institutionCode, user?.roleId]);
 
   const institutionFilterLabel = useMemo(() => {
     if (isThirdPartyVendor()) {
@@ -123,13 +158,13 @@ export default function TransgateDashboard() {
 
   const openFilters = () => {
     setModalInstitution(statsInstitution);
-    setModalDate(statsDate);
+    setModalDateRange(statsDateRange);
     setFiltersOpen(true);
   };
 
   const applyFilters = () => {
     setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "" : modalInstitution);
-    setStatsDate(modalDate);
+    setStatsDateRange(normalizeDashboardDateRange(modalDateRange));
     setFiltersOpen(false);
   };
 
@@ -138,9 +173,8 @@ export default function TransgateDashboard() {
       setModalInstitution("all");
       setStatsInstitution("all");
     }
-    setModalDate(DEFAULT_STATS_DATE);
-    setModalInstitution(isThirdPartyVendor() ? user?.institutionCode || "all" : "all");
-    setStatsDate(DEFAULT_STATS_DATE);
+    setModalDateRange(DEFAULT_STATS_RANGE);
+    setStatsDateRange(DEFAULT_STATS_RANGE);
     setFiltersOpen(false);
   };
 
@@ -152,21 +186,31 @@ export default function TransgateDashboard() {
           <p className="mt-1 text-gray-500">{brand.productText.accountsDashboardDescription}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <Button variant="outline" onClick={loadDashboard} disabled={isLoading} className="gap-2">
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+          {isLiveRange ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-3 py-1.5 text-xs font-medium text-[#00411A]">
+              <Radio className={`h-3.5 w-3.5 ${isRefreshing ? "animate-pulse" : ""}`} aria-hidden />
+              Live — refreshes every {DASHBOARD_AUTO_REFRESH_MS / 1000}s
+            </div>
+          ) : null}
+          {lastUpdatedAt ? (
+            <p className="text-xs text-gray-500">
+              Updated {lastUpdatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </p>
+          ) : null}
+          <Button variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2">
+            {isLoading || isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
             Refresh
           </Button>
         </div>
       </div>
 
-      {/* Filters: button opens modal */}
       <Card className="border-gray-200">
         <CardContent className="py-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <p className="text-sm text-gray-600">
-              Filter dashboard by institution and date. Current:{" "}
+              Filter dashboard by institution and date range. Current:{" "}
               <span className="font-medium text-gray-900">
-                {institutionFilterLabel} • {format(statsDate, "MMM d, yyyy")}
+                {institutionFilterLabel} • {dashboardRangeSummary(statsDateRange)}
               </span>
             </p>
             <Button onClick={openFilters} variant="outline" className="gap-2">
@@ -204,38 +248,11 @@ export default function TransgateDashboard() {
                 Institution: <span className="font-medium">{user?.institutionName || vendorLockedInstitution}</span>
               </p>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="filter-date">Date</Label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    id="filter-date"
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {modalDate ? format(modalDate, "MMMM d, yyyy") : "Pick date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-                  <Calendar
-                    mode="single"
-                    selected={modalDate}
-                    onSelect={(d) => {
-                      if (d instanceof Date && !isNaN(d.getTime())) {
-                        setModalDate(d);
-                        setDatePickerOpen(false);
-                      }
-                    }}
-                    defaultMonth={modalDate}
-                    captionLayout="dropdown"
-                    fromYear={CALENDAR_YEAR_MIN}
-                    toYear={CALENDAR_YEAR_MAX}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            <DashboardDateRangePicker
+              id="filter-date-range"
+              value={modalDateRange}
+              onChange={setModalDateRange}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={clearFilters}>
@@ -263,10 +280,10 @@ export default function TransgateDashboard() {
         <Card className="border-gray-200">
           <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
             <ArrowLeftRight className="h-10 w-10 text-gray-300" />
-            <p className="text-base font-medium text-gray-900">No transactions for this day</p>
+            <p className="text-base font-medium text-gray-900">No transactions for this period</p>
             <p className="max-w-md text-sm text-gray-600">
-              Nothing to show for {format(statsDate, "MMMM d, yyyy")}
-              {statsInstitution !== "all" ? ` (${institutionFilterLabel})` : ""}. Pick another date or institution.
+              Nothing to show for {formatDashboardRangeLabel(statsDateRange)}
+              {statsInstitution !== "all" ? ` (${institutionFilterLabel})` : ""}. Pick another range or institution.
             </p>
           </CardContent>
         </Card>
@@ -274,7 +291,6 @@ export default function TransgateDashboard() {
 
       {showDashboardBody ? (
         <>
-          {/* Metrics – driven by Statistics section bank/date filters */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <MetricCard
               title="Transaction Volume"
@@ -298,8 +314,8 @@ export default function TransgateDashboard() {
           </div>
 
           <StatisticsSection
-            statsDate={statsDate}
-            onDateChange={setStatsDate}
+            statsDateRange={statsDateRange}
+            onDateRangeChange={setStatsDateRange}
             statsInstitution={isThirdPartyVendor() ? vendorLockedInstitution : statsInstitution}
             onInstitutionChange={setStatsInstitution}
             statsData={statsData}
@@ -307,6 +323,7 @@ export default function TransgateDashboard() {
             errorMessage={errorMessage}
             lockInstitution={isThirdPartyVendor()}
             institutionDisplayName={isThirdPartyVendor() ? user?.institutionName || user?.institutionCode : undefined}
+            isLiveRange={isLiveRange}
           />
         </>
       ) : null}
