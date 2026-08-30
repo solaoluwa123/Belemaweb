@@ -2,13 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { StatisticsSection } from "../../components/dashboard/StatisticsSection";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -16,7 +9,6 @@ import {
   ArrowLeftRight,
   Banknote,
   CheckCircle,
-  Filter,
   Loader2,
   RefreshCcw,
   Radio,
@@ -32,10 +24,8 @@ import {
   normalizeDashboardDateRange,
 } from "../../services/dashboards";
 import { APIError } from "../../services/api";
-import {
-  DashboardDateRangePicker,
-  dashboardRangeSummary,
-} from "../../components/dashboard/DashboardDateRangePicker";
+import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
+import { DashboardStagger, DashboardStaggerItem } from "../../components/dashboard/DashboardMotion";
 
 const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
   start: new Date(),
@@ -48,9 +38,8 @@ export default function TransgateDashboard() {
   const { brand } = useBrand();
   const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [modalInstitution, setModalInstitution] = useState("all");
-  const [modalDateRange, setModalDateRange] = useState(() => DEFAULT_STATS_RANGE);
+  const [draftInstitution, setDraftInstitution] = useState("all");
+  const [draftDateRange, setDraftDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsData, setStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,9 +95,14 @@ export default function TransgateDashboard() {
   useEffect(() => {
     if (isThirdPartyVendor() && user?.institutionCode) {
       setStatsInstitution(user.institutionCode);
-      setModalInstitution(user.institutionCode);
+      setDraftInstitution(user.institutionCode);
     }
   }, [user?.institutionCode, user?.roleId]);
+
+  useEffect(() => {
+    setDraftInstitution(statsInstitution);
+    setDraftDateRange(statsDateRange);
+  }, [statsInstitution, statsDateRange]);
 
   useEffect(() => {
     if (isThirdPartyVendor() && !user?.institutionCode) {
@@ -134,9 +128,9 @@ export default function TransgateDashboard() {
     if (isThirdPartyVendor()) {
       return user?.institutionName || user?.institutionCode || "—";
     }
-    if (statsInstitution === "all") return "All";
+    if (statsInstitution === "all") return "All institutions";
     return TRANSGATE_BANKS.find((b) => b.id === statsInstitution)?.name ?? statsInstitution;
-  }, [statsInstitution, user?.institutionCode, user?.institutionName, user?.roleId]);
+  }, [statsInstitution, user?.institutionCode, user?.institutionName, isThirdPartyVendor]);
 
   const hasTransactions = Boolean(statsData?.hasTransactions);
   const showDashboardBody = !isLoading && !errorMessage && hasTransactions;
@@ -156,85 +150,82 @@ export default function TransgateDashboard() {
   }, [statsData]);
   const { metrics } = stats;
 
-  const openFilters = () => {
-    setModalInstitution(statsInstitution);
-    setModalDateRange(statsDateRange);
-    setFiltersOpen(true);
-  };
+  const successRateNum = parseFloat(String(metrics.successRate || "").replace("%", ""));
+  const successTrend =
+    Number.isFinite(successRateNum) && successRateNum > 0
+      ? { isPositive: successRateNum >= 50, value: metrics.successRate }
+      : null;
 
   const applyFilters = () => {
-    setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "" : modalInstitution);
-    setStatsDateRange(normalizeDashboardDateRange(modalDateRange));
-    setFiltersOpen(false);
+    setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "" : draftInstitution);
+    setStatsDateRange(normalizeDashboardDateRange(draftDateRange));
   };
 
   const clearFilters = () => {
     if (!isThirdPartyVendor()) {
-      setModalInstitution("all");
+      setDraftInstitution("all");
       setStatsInstitution("all");
     }
-    setModalDateRange(DEFAULT_STATS_RANGE);
+    setDraftDateRange(DEFAULT_STATS_RANGE);
     setStatsDateRange(DEFAULT_STATS_RANGE);
-    setFiltersOpen(false);
   };
 
+  const shellSurface = brand.theme.shellSurface || "#f7faf2";
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div
+      className="-mx-5 -mt-5 min-h-[calc(100vh-4rem)] space-y-6 px-5 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:space-y-8 lg:px-8 lg:py-8"
+      style={{ backgroundColor: shellSurface }}
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{brand.productText.accountsDashboardTitle}</h1>
-          <p className="mt-1 text-gray-500">{brand.productText.accountsDashboardDescription}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {brand.productText.accountsDashboardTitle}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{brand.productText.accountsDashboardDescription}</p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {isLiveRange ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-3 py-1.5 text-xs font-medium text-[#00411A]">
               <Radio className={`h-3.5 w-3.5 ${isRefreshing ? "animate-pulse" : ""}`} aria-hidden />
-              Live — refreshes every {DASHBOARD_AUTO_REFRESH_MS / 1000}s
+              Live — {DASHBOARD_AUTO_REFRESH_MS / 1000}s
             </div>
           ) : null}
           {lastUpdatedAt ? (
-            <p className="text-xs text-gray-500">
-              Updated {lastUpdatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            <p className="text-xs text-muted-foreground">
+              Updated{" "}
+              {lastUpdatedAt.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
             </p>
           ) : null}
-          <Button variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2">
-            {isLoading || isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+          <Button variant="outline" onClick={() => loadDashboard()} disabled={isLoading} className="gap-2 bg-card">
+            {isLoading || isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4" />
+            )}
             Refresh
           </Button>
         </div>
       </div>
 
-      <Card className="border-gray-200">
-        <CardContent className="py-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <p className="text-sm text-gray-600">
-              Filter dashboard by institution and date range. Current:{" "}
-              <span className="font-medium text-gray-900">
-                {institutionFilterLabel} • {dashboardRangeSummary(statsDateRange)}
-              </span>
-            </p>
-            <Button onClick={openFilters} variant="outline" className="gap-2">
-              <Filter className="w-4 h-4" />
-              Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>Dashboard filters</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
+      <Card className="border-[color:var(--border)] bg-card shadow-sm">
+        <CardContent className="py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
             {!isThirdPartyVendor() ? (
-              <div className="space-y-2">
-                <Label htmlFor="filter-institution">Source financial institution</Label>
-                <Select value={modalInstitution} onValueChange={setModalInstitution}>
-                  <SelectTrigger id="filter-institution">
-                    <SelectValue placeholder="All" />
+              <div className="min-w-0 flex-1 space-y-1.5 sm:max-w-xs">
+                <Label htmlFor="toolbar-institution" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Institution
+                </Label>
+                <Select value={draftInstitution} onValueChange={setDraftInstitution}>
+                  <SelectTrigger id="toolbar-institution" className="bg-card">
+                    <SelectValue placeholder="All institutions" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All institutions</SelectItem>
                     {TRANSGATE_BANKS.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
@@ -244,44 +235,54 @@ export default function TransgateDashboard() {
                 </Select>
               </div>
             ) : (
-              <p className="text-sm text-gray-600">
-                Institution: <span className="font-medium">{user?.institutionName || vendorLockedInstitution}</span>
-              </p>
+              <div className="min-w-0 space-y-1">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Institution
+                </Label>
+                <p className="text-sm font-medium text-foreground">{institutionFilterLabel}</p>
+              </div>
             )}
             <DashboardDateRangePicker
-              id="filter-date-range"
-              value={modalDateRange}
-              onChange={setModalDateRange}
+              id="toolbar-date-range"
+              label="Date range"
+              value={draftDateRange}
+              onChange={setDraftDateRange}
+              className="min-w-0 sm:min-w-[240px]"
             />
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={applyFilters} className="min-w-[5.5rem]">
+                Apply
+              </Button>
+              <Button variant="outline" onClick={clearFilters} className="bg-card">
+                Clear
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={clearFilters}>
-              Clear
-            </Button>
-            <Button onClick={applyFilters}>Apply</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Showing <span className="font-medium text-foreground">{institutionFilterLabel}</span>
+            {" · "}
+            <span className="font-medium text-foreground">{formatDashboardRangeLabel(statsDateRange)}</span>
+          </p>
+        </CardContent>
+      </Card>
 
       {errorMessage ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {errorMessage}
-        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>
       ) : null}
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-16 text-sm text-gray-600">
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-card py-16 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading dashboard…
         </div>
       ) : null}
 
       {showEmptyState ? (
-        <Card className="border-gray-200">
+        <Card className="border-[color:var(--border)] bg-card shadow-sm">
           <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <ArrowLeftRight className="h-10 w-10 text-gray-300" />
-            <p className="text-base font-medium text-gray-900">No transactions for this period</p>
-            <p className="max-w-md text-sm text-gray-600">
+            <ArrowLeftRight className="h-10 w-10 text-[#CEF445]" />
+            <p className="text-base font-medium text-foreground">No transactions for this period</p>
+            <p className="max-w-md text-sm text-muted-foreground">
               Nothing to show for {formatDashboardRangeLabel(statsDateRange)}
               {statsInstitution !== "all" ? ` (${institutionFilterLabel})` : ""}. Pick another range or institution.
             </p>
@@ -291,29 +292,37 @@ export default function TransgateDashboard() {
 
       {showDashboardBody ? (
         <>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <MetricCard
-              title="Transaction Volume"
-              value={metrics.totalTransactions}
-              icon={ArrowLeftRight}
-              iconColor="text-primary"
-            />
-            <MetricCard
-              title="Transaction Value"
-              value={metrics.volume}
-              icon={Banknote}
-              iconColor="text-[color:var(--color-chart-2)]"
-            />
-            <MetricCard
-              title="Success Rate"
-              value={metrics.successRate}
-              icon={CheckCircle}
-              iconColor="text-[color:var(--color-chart-2)]"
-              subtitle={`${metrics.successCount} successful`}
-            />
-          </div>
+          <DashboardStagger className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <DashboardStaggerItem>
+              <MetricCard
+                title="Transaction Volume"
+                value={metrics.totalTransactions}
+                icon={ArrowLeftRight}
+                iconAccent="yellow"
+              />
+            </DashboardStaggerItem>
+            <DashboardStaggerItem>
+              <MetricCard
+                title="Transaction Value"
+                value={metrics.volume}
+                icon={Banknote}
+                iconAccent="lime"
+              />
+            </DashboardStaggerItem>
+            <DashboardStaggerItem>
+              <MetricCard
+                title="Success Rate"
+                value={metrics.successRate}
+                icon={CheckCircle}
+                iconAccent="lime"
+                subtitle={`${metrics.successCount} successful`}
+                trend={successTrend}
+              />
+            </DashboardStaggerItem>
+          </DashboardStagger>
 
           <StatisticsSection
+            variant="analytics"
             statsDateRange={statsDateRange}
             onDateRangeChange={setStatsDateRange}
             statsInstitution={isThirdPartyVendor() ? vendorLockedInstitution : statsInstitution}

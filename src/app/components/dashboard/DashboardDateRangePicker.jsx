@@ -38,7 +38,7 @@ export function DashboardDateRangePicker({
             <span className="truncate">{rangeLabel}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <PopoverContent className="w-auto max-w-[17rem] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
           <Calendar
             mode="range"
             selected={{ from: normalized.start, to: normalized.end }}
@@ -51,9 +51,26 @@ export function DashboardDateRangePicker({
             captionLayout="dropdown"
             fromYear={CALENDAR_YEAR_MIN}
             toYear={CALENDAR_YEAR_MAX}
-            numberOfMonths={2}
+            numberOfMonths={1}
+            className="p-2"
+            classNames={{
+              months: "flex flex-col gap-2",
+              month: "flex flex-col gap-2",
+              caption: "min-h-7",
+              caption_label: "text-xs font-medium",
+              caption_dropdowns: "flex gap-1.5 items-center justify-center",
+              dropdown_month:
+                "h-7 px-2 min-w-[5.5rem] text-xs rounded-md border border-input bg-input-background",
+              dropdown_year:
+                "h-7 px-2 min-w-[4rem] text-xs rounded-md border border-input bg-input-background",
+              nav_button: "size-6 p-0 opacity-70 hover:opacity-100",
+              head_cell: "w-7 h-7 text-[0.65rem] font-medium p-0",
+              cell: "w-7 min-w-[1.75rem] min-h-7 p-0 text-center",
+              day: "size-7 p-0 text-xs font-normal rounded-md",
+              row: "border-b border-border/40 last:border-b-0",
+            }}
           />
-          <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+          <p className="border-t px-2 py-1.5 text-[0.65rem] text-muted-foreground">
             Selected: {rangeLabel}
           </p>
         </PopoverContent>

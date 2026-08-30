@@ -52,15 +52,17 @@ export function TableSkeleton({ rows = 5, columns = 5 }) {
  */
 export function MetricSkeleton({ count = 4 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-8 rounded-full" />
+        <div key={i} className="rounded-xl border border-[color:var(--border)] bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
           </div>
-          <Skeleton className="mb-1 h-7 w-32" />
-          <Skeleton className="h-3 w-20" />
         </div>
       ))}
     </div>
