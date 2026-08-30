@@ -227,10 +227,10 @@ export function formatNIN(nin) {
 export function getStatusColor(status) {
   const statusLower = status.toLowerCase();
   const colorMap = {
-    success: 'text-green-600 bg-green-50',
-    completed: 'text-green-600 bg-green-50',
-    approved: 'text-green-600 bg-green-50',
-    active: 'text-green-600 bg-green-50',
+    success: 'text-[#00411A] bg-[#eef8c8]',
+    completed: 'text-[#00411A] bg-[#eef8c8]',
+    approved: 'text-[#00411A] bg-[#eef8c8]',
+    active: 'text-[#00411A] bg-[#eef8c8]',
     pending: 'text-yellow-600 bg-yellow-50',
     processing: 'text-yellow-600 bg-yellow-50',
     'in-progress': 'text-yellow-600 bg-yellow-50',

@@ -321,7 +321,7 @@ export default function OtherUsers() {
           aria-label="Reset 2FA"
           title="Reset 2FA"
         >
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <ShieldCheck className="w-4 h-4 text-[#00411A]" />
         </Button>
         <Button variant="ghost" size="icon" className="text-red-600" onClick={() => setUserToDelete(row)} aria-label="Delete user"><Trash2 className="w-4 h-4" /></Button>
       </div>

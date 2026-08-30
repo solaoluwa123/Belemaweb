@@ -15,7 +15,7 @@ export function StatusBadge({ status, type = "transaction" }) {
       statusLower.includes("active") ||
       statusLower.includes("resolved")
     ) {
-      return "border-transparent bg-green-100 text-green-800 hover:bg-green-100";
+      return "border-transparent bg-[#eef8c8] text-[#00411A] hover:bg-[#eef8c8]";
     }
     if (statusLower.includes("pending") || statusLower.includes("processing")) {
       return "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-100";

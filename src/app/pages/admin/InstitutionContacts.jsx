@@ -307,7 +307,7 @@ export default function InstitutionContacts() {
             Refresh
           </Button>
           <Button
-            className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+            className="gap-2"
             onClick={() => {
               setForm(emptyForm);
               setFormError("");
@@ -406,7 +406,7 @@ export default function InstitutionContacts() {
                         aria-label={`Reset 2FA for ${row.fullName}`}
                         title="Reset 2FA"
                       >
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <ShieldCheck className="w-4 h-4 text-[#00411A]" />
                       </Button>
                       {adminUser ? (
                         <Button

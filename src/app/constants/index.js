@@ -200,22 +200,22 @@ export const NIGERIAN_BANKS = [
 ] as const;
 
 export const CHART_COLORS = {
-  PRIMARY: '#3b82f6',
-  SUCCESS: '#10b981',
-  WARNING: '#f59e0b',
-  DANGER: '#ef4444',
-  INFO: '#06b6d4',
-  PURPLE: '#8b5cf6',
-  PINK: '#ec4899',
-  TEAL: '#14b8a6',
+  PRIMARY: '#00411A',
+  SUCCESS: '#CEF445',
+  WARNING: '#FFD600',
+  DANGER: '#E84A25',
+  INFO: '#410027',
+  PURPLE: '#410027',
+  PINK: '#E84A25',
+  TEAL: '#00411A',
 } as const;
 
 export const STATUS_COLORS = {
-  success: 'bg-green-100 text-green-800 border-green-200',
-  completed: 'bg-green-100 text-green-800 border-green-200',
-  approved: 'bg-green-100 text-green-800 border-green-200',
-  active: 'bg-green-100 text-green-800 border-green-200',
-  resolved: 'bg-green-100 text-green-800 border-green-200',
+  success: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
+  completed: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
+  approved: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
+  active: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
+  resolved: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   processing: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   'under-review': 'bg-yellow-100 text-yellow-800 border-yellow-200',
