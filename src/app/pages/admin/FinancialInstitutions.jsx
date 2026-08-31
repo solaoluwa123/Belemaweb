@@ -35,6 +35,11 @@ import {
 } from "../../services/financialInstitutions";
 import { toast } from "sonner";
 import { formatBackendDate } from "../../utils/formatters";
+import {
+  generateInstitutionHashKey,
+  isValidInstitutionHashKey,
+  sanitizeInstitutionHashKeyInput,
+} from "../../utils/institutionHashKey";
 import { resolveWalletTypeIdWithSource } from "../../services/wallets";
 
 const EMPTY_FORM = {
@@ -89,7 +94,7 @@ function isFiniteNumber(value) {
   return Number.isFinite(Number(value));
 }
 
-function validateInstitutionForm(form, { requireSecrets, isCreate }) {
+function validateInstitutionForm(form, { requireSecrets, isCreate, requireHashKey }) {
   const code = form.code.trim();
   if (!code) return "Institution code is required.";
   if (!/^\d{1,6}$/.test(code)) return "Institution code must be 1 to 6 digits.";
@@ -106,7 +111,13 @@ function validateInstitutionForm(form, { requireSecrets, isCreate }) {
   }
   if (requireSecrets) {
     if (!form.password) return "Switch password is required.";
-    if (!form.hashKey.trim()) return "Hash key is required.";
+  }
+  if (requireHashKey || requireSecrets) {
+    const hashKey = form.hashKey.trim();
+    if (!hashKey) return "Hash key is required.";
+    if (!isValidInstitutionHashKey(hashKey)) {
+      return "Hash key must be exactly 32 letters or numbers.";
+    }
   }
   if (isCreate) {
     if (!form.serverIP.trim()) return "Server IP is required.";
@@ -173,7 +184,18 @@ function YesNoSwitch({ id, label, checked, onCheckedChange }) {
   );
 }
 
-function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCreateExtras, includeNetworkConfig, onSettlementChange, idPrefix }) {
+function InstitutionFormFields({
+  form,
+  setForm,
+  types,
+  includeSecrets,
+  includeHashKey,
+  includeCreateExtras,
+  includeNetworkConfig,
+  onSettlementChange,
+  idPrefix,
+}) {
+  const showHashKey = includeSecrets || includeHashKey;
   const showNetworkConfig = includeNetworkConfig || includeCreateExtras;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -288,26 +310,40 @@ function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCr
         />
       </div>
       {includeSecrets ? (
-        <>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-password`}>Switch password *</Label>
-            <Input
-              id={`${idPrefix}-password`}
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-hashKey`}>Hash key *</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-password`}>Switch password *</Label>
+          <Input
+            id={`${idPrefix}-password`}
+            type="password"
+            autoComplete="new-password"
+            value={form.password}
+            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+          />
+        </div>
+      ) : null}
+      {showHashKey ? (
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor={`${idPrefix}-hashKey`}>Hash key *</Label>
+          <div className="flex gap-2">
             <Input
               id={`${idPrefix}-hashKey`}
               value={form.hashKey}
-              onChange={(e) => setForm((p) => ({ ...p, hashKey: e.target.value }))}
+              maxLength={32}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, hashKey: sanitizeInstitutionHashKeyInput(e.target.value) }))
+              }
+              placeholder="32-character alphanumeric key"
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setForm((p) => ({ ...p, hashKey: generateInstitutionHashKey() }))}
+            >
+              Regenerate
+            </Button>
           </div>
-        </>
+        </div>
       ) : null}
       {includeCreateExtras ? (
         <>
@@ -610,6 +646,7 @@ export default function FinancialInstitutions() {
       Number(raw.enableInward) === 1 ||
       Number(raw.ext_active) === 1 ||
       Boolean(String(raw.url || raw.neEnvelope || "").trim());
+    const existingHashKey = String(raw.hashKey ?? raw.hashkey ?? "").trim();
     setEditingInstitution(row);
     setForm({
       ...EMPTY_FORM,
@@ -622,6 +659,7 @@ export default function FinancialInstitutions() {
       chargeAmount: raw.charge_amount ?? raw.chargeAmount ?? "",
       vat: raw.vat ?? "",
       cbnBankAccount: raw.cbn_bank_account ?? raw.cbnBankAccount ?? "",
+      hashKey: existingHashKey || generateInstitutionHashKey(),
       publickeylocation: raw.publickeylocation ?? "",
       isProcessTSQ: Number(raw.isProcessTSQ) === 1,
       isSettlementBank: Number(raw.issettlementbank ?? raw.isSettlementBank) === 1,
@@ -652,7 +690,11 @@ export default function FinancialInstitutions() {
       setFormError("Your session is missing a username or email for the request.");
       return;
     }
-    const validationError = validateInstitutionForm(form, { requireSecrets: false, isCreate: false });
+    const validationError = validateInstitutionForm(form, {
+      requireSecrets: false,
+      isCreate: false,
+      requireHashKey: true,
+    });
     if (validationError) {
       setFormError(validationError);
       return;
@@ -661,7 +703,10 @@ export default function FinancialInstitutions() {
       await submitChangeRequest({
         resourceType: CHANGE_RESOURCE_TYPES.INSTITUTION_UPDATE,
         summary: `Update institution ${editingInstitution.code}`,
-        payload: formToApiPayload(form, { code: editingInstitution.code }),
+        payload: formToApiPayload(form, {
+          code: editingInstitution.code,
+          hashKey: form.hashKey.trim(),
+        }),
         requestedBy: requester,
       });
       toast.success(adminUser ? "Institution updated." : "Institution update submitted for approval.");
@@ -758,7 +803,7 @@ export default function FinancialInstitutions() {
           <Button
             className="gap-2"
             onClick={() => {
-              setForm(EMPTY_FORM);
+              setForm({ ...EMPTY_FORM, hashKey: generateInstitutionHashKey() });
               setFormError("");
               setOpen(true);
             }}
@@ -847,6 +892,7 @@ export default function FinancialInstitutions() {
               setForm={setForm}
               types={institutionTypesFromTypesEndpoint}
               includeSecrets={false}
+              includeHashKey
               includeNetworkConfig
               idPrefix="edit-fi"
             />

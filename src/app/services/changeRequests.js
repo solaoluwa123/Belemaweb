@@ -361,7 +361,7 @@ function buildInstitutionWritePayload(payload, requestedBy, actionType) {
       p.publickeylocationLinux ?? raw.publickeylocationLinux,
     ),
     password: toStringOr(p.password ?? raw.password),
-    hashKey: toStringOr(p.hashKey ?? raw.hashKey),
+    hashKey: toStringOr(p.hashKey ?? raw.hashKey ?? raw.hashkey),
     serverIP: toStringOr(p.serverIP ?? raw.serverIP, "localhost"),
     url: toStringOr(p.url ?? raw.url),
     urlTSQ: toStringOr(p.urlTSQ ?? raw.urlTSQ),
@@ -387,7 +387,6 @@ function buildInstitutionWritePayload(payload, requestedBy, actionType) {
 
   if (actionType === "edit" || actionType === "deactivate") {
     delete body.password;
-    delete body.hashKey;
     delete body.walletname;
     delete body.wallettype;
   }
