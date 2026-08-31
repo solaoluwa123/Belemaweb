@@ -9,9 +9,11 @@ import {
   ArrowLeftRight,
   Banknote,
   CheckCircle,
+  Clock,
   Loader2,
   RefreshCcw,
   Radio,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent } from "../../components/ui/card";
 import { TRANSGATE_BANKS } from "../../data/mockData";
@@ -35,6 +37,10 @@ const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
   start: new Date(),
   end: new Date(),
 });
+
+function formatCount(value) {
+  return Number(value || 0).toLocaleString("en-NG");
+}
 
 export default function TransgateDashboard() {
   const { user } = useAuth();
@@ -160,11 +166,24 @@ export default function TransgateDashboard() {
   }, [statsData]);
   const { metrics } = stats;
 
-  const successRateNum = parseFloat(String(metrics.successRate || "").replace("%", ""));
-  const successTrend =
-    Number.isFinite(successRateNum) && successRateNum > 0
-      ? { isPositive: successRateNum >= 50, value: metrics.successRate }
-      : null;
+  const statusCounts = useMemo(() => {
+    const fromApi = statsData?.statusCounts;
+    if (fromApi) {
+      return {
+        successful: Number(fromApi.successful) || 0,
+        pending: Number(fromApi.pending) || 0,
+        failed: Number(fromApi.failed) || 0,
+      };
+    }
+    const pie = statsData?.successFailurePie ?? [];
+    const pick = (matcher) =>
+      pie.find((row) => matcher(String(row.name || "").toLowerCase()))?.value ?? 0;
+    return {
+      successful: pick((n) => n.includes("success")) || Number(metrics.successCount) || 0,
+      pending: pick((n) => n.includes("pending")),
+      failed: pick((n) => n.includes("fail")),
+    };
+  }, [statsData, metrics.successCount]);
 
   const resetFilters = () => {
     if (!isVendor) {
@@ -300,8 +319,8 @@ export default function TransgateDashboard() {
 
       {showDashboardBody ? (
         <>
-          <DashboardStagger className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            <DashboardStaggerItem>
+          <DashboardStagger className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Transaction Volume"
                 value={metrics.totalTransactions}
@@ -309,7 +328,7 @@ export default function TransgateDashboard() {
                 iconAccent="yellow"
               />
             </DashboardStaggerItem>
-            <DashboardStaggerItem>
+            <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Transaction Value"
                 value={metrics.volume}
@@ -317,14 +336,36 @@ export default function TransgateDashboard() {
                 iconAccent="lime"
               />
             </DashboardStaggerItem>
-            <DashboardStaggerItem>
+            <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Success Rate"
                 value={metrics.successRate}
                 icon={CheckCircle}
                 iconAccent="lime"
-                subtitle={`${metrics.successCount} successful`}
-                trend={successTrend}
+              />
+            </DashboardStaggerItem>
+            <DashboardStaggerItem className="h-full">
+              <MetricCard
+                title="Successful"
+                value={formatCount(statusCounts.successful)}
+                icon={CheckCircle}
+                iconAccent="lime"
+              />
+            </DashboardStaggerItem>
+            <DashboardStaggerItem className="h-full">
+              <MetricCard
+                title="Failed"
+                value={formatCount(statusCounts.failed)}
+                icon={XCircle}
+                iconAccent="orange"
+              />
+            </DashboardStaggerItem>
+            <DashboardStaggerItem className="h-full">
+              <MetricCard
+                title="Pending"
+                value={formatCount(statusCounts.pending)}
+                icon={Clock}
+                iconAccent="yellow"
               />
             </DashboardStaggerItem>
           </DashboardStagger>

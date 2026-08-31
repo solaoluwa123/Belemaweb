@@ -697,6 +697,28 @@ function buildStatusSummaryPie(statusRows, summaryFallback) {
   return buildSuccessFailurePie(summaryFallback);
 }
 
+function extractStatusCounts(statusRows, summaryFallback) {
+  const counts = { successful: 0, pending: 0, failed: 0 };
+  const rows = Array.isArray(statusRows) ? statusRows : [];
+  if (rows.length) {
+    for (const row of rows) {
+      const source = row && typeof row === "object" ? row : {};
+      const name = pickString(source, ["label", "name"]).toLowerCase();
+      const value = pickNumber(source, ["volume", "value", "count"]);
+      if (name.includes("success")) counts.successful = value;
+      else if (name.includes("pending")) counts.pending = value;
+      else if (name.includes("fail")) counts.failed = value;
+    }
+    return counts;
+  }
+
+  const total = Number(summaryFallback?.totalTransactions ?? 0);
+  const success = Number(summaryFallback?.successCount ?? 0);
+  counts.successful = success;
+  counts.failed = Math.max(0, total - success);
+  return counts;
+}
+
 function buildChannelPieRows(channelRows) {
   if (!Array.isArray(channelRows) || !channelRows.length) return [];
   return channelRows
@@ -895,6 +917,7 @@ export async function fetchAccountsDashboardData({
     return {
       hasTransactions,
       metrics: summary.metricCards,
+      statusCounts: hasTransactions ? extractStatusCounts(statusSummaryRows, summary) : { successful: 0, pending: 0, failed: 0 },
       chartData7d: hasTransactions ? chartData7d : [],
       responseCodes: hasTransactions ? responseCodes : [],
       successVolumes7d: hasTransactions ? successVolumes7d : [],
@@ -1020,6 +1043,7 @@ export async function fetchAccountsDashboardData({
   return {
     hasTransactions,
     metrics: summary.metricCards,
+    statusCounts: hasTransactions ? extractStatusCounts(statusSummaryRows, summary) : { successful: 0, pending: 0, failed: 0 },
     chartData7d: hasTransactions ? chartData7d : [],
     responseCodes: hasTransactions ? responseCodes : [],
     successVolumes7d: hasTransactions ? successVolumes7d : [],

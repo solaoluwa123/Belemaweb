@@ -72,11 +72,16 @@ export function MetricCard({
   return (
     <Card
       className={cn(
-        "w-full gap-0 self-start rounded-xl border-[color:var(--border)] bg-card shadow-sm transition-shadow hover:shadow-md",
+        "h-full w-full gap-0 rounded-xl border-[color:var(--border)] bg-card shadow-sm transition-shadow hover:shadow-md",
         className,
       )}
     >
-      <CardContent className={cn(isCompact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5")}>
+      <CardContent
+        className={cn(
+          "flex h-full min-h-[7.5rem] flex-col justify-between",
+          isCompact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5",
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
