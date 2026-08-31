@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { MetricCard } from "../../components/shared/MetricCard";
-import { StatisticsSection } from "../../components/dashboard/StatisticsSection";
-import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { AccountsBentoGrid } from "../../components/dashboard/AccountsBentoGrid";
+import { LiveMonitoringSection } from "../../components/dashboard/LiveMonitoringSection";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import {
   ArrowLeftRight,
-  Banknote,
-  CheckCircle,
   Loader2,
   RefreshCcw,
   Radio,
 } from "lucide-react";
-import { Card, CardContent } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
 import {
@@ -25,8 +23,6 @@ import {
 } from "../../services/dashboards";
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
-import { DashboardStagger, DashboardStaggerItem } from "../../components/dashboard/DashboardMotion";
-import { LiveMonitoringSection } from "../../components/dashboard/LiveMonitoringSection";
 
 const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
   start: new Date(),
@@ -35,7 +31,6 @@ const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
 
 export default function TransgateDashboard() {
   const { user, isAdmin, isThirdPartyVendor } = useAuth();
-  const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "" : "all";
   const { brand } = useBrand();
   const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
@@ -142,12 +137,6 @@ export default function TransgateDashboard() {
     );
   }, [statsData]);
   const { metrics } = stats;
-
-  const successRateNum = parseFloat(String(metrics.successRate || "").replace("%", ""));
-  const successTrend =
-    Number.isFinite(successRateNum) && successRateNum > 0
-      ? { isPositive: successRateNum >= 50, value: metrics.successRate }
-      : null;
 
   const resetFilters = () => {
     if (!isThirdPartyVendor()) {
@@ -291,34 +280,11 @@ export default function TransgateDashboard() {
 
       {showDashboardBody ? (
         <>
-          <DashboardStagger className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            <DashboardStaggerItem>
-              <MetricCard
-                title="Transaction Volume"
-                value={metrics.totalTransactions}
-                icon={ArrowLeftRight}
-                iconAccent="yellow"
-              />
-            </DashboardStaggerItem>
-            <DashboardStaggerItem>
-              <MetricCard
-                title="Transaction Value"
-                value={metrics.volume}
-                icon={Banknote}
-                iconAccent="lime"
-              />
-            </DashboardStaggerItem>
-            <DashboardStaggerItem>
-              <MetricCard
-                title="Success Rate"
-                value={metrics.successRate}
-                icon={CheckCircle}
-                iconAccent="lime"
-                subtitle={`${metrics.successCount} successful`}
-                trend={successTrend}
-              />
-            </DashboardStaggerItem>
-          </DashboardStagger>
+          <AccountsBentoGrid
+            statsData={statsData}
+            metrics={metrics}
+            lockInstitution={isThirdPartyVendor()}
+          />
 
           {isLiveRange ? (
             <LiveMonitoringSection
@@ -328,20 +294,6 @@ export default function TransgateDashboard() {
               showHeader
             />
           ) : null}
-
-          <StatisticsSection
-            variant="analytics"
-            statsDateRange={statsDateRange}
-            onDateRangeChange={setStatsDateRange}
-            statsInstitution={isThirdPartyVendor() ? vendorLockedInstitution : statsInstitution}
-            onInstitutionChange={setStatsInstitution}
-            statsData={statsData}
-            isLoading={isLoading}
-            errorMessage={errorMessage}
-            lockInstitution={isThirdPartyVendor()}
-            institutionDisplayName={isThirdPartyVendor() ? user?.institutionName || user?.institutionCode : undefined}
-            isLiveRange={isLiveRange}
-          />
         </>
       ) : null}
     </div>

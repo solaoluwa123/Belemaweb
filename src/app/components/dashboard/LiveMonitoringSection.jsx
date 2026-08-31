@@ -76,10 +76,10 @@ export function LiveMonitoringSection({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Activity className="h-6 w-6 shrink-0 text-[#00411A]" aria-hidden />
             <div className="min-w-0">
-              <h2 id="live-monitoring-heading" className="text-lg font-semibold text-slate-900">
+              <h2 id="live-monitoring-heading" className="text-lg font-semibold text-foreground">
                 Live Rates Monitoring
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Success rates by institution · last 90 minutes
                 {autoRefresh ? " · refreshing every 30s" : ""}
               </p>
@@ -115,14 +115,14 @@ export function LiveMonitoringSection({
       ) : null}
 
       {isLoading ? (
-        <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-10 text-center text-slate-500 shadow-sm">
+        <div className="rounded-xl border border-[color:var(--border)] bg-card px-6 py-10 text-center text-muted-foreground shadow-sm">
           <span className="inline-flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading live monitoring...
           </span>
         </div>
       ) : state.rows.length === 0 ? (
-        <div className="rounded-xl border border-slate-200/80 bg-white px-6 py-10 text-center text-slate-500 shadow-sm">
+        <div className="rounded-xl border border-[color:var(--border)] bg-card px-6 py-10 text-center text-muted-foreground shadow-sm">
           No live monitoring data for the selected window.
         </div>
       ) : (
