@@ -24,6 +24,10 @@ import { APIError } from "../../services/api";
 import { fetchLiveTransactionFeed, LIVE_FEED_POLL_MS } from "../../services/dashboards";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { formatEmptyCell, getBackendDateTime, parseBackendDate } from "../../utils/formatters";
+import {
+  isAdministrator as checkAdministrator,
+  isThirdPartyVendor as checkThirdPartyVendor,
+} from "../../utils/roleAccess";
 
 const MAX_ROWS = 200;
 
@@ -75,7 +79,17 @@ function mergeFeedRows(existing, incoming, { prepend = false } = {}) {
 
 export function LiveTransactionFeed({ institutionCode: institutionCodeProp = null, showInstitutionFilter = true }) {
   const navigate = useNavigate();
-  const { isAdmin, isThirdPartyVendor, user } = useAuth();
+  const { user } = useAuth();
+  const userRoleId = user?.roleId;
+  const userInstitutionCode = user?.institutionCode;
+  const isVendor = useMemo(
+    () => checkThirdPartyVendor(user),
+    [userRoleId, userInstitutionCode, user?.roleName],
+  );
+  const isAdminUser = useMemo(
+    () => checkAdministrator(user),
+    [userRoleId, user?.roleName, isVendor],
+  );
   const [institutionFilter, setInstitutionFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [highlightIds, setHighlightIds] = useState(() => new Set());
@@ -90,11 +104,11 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
 
   const effectiveInstitution = useMemo(() => {
     if (institutionCodeProp) return institutionCodeProp;
-    if (isThirdPartyVendor()) return user?.institutionCode || null;
+    if (isVendor) return userInstitutionCode || null;
     if (institutionFilter !== "all") return institutionFilter;
-    if (!isAdmin()) return user?.institutionCode || null;
+    if (!isAdminUser) return userInstitutionCode || null;
     return null;
-  }, [institutionCodeProp, institutionFilter, isThirdPartyVendor, isAdmin, user?.institutionCode]);
+  }, [institutionCodeProp, institutionFilter, isVendor, isAdminUser, userInstitutionCode]);
 
   const markHighlights = useCallback((incomingRows) => {
     if (!incomingRows.length) return;
@@ -175,14 +189,14 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
   );
 
   useEffect(() => {
-    if (isThirdPartyVendor() && !user?.institutionCode) {
+    if (isVendor && !userInstitutionCode) {
       setIsLoading(false);
       setErrorMessage("Your account is not linked to an institution.");
       return;
     }
     newestTimestampRef.current = "";
     loadFeed({ initial: true });
-  }, [effectiveInstitution, user?.institutionCode, loadFeed, isThirdPartyVendor]);
+  }, [effectiveInstitution, userInstitutionCode, loadFeed, isVendor]);
 
   useEffect(() => {
     if (isPaused || isLoading || errorMessage) return undefined;
@@ -200,12 +214,12 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
   );
 
   const institutionLabel = useMemo(() => {
-    if (isThirdPartyVendor()) return user?.institutionName || user?.institutionCode || "—";
+    if (isVendor) return user?.institutionName || userInstitutionCode || "—";
     if (effectiveInstitution) {
       return TRANSGATE_BANKS.find((b) => b.id === effectiveInstitution)?.name ?? effectiveInstitution;
     }
     return "All institutions";
-  }, [effectiveInstitution, isThirdPartyVendor, user?.institutionCode, user?.institutionName]);
+  }, [effectiveInstitution, isVendor, userInstitutionCode, user?.institutionName]);
 
   return (
     <div className="space-y-6">
@@ -277,7 +291,7 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
               </CardTitle>
               <p className="text-xs text-muted-foreground">Scope: {institutionLabel}</p>
             </div>
-            {showInstitutionFilter && !isThirdPartyVendor() && !institutionCodeProp ? (
+            {showInstitutionFilter && !isVendor && !institutionCodeProp ? (
               <div className="min-w-[220px] space-y-1.5">
                 <Label htmlFor="live-feed-institution" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Institution

@@ -26,6 +26,10 @@ import {
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
 import { DashboardStagger, DashboardStaggerItem } from "../../components/dashboard/DashboardMotion";
+import {
+  isAdministrator as checkAdministrator,
+  isThirdPartyVendor as checkThirdPartyVendor,
+} from "../../utils/roleAccess";
 
 const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
   start: new Date(),
@@ -33,8 +37,19 @@ const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
 });
 
 export default function TransgateDashboard() {
-  const { user, isAdmin, isThirdPartyVendor } = useAuth();
-  const vendorLockedInstitution = isThirdPartyVendor() ? user?.institutionCode || "" : "all";
+  const { user } = useAuth();
+  const userRoleId = user?.roleId;
+  const userInstitutionCode = user?.institutionCode;
+  const userInstitutionName = user?.institutionName;
+  const isVendor = useMemo(
+    () => checkThirdPartyVendor(user),
+    [userRoleId, userInstitutionCode, user?.roleName],
+  );
+  const isAdminUser = useMemo(
+    () => checkAdministrator(user),
+    [userRoleId, user?.roleName, isVendor],
+  );
+  const vendorLockedInstitution = isVendor ? userInstitutionCode || "" : "all";
   const { brand } = useBrand();
   const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
@@ -44,6 +59,9 @@ export default function TransgateDashboard() {
   const [errorMessage, setErrorMessage] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const loadSeq = useRef(0);
+
+  const statsRangeStartMs = statsDateRange.start.getTime();
+  const statsRangeEndMs = statsDateRange.end.getTime();
 
   const loadDashboard = useCallback(
     async ({ silent = false } = {}) => {
@@ -58,15 +76,15 @@ export default function TransgateDashboard() {
       try {
         const data = await fetchAccountsDashboardData({
           institutionCode:
-            isThirdPartyVendor()
-              ? user?.institutionCode || null
+            isVendor
+              ? userInstitutionCode || null
               : statsInstitution !== "all"
                 ? statsInstitution
-                : !isAdmin()
-                  ? user?.institutionCode || null
+                : !isAdminUser
+                  ? userInstitutionCode || null
                   : null,
           dateRange: statsDateRange,
-          requireInstitutionScope: isThirdPartyVendor(),
+          requireInstitutionScope: isVendor,
         });
         if (seq !== loadSeq.current) return;
         setStatsData(data);
@@ -87,42 +105,42 @@ export default function TransgateDashboard() {
         }
       }
     },
-    [statsInstitution, statsDateRange, user?.institutionCode, user?.roleId, isThirdPartyVendor, isAdmin],
+    [statsInstitution, statsRangeStartMs, statsRangeEndMs, userInstitutionCode, userRoleId, isVendor, isAdminUser],
   );
 
   useEffect(() => {
-    if (isThirdPartyVendor() && user?.institutionCode) {
-      setStatsInstitution(user.institutionCode);
+    if (isVendor && userInstitutionCode) {
+      setStatsInstitution(userInstitutionCode);
     }
-  }, [user?.institutionCode, user?.roleId]);
+  }, [userInstitutionCode, userRoleId, isVendor]);
 
   useEffect(() => {
-    if (isThirdPartyVendor() && !user?.institutionCode) {
+    if (isVendor && !userInstitutionCode) {
       setIsLoading(false);
       setStatsData(null);
       setErrorMessage("Your account is not linked to an institution.");
       return;
     }
     loadDashboard();
-  }, [statsInstitution, statsDateRange, user?.institutionCode, user?.roleId, loadDashboard]);
+  }, [statsInstitution, statsRangeStartMs, statsRangeEndMs, userInstitutionCode, userRoleId, loadDashboard, isVendor]);
 
   const isLiveRange = dashboardRangeIncludesToday(statsDateRange);
 
   useEffect(() => {
-    if (!isLiveRange || (isThirdPartyVendor() && !user?.institutionCode)) return undefined;
+    if (!isLiveRange || (isVendor && !userInstitutionCode)) return undefined;
     const timer = window.setInterval(() => {
       loadDashboard({ silent: true });
     }, DASHBOARD_AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [isLiveRange, loadDashboard, user?.institutionCode, user?.roleId]);
+  }, [isLiveRange, loadDashboard, userInstitutionCode, userRoleId, isVendor]);
 
   const institutionFilterLabel = useMemo(() => {
-    if (isThirdPartyVendor()) {
-      return user?.institutionName || user?.institutionCode || "—";
+    if (isVendor) {
+      return userInstitutionName || userInstitutionCode || "—";
     }
     if (statsInstitution === "all") return "All institutions";
     return TRANSGATE_BANKS.find((b) => b.id === statsInstitution)?.name ?? statsInstitution;
-  }, [statsInstitution, user?.institutionCode, user?.institutionName, isThirdPartyVendor]);
+  }, [statsInstitution, userInstitutionCode, userInstitutionName, isVendor]);
 
   const hasTransactions = Boolean(statsData?.hasTransactions);
   const showDashboardBody = !isLoading && !errorMessage && hasTransactions;
@@ -149,14 +167,14 @@ export default function TransgateDashboard() {
       : null;
 
   const resetFilters = () => {
-    if (!isThirdPartyVendor()) {
+    if (!isVendor) {
       setStatsInstitution("all");
     }
     setStatsDateRange(DEFAULT_STATS_RANGE);
   };
 
   const filtersAreDefault =
-    (isThirdPartyVendor() || statsInstitution === "all") &&
+    (isVendor || statsInstitution === "all") &&
     statsDateRange.start.getTime() === DEFAULT_STATS_RANGE.start.getTime() &&
     statsDateRange.end.getTime() === DEFAULT_STATS_RANGE.end.getTime();
 
@@ -205,7 +223,7 @@ export default function TransgateDashboard() {
       <Card className="border-[color:var(--border)] bg-card shadow-sm">
         <CardContent className="py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
-            {!isThirdPartyVendor() ? (
+            {!isVendor ? (
               <div className="min-w-0 flex-1 space-y-1.5 sm:max-w-xs">
                 <Label htmlFor="toolbar-institution" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Institution
@@ -315,13 +333,13 @@ export default function TransgateDashboard() {
             variant="analytics"
             statsDateRange={statsDateRange}
             onDateRangeChange={setStatsDateRange}
-            statsInstitution={isThirdPartyVendor() ? vendorLockedInstitution : statsInstitution}
+            statsInstitution={isVendor ? vendorLockedInstitution : statsInstitution}
             onInstitutionChange={setStatsInstitution}
             statsData={statsData}
             isLoading={isLoading}
             errorMessage={errorMessage}
-            lockInstitution={isThirdPartyVendor()}
-            institutionDisplayName={isThirdPartyVendor() ? user?.institutionName || user?.institutionCode : undefined}
+            lockInstitution={isVendor}
+            institutionDisplayName={isVendor ? userInstitutionName || userInstitutionCode : undefined}
             isLiveRange={isLiveRange}
           />
         </>
