@@ -295,6 +295,7 @@ export default function AppLayout() {
             <ETranzactWordmark
               compact
               variant="light"
+              surface="dark"
               className="text-sidebar-foreground min-w-0 flex-1"
               textClassName="text-[1.35rem] sm:text-[1.5rem]"
             />
