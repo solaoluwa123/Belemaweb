@@ -120,8 +120,8 @@ export default function TransgateDashboard() {
         });
         if (seq !== loadSeq.current) return;
         setStatsData(data);
+        setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
         if (silent) {
-          setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
           setLastUpdatedAt(new Date());
         }
       } catch (error) {
@@ -194,15 +194,17 @@ export default function TransgateDashboard() {
 
   useLiveTransactionStream({
     institution: streamInstitution || undefined,
-    enabled: isLiveRange && !isLoading && !(isVendor && !userInstitutionCode),
+    enabled: isLiveRange && !isLoading && !usePollingFallback && !(isVendor && !userInstitutionCode),
     onConnected: () => {
       setStreamConnected(true);
       setUsePollingFallback(false);
+      setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
     },
     onMetricsDelta: handleMetricsDelta,
     onStreamError: () => {
       setStreamConnected(false);
       setUsePollingFallback(true);
+      setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
     },
   });
 
