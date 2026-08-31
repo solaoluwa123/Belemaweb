@@ -630,9 +630,9 @@ export async function fetchTransactions({ institutionCode, requireInstitutionSco
 }
 
 /**
- * Build query params for `GET /transactions/q/search` (align field names with your OpenAPI; mocks use the same keys).
+ * Build query params for `GET /transactions/q/search` matching `TransactionsController.SearchTransactions`.
  */
-export function buildTransactionSearchParams({
+export async function buildTransactionSearchParams({
   userInstitutionCode = "",
   startDate,
   endDate,
@@ -642,27 +642,100 @@ export function buildTransactionSearchParams({
 } = {}) {
   const adv = advanced && typeof advanced === "object" ? advanced : {};
   const q = (v) => String(v ?? "").trim();
-  const status = adv.status && adv.status !== "all" ? q(adv.status) : "";
+  const lookup = await getInstitutionNameLookup();
+
+  let responseCode = q(adv.responseCode);
+  if (!responseCode && adv.status && adv.status !== "all") {
+    responseCode = mapUiStatusToResponseCode(adv.status);
+  }
+
   return {
-    page: String(page),
-    limit: String(limit),
-    isCurrent: "true",
-    userInstitutionCode: q(userInstitutionCode),
-    startDate: formatDateTimeForApi(startDate),
-    endDate: formatDateTimeForApi(endDate),
-    sessionId: q(adv.sessionId),
-    channelCode: q(adv.channel),
-    srcInstitutionName: q(adv.sourceBank),
-    destInstitutionName: q(adv.beneficiaryBank),
-    responseCode: q(adv.responseCode),
-    paymentReference: q(adv.paymentRef),
+    ...buildBackendTransactionSearchParams({
+      userInstitutionCode,
+      startDate,
+      endDate,
+      page,
+      limit,
+    }),
+    srcSessionid: q(adv.sessionId),
+    channelCode: resolveChannelCode(q(adv.channel)),
+    responseCode,
+    srcInstitutioncode: resolveInstitutionCodeFromInput(lookup, q(adv.sourceBank)),
+    destInstitutioncode: resolveInstitutionCodeFromInput(lookup, q(adv.beneficiaryBank)),
     minAmount: q(adv.minAmount),
     maxAmount: q(adv.maxAmount),
-    statusText: status,
   };
 }
 
-export async function searchTransactions(params, { requireInstitutionScope = false } = {}) {
+const CHANNEL_LABEL_TO_CODE = {
+  "bank teller": "1",
+  "internet banking": "2",
+  "mobile phone": "3",
+  "pos terminals": "4",
+  pos: "4",
+  atm: "5",
+  "vendor/merchant portal": "6",
+  "3rd party platform": "7",
+  ussd: "8",
+  "other channel": "9",
+  "social media": "10",
+  "agency banking": "11",
+  nqr: "12",
+};
+
+function mapUiStatusToResponseCode(status) {
+  switch (String(status || "").trim()) {
+    case "Successful":
+      return "00";
+    case "Failed":
+      return "111";
+    case "Pending":
+      return "09";
+    case "Reversed":
+      return "79";
+    default:
+      return "";
+  }
+}
+
+function resolveChannelCode(input) {
+  const value = String(input || "").trim();
+  if (!value) return "";
+  if (/^\d+$/.test(value)) return value;
+  const lower = value.toLowerCase();
+  if (CHANNEL_LABEL_TO_CODE[lower]) return CHANNEL_LABEL_TO_CODE[lower];
+  for (const [label, code] of Object.entries(CHANNEL_LABEL_TO_CODE)) {
+    if (lower.includes(label) || label.includes(lower)) return code;
+  }
+  return value;
+}
+
+function resolveInstitutionCodeFromInput(lookup, input) {
+  const value = String(input || "").trim();
+  if (!value) return "";
+  const lower = value.toLowerCase();
+  if (lookup.has(value)) return value;
+  const stripped = value.replace(/^0+/, "") || value;
+  if (lookup.has(stripped)) return stripped;
+  for (const [code, name] of lookup.entries()) {
+    const nameLower = String(name || "").toLowerCase();
+    if (nameLower === lower || nameLower.includes(lower) || lower.includes(nameLower)) {
+      return code;
+    }
+  }
+  return value;
+}
+
+function applyClientOnlyAdvancedFilters(rows, advanced = {}) {
+  const adv = advanced && typeof advanced === "object" ? advanced : {};
+  const paymentRef = String(adv.paymentRef || "").trim().toLowerCase();
+  if (!paymentRef) return rows;
+  return rows.filter((row) =>
+    String(row.paymentReferenceNo || row.paymentReference || "").toLowerCase().includes(paymentRef),
+  );
+}
+
+export async function searchTransactions(params, { requireInstitutionScope = false, clientFilters = null } = {}) {
   const next = { ...(params && typeof params === "object" ? params : {}) };
   if (requireInstitutionScope && !String(next.userInstitutionCode || "").trim()) {
     throw new APIError("Institution code is required for this role.", 400, null);
@@ -671,7 +744,11 @@ export async function searchTransactions(params, { requireInstitutionScope = fal
     apiClient.get(API_ENDPOINTS.transactions.search, next),
     getInstitutionNameLookup(),
   ]);
-  return normalizeTransactionCollection(response, lookup);
+  let rows = normalizeTransactionCollection(response, lookup);
+  if (clientFilters) {
+    rows = applyClientOnlyAdvancedFilters(rows, clientFilters);
+  }
+  return rows;
 }
 
 export async function fetchTransactionDetails(sessionId) {

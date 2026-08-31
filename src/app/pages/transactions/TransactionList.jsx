@@ -182,7 +182,7 @@ export default function TransactionList() {
     try {
       if (advancedFiltersActive) {
         try {
-          const params = buildTransactionSearchParams({
+          const params = await buildTransactionSearchParams({
             userInstitutionCode: institutionCode,
             startDate: dateRangeStart,
             endDate: dateRangeEnd,
@@ -190,7 +190,10 @@ export default function TransactionList() {
             limit: 2000,
             advanced: advancedFiltersApplied,
           });
-          const data = await searchTransactions(params, { requireInstitutionScope: requireScope });
+          const data = await searchTransactions(params, {
+            requireInstitutionScope: requireScope,
+            clientFilters: advancedFiltersApplied,
+          });
           setTransactions(data);
         } catch (searchErr) {
           const data = await fetchTransactions({
