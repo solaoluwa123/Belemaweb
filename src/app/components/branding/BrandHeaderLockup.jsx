@@ -11,7 +11,7 @@ export function BrandHeaderLockup({ className }) {
       variant="dark"
       surface="light"
       compact
-      className={cn("min-w-0 text-[1.35rem] sm:text-[1.5rem]", className)}
+      className={cn("min-w-0 text-[2rem] sm:text-[2.35rem]", className)}
     />
   );
 }

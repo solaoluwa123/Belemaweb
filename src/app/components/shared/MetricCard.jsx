@@ -79,16 +79,17 @@ export function MetricCard({
       <CardContent
         className={cn(
           "flex h-full min-h-[7.5rem] flex-col justify-between",
-          isCompact ? "px-4 pb-4 pt-4" : "px-5 pb-5 pt-5",
+          isCompact && "min-h-[5rem]",
+          isCompact ? "px-4 pb-3.5 pt-3.5" : "px-5 pb-5 pt-5",
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{title}</p>
             <div
               className={cn(
                 "relative font-bold leading-none tracking-tight text-foreground",
-                isCompact ? "text-2xl" : "text-3xl",
+                isCompact ? "text-xl sm:text-2xl" : "text-3xl",
                 showGauge && !isCompact && "flex h-[72px] w-[72px] items-center justify-center",
               )}
             >
@@ -102,12 +103,12 @@ export function MetricCard({
             <div
               className={cn(
                 "flex shrink-0 items-center justify-center rounded-xl",
-                isCompact ? "h-9 w-9" : "h-11 w-11",
+                isCompact ? "h-8 w-8" : "h-11 w-11",
                 iconBg,
               )}
               aria-hidden
             >
-              <Icon className={isCompact ? "h-4 w-4" : "h-5 w-5"} />
+              <Icon className={isCompact ? "h-3.5 w-3.5" : "h-5 w-5"} />
             </div>
           ) : null}
         </div>

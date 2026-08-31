@@ -408,6 +408,9 @@ export const TRANSGATE_BANKS = [
   { id: "firstbank", name: "FIRST BANK" },
 ];
 
+/** Institution pickers — excludes the synthetic `all` row (use a dedicated “All institutions” option). */
+export const TRANSGATE_BANK_OPTIONS = TRANSGATE_BANKS.filter((b) => b.id !== "all");
+
 // Deterministic seed from bankId + date for mock variation
 function transgateSeed(bankId, date) {
   const d = date instanceof Date ? date : new Date(date);

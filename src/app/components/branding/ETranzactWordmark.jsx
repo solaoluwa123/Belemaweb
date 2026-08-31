@@ -51,7 +51,7 @@ export function ETranzactWordmark({
         alt={logos.alt || brand.displayName}
         className={cn(
           "h-[1em] w-auto max-w-full object-contain object-left",
-          compact && "h-[0.95em]",
+          compact && "h-[1em]",
           blendClass,
           iconClassName,
         )}

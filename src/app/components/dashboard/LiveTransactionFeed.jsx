@@ -24,7 +24,7 @@ import { APIError } from "../../services/api";
 import { fetchLiveTransactionFeed, LIVE_FEED_POLL_MS } from "../../services/dashboards";
 import { normalizeStreamTransaction } from "../../services/transactions";
 import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
-import { TRANSGATE_BANKS } from "../../data/mockData";
+import { TRANSGATE_BANKS, TRANSGATE_BANK_OPTIONS } from "../../data/mockData";
 import { formatEmptyCell, getBackendDateTime, parseBackendDate } from "../../utils/formatters";
 import {
   isAdministrator as checkAdministrator,
@@ -339,7 +339,7 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All institutions</SelectItem>
-                    {TRANSGATE_BANKS.map((bank) => (
+                    {TRANSGATE_BANK_OPTIONS.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>

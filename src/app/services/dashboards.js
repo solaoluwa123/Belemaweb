@@ -6,8 +6,19 @@ import {
   fetchTransactions,
   fetchTransactionsByInstitution,
 } from "./transactions";
-import { fetchDisputes } from "./disputes";
 import { parseBackendDate, getBackendDateTime } from "../utils/formatters";
+
+const EMPTY_CHARTS = {
+  chartData7d: [],
+  responseCodes: [],
+  successVolumes7d: [],
+  failedTop5Codes: [],
+  transactionsByChannel: [],
+  failureByInstitution: [],
+  averageTime: { ne: 0, ft: 0 },
+  successFailurePie: [],
+  channelPie: [],
+};
 
 function safeJsonParse(value) {
   if (typeof value !== "string") return value;
@@ -734,20 +745,6 @@ async function fetchOrNull(endpoint, params) {
   }
 }
 
-async function fetchPendingDisputesCount(institutionCode) {
-  const code = institutionCodeForDashboardScope(institutionCode);
-  if (!code) return 0;
-  try {
-    const rows = await fetchDisputes({ institutionCode: code });
-    return rows.filter((d) => {
-      const label = `${d.status || ""} ${d.originalStatus || ""}`.toLowerCase();
-      return label.includes("pending") || label.includes("review");
-    }).length;
-  } catch {
-    return 0;
-  }
-}
-
 /** Load transactions for dashboard fallbacks — always institution-scoped when `scope` is set. */
 async function fetchTransactionsForDashboardFallback(scope, dateParams) {
   const range = getDashboardRangeAsDates(
@@ -785,7 +782,7 @@ async function fetchTransactionsForDashboardFallback(scope, dateParams) {
   }
 }
 
-export async function fetchAccountsDashboardData({
+function resolveDashboardContext({
   institutionCode,
   date,
   dateRange,
@@ -802,248 +799,143 @@ export async function fetchAccountsDashboardData({
     ...dateParams,
     isCurrent: dateParams.isCurrent || "true",
   };
-  const summaryEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.transactionsSummary,
-    API_ENDPOINTS.dashboards.transactionsSummaryByInstitution,
-    scope
-  );
-  const successEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.successfulTransactionCount,
-    API_ENDPOINTS.dashboards.successfulTransactionCountByInstitution,
-    scope
-  );
-  const byDateEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.transactionsByDate,
-    API_ENDPOINTS.dashboards.transactionsByDateByInstitution,
-    scope
-  );
-  const byDateOnlyEndpoint = scope
-    ? API_ENDPOINTS.dashboards.transactionsByDateOnlyByInstitution(scope)
-    : API_ENDPOINTS.dashboards.transactionsByDateOnly;
-  const channelsEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.transactionsByChannels,
-    API_ENDPOINTS.dashboards.transactionsByChannelsByInstitution,
-    scope
-  );
-  const failedCodesEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.topFailedResponseCodes,
-    API_ENDPOINTS.dashboards.topFailedResponseCodesByInstitution,
-    scope
-  );
-  const failingInstitutionsEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.topFailingInstitutions,
-    API_ENDPOINTS.dashboards.topFailingInstitutionsByInstitution,
-    scope
-  );
-  const averageTimeEndpoint = getScopedEndpoint(
-    API_ENDPOINTS.dashboards.ftAverageTime,
-    API_ENDPOINTS.dashboards.ftAverageTimeByInstitution,
-    scope
-  );
-  const trendEndpoint = scope
-    ? API_ENDPOINTS.dashboards.transactionsTrendByInstitution(scope)
-    : byDateEndpoint;
-  const trendParams = scope ? { ...dateParams, type: "day" } : pagedDateParams;
 
-  /**
-   * Institution-scoped (vendors): lean fetch — by-date meta has totalRecords/totalValue/successRate.
-   * Skip heavy search(800), failing-FI list, pending disputes, and trend endpoint.
-   */
-  if (scope) {
-    const [
-      byDatePayload,
-      byDateOnlyPayload,
-      channelsPayload,
-      failedCodesPayload,
-      averageTimePayload,
-      successPayload,
-      statusSummaryRows,
-    ] = await Promise.all([
-      fetchOrNull(byDateEndpoint, pagedDateParams),
-      fetchOrNull(byDateOnlyEndpoint, pagedDateParams),
-      fetchOrNull(channelsEndpoint, pagedDateParams),
-      fetchOrNull(failedCodesEndpoint, pagedDateParams),
-      fetchOrNull(averageTimeEndpoint, averageTimeParams),
-      fetchOrNull(successEndpoint, dateParams),
-      fetchStatusSummary({
-        institutionCode: scope,
-        dateRange: resolvedRange,
-        isCurrent: dateParams.isCurrent !== "false",
-      }),
-    ]);
+  return {
+    scope,
+    resolvedRange,
+    dateParams,
+    pagedDateParams,
+    averageTimeParams,
+    summaryEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.transactionsSummary,
+      API_ENDPOINTS.dashboards.transactionsSummaryByInstitution,
+      scope,
+    ),
+    successEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.successfulTransactionCount,
+      API_ENDPOINTS.dashboards.successfulTransactionCountByInstitution,
+      scope,
+    ),
+    byDateOnlyEndpoint: scope
+      ? API_ENDPOINTS.dashboards.transactionsByDateOnlyByInstitution(scope)
+      : API_ENDPOINTS.dashboards.transactionsByDateOnly,
+    channelsEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.transactionsByChannels,
+      API_ENDPOINTS.dashboards.transactionsByChannelsByInstitution,
+      scope,
+    ),
+    failedCodesEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.topFailedResponseCodes,
+      API_ENDPOINTS.dashboards.topFailedResponseCodesByInstitution,
+      scope,
+    ),
+    failingInstitutionsEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.topFailingInstitutions,
+      API_ENDPOINTS.dashboards.topFailingInstitutionsByInstitution,
+      scope,
+    ),
+    averageTimeEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.ftAverageTime,
+      API_ENDPOINTS.dashboards.ftAverageTimeByInstitution,
+      scope,
+    ),
+    cache: {},
+  };
+}
 
-    const byDateMeta =
-      extractMetaAggFromPayload(byDateOnlyPayload) || extractMetaAggFromPayload(byDatePayload);
+async function resolveDashboardSummary(ctx) {
+  const { scope, dateParams, summaryEndpoint, cache } = ctx;
+  const byDateMeta = extractMetaAggFromPayload(cache.byDateOnlyPayload);
 
-    let summary = normalizeSummary(null, successPayload, averageTimePayload);
-    if (byDateMeta) {
-      summary = applyMetaAggToSummary(summary, byDateMeta);
-    } else if (shouldFillDashboardMetricsFromTransactions(summary)) {
-      try {
-        const scopedRows = await fetchTransactionsForDashboardFallback(scope, dateParams);
-        if (scopedRows.length) {
-          const rowAgg = aggregateMetricsFromTransactionRows(scopedRows);
-          summary = mergeSummaryWithTransactionSearch(summary, null, rowAgg);
-        }
-      } catch {
-        /* keep zero metrics */
-      }
-    }
-
-    summary = {
-      ...summary,
-      pendingDisputes: 0,
-      metricCards: {
-        ...summary.metricCards,
-        pendingDisputes: "0",
-      },
-    };
-
-    let chartData7d = normalizeTrendRows(byDateOnlyPayload || byDatePayload);
-    const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
-    let successVolumes7d = normalizeSuccessVolumes(successPayload, byDatePayload || byDateOnlyPayload);
-    if ((!successVolumes7d || successVolumes7d.length < 1) && byDateMeta?.successCount > 0) {
-      const label = resolvedRange
-        ? formatDashboardRangeLabel(resolvedRange)
-        : "Selected range";
-      successVolumes7d = [{ date: label, volume: byDateMeta.successCount }];
-    }
-    const transactionsByChannel = normalizeChannelRows(channelsPayload);
-
-    const hasTransactions =
-      Number(summary.totalTransactions) > 0 ||
-      chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
-
-    return {
-      hasTransactions,
-      metrics: summary.metricCards,
-      statusCounts: hasTransactions ? extractStatusCounts(statusSummaryRows, summary) : { successful: 0, pending: 0, failed: 0 },
-      chartData7d: hasTransactions ? chartData7d : [],
-      responseCodes: hasTransactions ? responseCodes : [],
-      successVolumes7d: hasTransactions ? successVolumes7d : [],
-      failedTop5Codes: hasTransactions ? responseCodes : [],
-      transactionsByChannel: hasTransactions ? transactionsByChannel : [],
-      failureByInstitution: [],
-      averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
-      successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
-      channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
-      rawSummary: summary,
-    };
-  }
-
-  const txnSearchPromise = (async () => {
-    const range = getDashboardRangeAsDates(resolvedRange);
-    if (!range) return { rows: [], metaAgg: null };
-    try {
-      return await fetchTransactionSearchRaw(
-        buildBackendTransactionSearchParams({
-          userInstitutionCode: scope,
-          startDate: range.start,
-          endDate: range.end,
-          page: 1,
-          limit: 800,
-        }),
-      );
-    } catch {
-      return { rows: [], metaAgg: null };
-    }
-  })();
-
-  const [
-    summaryPayload,
-    successPayload,
-    byDatePayload,
-    byDateOnlyPayload,
-    channelsPayload,
-    failedCodesPayload,
-    failingInstitutionsPayload,
-    averageTimePayload,
-    trendPayload,
-    txnSearch,
-    pendingDisputesCount,
-    statusSummaryRows,
-  ] = await Promise.all([
-    fetchOrNull(summaryEndpoint, dateParams),
-    fetchOrNull(successEndpoint, dateParams),
-    fetchOrNull(byDateEndpoint, pagedDateParams),
-    fetchOrNull(byDateOnlyEndpoint, pagedDateParams),
-    fetchOrNull(channelsEndpoint, pagedDateParams),
-    fetchOrNull(failedCodesEndpoint, pagedDateParams),
-    fetchOrNull(failingInstitutionsEndpoint, pagedDateParams),
-    fetchOrNull(averageTimeEndpoint, averageTimeParams),
-    fetchOrNull(trendEndpoint, trendParams),
-    txnSearchPromise,
-    fetchPendingDisputesCount(scope),
-    fetchStatusSummary({
-      institutionCode: scope,
-      dateRange: resolvedRange,
-      isCurrent: dateParams.isCurrent !== "false",
-    }),
-  ]);
-
-  const byDateMeta =
-    extractMetaAggFromPayload(byDateOnlyPayload) || extractMetaAggFromPayload(byDatePayload);
-
-  const summaryBase = normalizeSummary(summaryPayload, successPayload, averageTimePayload);
-  let workingRows = Array.isArray(txnSearch.rows) ? txnSearch.rows : [];
-  let rowAgg = aggregateMetricsFromTransactionRows(workingRows);
-  let summary = mergeSummaryWithTransactionSearch(
-    summaryBase,
-    byDateMeta || txnSearch.metaAgg,
-    rowAgg,
-  );
-
-  if (shouldPreferTransactionMeta(summary, byDateMeta)) {
+  let summary = normalizeSummary(null, null, null);
+  if (byDateMeta) {
     summary = applyMetaAggToSummary(summary, byDateMeta);
+  } else if (!scope) {
+    const summaryPayload = await fetchOrNull(summaryEndpoint, ctx.dateParams);
+    summary = normalizeSummary(summaryPayload, null, null);
   }
 
   if (shouldFillDashboardMetricsFromTransactions(summary)) {
     try {
       const scopedRows = await fetchTransactionsForDashboardFallback(scope, dateParams);
       if (scopedRows.length) {
-        workingRows = scopedRows;
-        rowAgg = aggregateMetricsFromTransactionRows(scopedRows);
-        summary = mergeSummaryWithTransactionSearch(summaryBase, null, rowAgg);
+        const rowAgg = aggregateMetricsFromTransactionRows(scopedRows);
+        summary = mergeSummaryWithTransactionSearch(summary, null, rowAgg);
+        cache.workingRows = scopedRows;
       }
     } catch {
-      /* keep zero metrics on failure */
+      /* keep zero metrics */
     }
   }
 
-  if (pendingDisputesCount > 0 || scope) {
+  cache.summary = summary;
+  return summary;
+}
+
+function buildMetricsPayload(ctx, summary, statusSummaryRows) {
+  const { cache } = ctx;
+  const chartData7d = normalizeTrendRows(cache.byDateOnlyPayload);
+  const hasTransactions =
+    Number(summary.totalTransactions) > 0 ||
+    (Array.isArray(cache.workingRows) && cache.workingRows.length > 0) ||
+    chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
+
+  return {
+    hasTransactions,
+    metrics: summary.metricCards,
+    statusCounts: hasTransactions
+      ? extractStatusCounts(statusSummaryRows, summary)
+      : { successful: 0, pending: 0, failed: 0 },
+    successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
+    rawSummary: summary,
+    ...EMPTY_CHARTS,
+  };
+}
+
+function buildChartsPayload(ctx, summary, statusSummaryRows) {
+  const { scope, resolvedRange, cache } = ctx;
+  const {
+    byDateOnlyPayload,
+    channelsPayload,
+    failedCodesPayload,
+    failingInstitutionsPayload,
+    averageTimePayload,
+    successPayload,
+    workingRows = [],
+  } = cache;
+
+  const byDateMeta = extractMetaAggFromPayload(byDateOnlyPayload);
+  if (averageTimePayload) {
     summary = {
       ...summary,
-      pendingDisputes: pendingDisputesCount || summary.pendingDisputes,
-      metricCards: {
-        ...summary.metricCards,
-        pendingDisputes: String(pendingDisputesCount || summary.pendingDisputes || 0),
-      },
+      averageTime: normalizeAverageTime(averageTimePayload),
     };
   }
 
-  let chartData7d = normalizeTrendRows(trendPayload || byDatePayload || byDateOnlyPayload);
+  let chartData7d = normalizeTrendRows(byDateOnlyPayload);
   if (!chartData7d.length && workingRows.length) {
     chartData7d = aggregateTrendFromTransactionRows(workingRows);
   }
 
   const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
-  let successVolumes7d = normalizeSuccessVolumes(successPayload, trendPayload || byDatePayload);
+  let successVolumes7d = normalizeSuccessVolumes(successPayload, byDateOnlyPayload);
   const successFromTxn = aggregateSuccessVolumesFromTransactionRows(workingRows);
   if ((!successVolumes7d || successVolumes7d.length < 1) && successFromTxn.length >= 1) {
     successVolumes7d = successFromTxn;
   }
-  const transactionsByChannel = normalizeChannelRows(channelsPayload);
-  const failureByInstitution = normalizeInstitutionRows(failingInstitutionsPayload);
+  if ((!successVolumes7d || successVolumes7d.length < 1) && byDateMeta?.successCount > 0) {
+    const label = resolvedRange ? formatDashboardRangeLabel(resolvedRange) : "Selected range";
+    successVolumes7d = [{ date: label, volume: byDateMeta.successCount }];
+  }
 
+  const transactionsByChannel = normalizeChannelRows(channelsPayload);
+  const failureByInstitution = scope ? [] : normalizeInstitutionRows(failingInstitutionsPayload);
   const hasTransactions =
     Number(summary.totalTransactions) > 0 ||
     workingRows.length > 0 ||
     chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
 
   return {
-    hasTransactions,
-    metrics: summary.metricCards,
-    statusCounts: hasTransactions ? extractStatusCounts(statusSummaryRows, summary) : { successful: 0, pending: 0, failed: 0 },
     chartData7d: hasTransactions ? chartData7d : [],
     responseCodes: hasTransactions ? responseCodes : [],
     successVolumes7d: hasTransactions ? successVolumes7d : [],
@@ -1053,8 +945,89 @@ export async function fetchAccountsDashboardData({
     averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
     successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
     channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
-    rawSummary: summary,
   };
+}
+
+/** Fast path: KPI cards and status counts (2 API calls). */
+export async function fetchAccountsDashboardMetrics(options = {}) {
+  const ctx = resolveDashboardContext(options);
+  const { scope, pagedDateParams, resolvedRange, dateParams } = ctx;
+
+  const [byDateOnlyPayload, statusSummaryRows] = await Promise.all([
+    fetchOrNull(ctx.byDateOnlyEndpoint, pagedDateParams),
+    fetchStatusSummary({
+      institutionCode: scope,
+      dateRange: resolvedRange,
+      isCurrent: dateParams.isCurrent !== "false",
+    }),
+  ]);
+
+  ctx.cache.byDateOnlyPayload = byDateOnlyPayload;
+  ctx.cache.statusSummaryRows = statusSummaryRows;
+
+  const summary = await resolveDashboardSummary(ctx);
+  return buildMetricsPayload(ctx, summary, statusSummaryRows);
+}
+
+/** Chart widgets — runs after metrics; reuses cached by-date payload when possible. */
+export async function fetchAccountsDashboardCharts(options = {}, metricsContext = null) {
+  const ctx = metricsContext ?? resolveDashboardContext(options);
+  if (!metricsContext) {
+    const [byDateOnlyPayload, statusSummaryRows] = await Promise.all([
+      fetchOrNull(ctx.byDateOnlyEndpoint, ctx.pagedDateParams),
+      fetchStatusSummary({
+        institutionCode: ctx.scope,
+        dateRange: ctx.resolvedRange,
+        isCurrent: ctx.dateParams.isCurrent !== "false",
+      }),
+    ]);
+    ctx.cache.byDateOnlyPayload = byDateOnlyPayload;
+    ctx.cache.statusSummaryRows = statusSummaryRows;
+    ctx.cache.summary = await resolveDashboardSummary(ctx);
+  }
+
+  const summary = ctx.cache.summary;
+  const statusSummaryRows = ctx.cache.statusSummaryRows;
+
+  const chartRequests = [
+    fetchOrNull(ctx.channelsEndpoint, ctx.pagedDateParams),
+    fetchOrNull(ctx.failedCodesEndpoint, ctx.pagedDateParams),
+    fetchOrNull(ctx.averageTimeEndpoint, ctx.averageTimeParams),
+    fetchOrNull(ctx.successEndpoint, ctx.dateParams),
+  ];
+  if (!ctx.scope) {
+    chartRequests.push(fetchOrNull(ctx.failingInstitutionsEndpoint, ctx.pagedDateParams));
+  }
+
+  const chartResults = await Promise.all(chartRequests);
+  ctx.cache.channelsPayload = chartResults[0];
+  ctx.cache.failedCodesPayload = chartResults[1];
+  ctx.cache.averageTimePayload = chartResults[2];
+  ctx.cache.successPayload = chartResults[3];
+  if (!ctx.scope) {
+    ctx.cache.failingInstitutionsPayload = chartResults[4];
+  }
+
+  return buildChartsPayload(ctx, summary, statusSummaryRows);
+}
+
+export async function fetchAccountsDashboardData({
+  institutionCode,
+  date,
+  dateRange,
+  requireInstitutionScope = false,
+  onMetricsReady,
+} = {}) {
+  const options = { institutionCode, date, dateRange, requireInstitutionScope };
+  const ctx = resolveDashboardContext(options);
+
+  const metrics = await fetchAccountsDashboardMetrics(options);
+  if (typeof onMetricsReady === "function") {
+    onMetricsReady(metrics);
+  }
+
+  const charts = await fetchAccountsDashboardCharts(options, ctx);
+  return { ...metrics, ...charts };
 }
 
 export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, date, dateRange } = {}) {

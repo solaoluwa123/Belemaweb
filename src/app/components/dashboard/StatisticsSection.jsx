@@ -27,6 +27,7 @@ export function StatisticsSection({
   onDateRangeChange,
   statsData,
   isLoading: controlledLoading,
+  chartsLoading: controlledChartsLoading = false,
   errorMessage: controlledError,
   lockInstitution = false,
   institutionDisplayName,
@@ -131,6 +132,7 @@ export function StatisticsSection({
   const showCharts =
     layout !== "bento" &&
     !isLoading &&
+    !controlledChartsLoading &&
     !errorMessage &&
     hasTransactions !== false &&
     (hasTransactions === true ||
@@ -219,7 +221,7 @@ export function StatisticsSection({
         </div>
       ) : null}
 
-      {isLoading ? (
+      {isLoading || controlledChartsLoading ? (
         <div
           className={
             isAnalytics
@@ -229,12 +231,12 @@ export function StatisticsSection({
         >
           <div className="inline-flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading statistics...
+            {isLoading ? "Loading statistics..." : "Loading charts..."}
           </div>
         </div>
       ) : null}
 
-      {!isLoading && !errorMessage && !showCharts ? (
+      {!isLoading && !controlledChartsLoading && !errorMessage && !showCharts ? (
         <div
           className={
             isAnalytics

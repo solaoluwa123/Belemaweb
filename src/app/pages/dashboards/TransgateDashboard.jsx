@@ -16,7 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Card, CardContent } from "../../components/ui/card";
-import { TRANSGATE_BANKS } from "../../data/mockData";
+import { TRANSGATE_BANKS, TRANSGATE_BANK_OPTIONS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
 import {
   DASHBOARD_AUTO_REFRESH_MS,
@@ -62,6 +62,7 @@ export default function TransgateDashboard() {
   const [statsInstitution, setStatsInstitution] = useState("all");
   const [statsData, setStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -86,26 +87,43 @@ export default function TransgateDashboard() {
         setIsRefreshing(true);
       } else {
         setIsLoading(true);
+        setChartsLoading(true);
       }
       setErrorMessage("");
 
+      const fetchOptions = {
+        institutionCode:
+          isVendor
+            ? userInstitutionCode || null
+            : statsInstitution !== "all"
+              ? statsInstitution
+              : !isAdminUser
+                ? userInstitutionCode || null
+                : null,
+        dateRange: statsDateRange,
+        requireInstitutionScope: isVendor,
+      };
+
       try {
         const data = await fetchAccountsDashboardData({
-          institutionCode:
-            isVendor
-              ? userInstitutionCode || null
-              : statsInstitution !== "all"
-                ? statsInstitution
-                : !isAdminUser
-                  ? userInstitutionCode || null
-                  : null,
-          dateRange: statsDateRange,
-          requireInstitutionScope: isVendor,
+          ...fetchOptions,
+          onMetricsReady: silent
+            ? undefined
+            : (metrics) => {
+                if (seq !== loadSeq.current) return;
+                setStatsData(metrics);
+                setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
+                setLastUpdatedAt(new Date());
+                setIsLoading(false);
+                setChartsLoading(true);
+              },
         });
         if (seq !== loadSeq.current) return;
         setStatsData(data);
-        setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
-        setLastUpdatedAt(new Date());
+        if (silent) {
+          setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
+          setLastUpdatedAt(new Date());
+        }
       } catch (error) {
         if (seq !== loadSeq.current) return;
         const message = error instanceof APIError ? error.message : "Unable to load dashboard data.";
@@ -119,6 +137,7 @@ export default function TransgateDashboard() {
           setIsRefreshing(false);
         } else {
           setIsLoading(false);
+          setChartsLoading(false);
         }
       }
     },
@@ -344,7 +363,7 @@ export default function TransgateDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All institutions</SelectItem>
-                    {TRANSGATE_BANKS.map((bank) => (
+                    {TRANSGATE_BANK_OPTIONS.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
@@ -410,13 +429,14 @@ export default function TransgateDashboard() {
 
       {showDashboardBody ? (
         <>
-          <DashboardStagger className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <DashboardStagger className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 lg:grid-cols-3">
             <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Transaction Volume"
                 value={displayMetrics.totalTransactions}
                 icon={ArrowLeftRight}
                 iconAccent="yellow"
+                size="compact"
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -425,6 +445,7 @@ export default function TransgateDashboard() {
                 value={displayMetrics.volume}
                 icon={Banknote}
                 iconAccent="lime"
+                size="compact"
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -433,6 +454,7 @@ export default function TransgateDashboard() {
                 value={displayMetrics.successRate}
                 icon={CheckCircle}
                 iconAccent="lime"
+                size="compact"
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -441,6 +463,7 @@ export default function TransgateDashboard() {
                 value={formatCount(statusCounts.successful)}
                 icon={CheckCircle}
                 iconAccent="lime"
+                size="compact"
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -449,6 +472,7 @@ export default function TransgateDashboard() {
                 value={formatCount(statusCounts.failed)}
                 icon={XCircle}
                 iconAccent="orange"
+                size="compact"
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -457,6 +481,7 @@ export default function TransgateDashboard() {
                 value={formatCount(statusCounts.pending)}
                 icon={Clock}
                 iconAccent="yellow"
+                size="compact"
               />
             </DashboardStaggerItem>
           </DashboardStagger>
@@ -469,6 +494,7 @@ export default function TransgateDashboard() {
             onInstitutionChange={setStatsInstitution}
             statsData={statsData}
             isLoading={isLoading}
+            chartsLoading={chartsLoading}
             errorMessage={errorMessage}
             lockInstitution={isVendor}
             institutionDisplayName={isVendor ? userInstitutionName || userInstitutionCode : undefined}
