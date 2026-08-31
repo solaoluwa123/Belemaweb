@@ -66,9 +66,9 @@ export const belemaBrand = {
     cardForeground: "#1f2937",
     popover: "#ffffff",
     popoverForeground: "#1f2937",
-    /** Primary CTAs — yellow with dark-green label text for contrast. */
+    /** Primary CTAs — yellow with black label text (matches brand login mockup). */
     primary: "#FFD600",
-    primaryForeground: "#00411A",
+    primaryForeground: "#000000",
     primaryHover: "#E6C200",
     /** Secondary accents — burgundy enterprise tone. */
     secondary: "#f5eef2",
