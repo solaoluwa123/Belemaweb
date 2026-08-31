@@ -47,6 +47,12 @@ const accountsMenuBase = [
     adminRoleOnly: true,
   },
   {
+    label: "TSQ Retry",
+    path: "/transactions/tsq-retry",
+    icon: <RefreshCcw className="w-4 h-4" />,
+    adminRoleOnly: true,
+  },
+  {
     label: "Arbitrated Disputes",
     path: "/disputes/arbitrated",
     icon: <Scale className="w-4 h-4" />,
@@ -118,6 +124,7 @@ export default function AppLayout() {
     if (pathname.startsWith("/approvals/")) return isApprover() || isAdmin();
 
     if (pathname.startsWith("/transactions/status-change")) return isAdmin();
+    if (pathname.startsWith("/transactions/tsq-retry")) return isAdmin();
 
     if (pathname.startsWith("/disputes/arbitrated")) {
       return isApprover() || isOperator() || isAdmin();

@@ -912,3 +912,75 @@ export async function requestTransactionStatusChange({
 
   return apiClient.post(API_ENDPOINTS.transactions.statusUpdate, payload);
 }
+
+function unwrapList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    for (const k of ["data", "records", "items", "results"]) {
+      if (Array.isArray(payload[k])) return payload[k];
+    }
+  }
+  return [];
+}
+
+function parseMeta(meta) {
+  if (!meta) return {};
+  if (typeof meta === "object") return meta;
+  try {
+    return JSON.parse(String(meta));
+  } catch {
+    return {};
+  }
+}
+
+export async function fetchTsqRetries({
+  page = 1,
+  limit = 50,
+  sessionId = "",
+  destinationInstitutionCode = "",
+} = {}) {
+  const params = {
+    page: String(page),
+    limit: String(limit),
+  };
+  const sid = String(sessionId || "").trim();
+  const dest = String(destinationInstitutionCode || "").trim();
+  if (sid) params.session_id = sid;
+  if (dest) params.destination_institution_code = dest;
+
+  const response = await apiClient.get(API_ENDPOINTS.transactions.tsqRetries, params);
+  const rows = unwrapList(response).map((row) => {
+    const source = row && typeof row === "object" ? row : {};
+    const counter = Number(source.counter ?? 0);
+    return {
+      id: String(source.session_id ?? source.sessionId ?? source.id ?? ""),
+      sessionId: String(source.session_id ?? source.sessionId ?? "").trim(),
+      transactionDateTime: source.transaction_date_time ?? source.transactionDateTime ?? "",
+      counter: Number.isFinite(counter) ? counter : 0,
+      responseCode: String(source.responseCode ?? source.response_code ?? "").trim(),
+      destinationInstitutionCode: String(
+        source.destination_institution_code ?? source.destinationInstitutionCode ?? ""
+      ).trim(),
+      destInstitutionName: String(source.destInstitutionName ?? source.institution_name ?? "").trim(),
+      route: source.route ?? "",
+      raw: source,
+    };
+  });
+  const meta = parseMeta(response?.meta);
+  return {
+    rows,
+    totalRecords: Number(meta.totalRecords ?? rows.length) || 0,
+    page: Number(meta.page ?? page) || page,
+    limit: Number(meta.limit ?? limit) || limit,
+  };
+}
+
+export async function resetTsqRetryCounter(sessionId, username) {
+  const sid = String(sessionId || "").trim();
+  if (!sid) throw new APIError("Session id is required.", 400, null);
+  const user = String(username || "").trim();
+  if (!user) throw new APIError("Username is required.", 400, null);
+  const endpoint = `${API_ENDPOINTS.transactions.resetTsqRetryCounter(sid)}?username=${encodeURIComponent(user)}`;
+  return apiClient.post(endpoint, {});
+}
+

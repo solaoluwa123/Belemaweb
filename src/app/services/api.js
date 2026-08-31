@@ -32,6 +32,8 @@ export const API_ENDPOINTS = {
     statusUpdate: '/transaction/status/change',
     pendingStatusUpdates: '/transactions-for-update',
     live: '/transactions',
+    tsqRetries: '/tsq-retries',
+    resetTsqRetryCounter: (sessionId) => `/tsq-retries/${encodeURIComponent(sessionId)}/reset-counter`,
   },
   disputes: {
     listByInstitution: (institutionCode) => `/transactions/disputes/institution/${institutionCode}`,

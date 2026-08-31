@@ -198,6 +198,7 @@ export function isVendorAllowedPath(pathname, accountsDashboard = "/dashboard/ac
   if (pathname.startsWith("/settings/security")) return true;
   if (pathname.startsWith("/dashboard/live-monitoring")) return true;
   if (pathname.startsWith("/transactions/status-change")) return false;
+  if (pathname.startsWith("/transactions/tsq-retry")) return false;
   // Vendors: Log Dispute only — not list, arbitrated, or other dispute routes.
   if (pathname === "/disputes/log" || pathname.startsWith("/disputes/log/")) return true;
   if (pathname === "/disputes" || pathname.startsWith("/disputes/")) return false;

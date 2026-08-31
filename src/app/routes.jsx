@@ -39,6 +39,7 @@ import InstitutionDetailPage from "./pages/dashboards/statistics/InstitutionDeta
 import TransactionList from "./pages/transactions/TransactionList";
 import TransactionDetails from "./pages/transactions/TransactionDetails";
 import TransactionStatusChange from "./pages/transactions/TransactionStatusChange";
+import TsqRetry from "./pages/transactions/TsqRetry";
 
 function TransactionsIndexRedirect() {
   return <Navigate to="/transactions" replace />;
@@ -132,6 +133,7 @@ export const router = createBrowserRouter(
       { path: "settings/security", Component: SecuritySettings },
       { path: "transactions/live", Component: TransactionsIndexRedirect },
       { path: "transactions/status-change", Component: TransactionStatusChange },
+      { path: "transactions/tsq-retry", Component: TsqRetry },
       { path: "transactions/:id", Component: TransactionDetails },
 
       { path: "disputes/log", Component: LogDispute },
