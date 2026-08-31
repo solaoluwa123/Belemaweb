@@ -94,13 +94,13 @@ export default function Login() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center px-3 py-4 sm:px-4"
+      className="flex min-h-screen items-center justify-center px-4 py-4 sm:px-8 lg:px-16"
       style={{
         backgroundImage: `linear-gradient(145deg, ${brand.theme.loginHero} 0%, ${brand.theme.loginPrimary || brand.theme.primary} 42%, ${brand.theme.loginSurface} 100%)`,
         backgroundColor: brand.theme.loginSurface,
       }}
     >
-      <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl md:flex-row">
+      <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl md:flex-row">
         <div
           className="relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden md:w-1/2 md:rounded-br-none md:rounded-tr-[120px]"
           style={{ backgroundColor: brand.theme.loginHero || brand.theme.sidebar }}
