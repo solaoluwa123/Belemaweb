@@ -99,7 +99,7 @@ export default function Login() {
         backgroundColor: brand.theme.loginHero || brand.theme.sidebar || "#00411A",
       }}
     >
-      <BrandPattern opacity={0.35} tileSize={220} />
+      <BrandPattern opacity={0.35} />
 
       <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-6">
         <ETranzactWordmark
