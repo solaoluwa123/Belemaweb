@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { detectSuspiciousPatterns, rateLimiter, sanitizeInput } from "../../utils/security";
-import { ETranzactWordmark } from "../../components/branding/ETranzactWordmark";
 import { BrandPattern } from "../../components/branding/BrandPattern";
 import { useBrand } from "../../../branding/useBrand";
 import { readLocalStorage, removeLocalStorage, setLocalStorage, STORAGE_KEY_NAMES } from "../../config/storage";
