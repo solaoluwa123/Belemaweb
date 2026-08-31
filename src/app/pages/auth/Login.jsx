@@ -105,15 +105,18 @@ export default function Login() {
           style={{ backgroundColor: brand.theme.loginHero || brand.theme.sidebar }}
         >
           <BrandPattern opacity={0.2} />
-          <div className="relative z-10 flex w-full flex-col items-center justify-center px-6 py-10 sm:px-10">
-            <ETranzactWordmark
-              markOnly
-              variant="light"
-              className="mx-auto items-center"
-              iconClassName="object-center"
-              textClassName="text-[3.5rem] sm:text-[4.25rem] md:text-[5rem]"
-            />
-            <p className="mt-4 max-w-xs text-center text-sm italic text-[#CEF445]/90 sm:text-base">
+          <div className="relative z-10 flex w-full flex-col items-center justify-center px-6 py-10 text-center sm:px-10">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[#CEF445]/80 sm:text-xs">
+              {brand.productText?.shellSubtitle || "Switching Platform"}
+            </p>
+            <h1 className="mt-4 font-semibold leading-none tracking-tight text-white">
+              <span className="block text-[2.35rem] sm:text-[2.85rem] md:text-[3.15rem]">Belema</span>
+              <span className="mt-1 block text-[2.35rem] font-light tracking-[0.04em] text-[#CEF445] sm:text-[2.85rem] md:text-[3.15rem]">
+                Fintech
+              </span>
+            </h1>
+            <div className="mt-5 h-px w-16 bg-[#CEF445]/55" aria-hidden />
+            <p className="mt-5 max-w-[16rem] text-center text-sm italic leading-relaxed text-[#CEF445]/85 sm:text-[0.95rem]">
               {brand.tagline}
             </p>
           </div>
