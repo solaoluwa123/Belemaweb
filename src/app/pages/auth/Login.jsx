@@ -94,33 +94,46 @@ export default function Login() {
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-3 py-6 sm:px-4"
+      className="flex min-h-screen items-center justify-center px-3 py-4 sm:px-4"
       style={{
-        backgroundColor: brand.theme.loginHero || brand.theme.sidebar || "#00411A",
+        backgroundImage: `linear-gradient(145deg, ${brand.theme.loginHero} 0%, ${brand.theme.loginPrimary || brand.theme.primary} 42%, ${brand.theme.loginSurface} 100%)`,
+        backgroundColor: brand.theme.loginSurface,
       }}
     >
-      <BrandPattern opacity={0.35} />
-
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-6">
-        <ETranzactWordmark
-          variant="light"
-          surface="dark"
-          className="mx-auto"
-          textClassName="text-[3.25rem] sm:text-[3.75rem]"
-        />
+      <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl md:flex-row">
+        <div
+          className="relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden md:w-1/2 md:rounded-br-none md:rounded-tr-[120px]"
+          style={{ backgroundColor: brand.theme.loginHero || brand.theme.sidebar }}
+        >
+          <BrandPattern opacity={0.2} />
+          <div className="relative z-10 px-6 py-10 sm:px-10">
+            <ETranzactWordmark
+              markOnly
+              variant="light"
+              className="mx-auto"
+              textClassName="text-[3.5rem] sm:text-[4.25rem] md:text-[5rem]"
+            />
+            <p className="mt-4 max-w-xs text-center text-sm italic text-[#CEF445]/90 sm:text-base">
+              {brand.tagline}
+            </p>
+          </div>
+        </div>
 
         <div
-          className="w-full overflow-hidden rounded-2xl px-5 py-8 shadow-xl sm:px-8 sm:py-10"
+          className="relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden px-4 py-8 sm:px-6 sm:py-10 md:w-1/2 md:rounded-bl-[120px]"
           style={{
             backgroundImage: `linear-gradient(to bottom right, ${brand.theme.authPanelFrom}, ${brand.theme.authPanelVia}, ${brand.theme.authPanelTo})`,
           }}
         >
-          <div className="mx-auto flex w-full max-w-sm flex-col items-center">
-            <h2 className="text-center text-xl font-bold text-black sm:text-2xl">
-              {brand.productText.loginHeading}
-            </h2>
+          <BrandPattern opacity={0.08} />
 
-            <form onSubmit={handleLogin} className="mt-5 flex w-full flex-col items-center gap-4">
+          <div className="relative z-10 flex w-full max-w-sm flex-col items-center">
+            <h2 className="text-center text-xl font-bold text-black sm:text-2xl">{brand.productText.loginHeading}</h2>
+
+            <form
+              onSubmit={handleLogin}
+              className="mt-5 flex w-full flex-col items-center gap-4"
+            >
               <input
                 type="text"
                 placeholder="Email or username"
@@ -145,7 +158,7 @@ export default function Login() {
                 </span>
               </div>
 
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              {error && <p className="text-red-500 text-sm">{error}</p>}
 
               <div className="mt-2 flex w-full flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm text-gray-700 sm:mb-0">
@@ -187,7 +200,10 @@ export default function Login() {
 
               <div className="mt-4 flex w-full flex-wrap justify-center text-center text-sm text-gray-600">
                 Need activation?{" "}
-                <a href="/activate" className="ml-1 text-primary hover:underline">
+                <a
+                  href="/activate"
+                  className="ml-1 text-primary hover:underline"
+                >
                   {brand.productText.activationPrompt}
                 </a>
               </div>
