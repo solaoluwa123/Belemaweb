@@ -38,8 +38,6 @@ export default function TransgateDashboard() {
   const { brand } = useBrand();
   const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
-  const [draftInstitution, setDraftInstitution] = useState("all");
-  const [draftDateRange, setDraftDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsData, setStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -95,14 +93,8 @@ export default function TransgateDashboard() {
   useEffect(() => {
     if (isThirdPartyVendor() && user?.institutionCode) {
       setStatsInstitution(user.institutionCode);
-      setDraftInstitution(user.institutionCode);
     }
   }, [user?.institutionCode, user?.roleId]);
-
-  useEffect(() => {
-    setDraftInstitution(statsInstitution);
-    setDraftDateRange(statsDateRange);
-  }, [statsInstitution, statsDateRange]);
 
   useEffect(() => {
     if (isThirdPartyVendor() && !user?.institutionCode) {
@@ -156,19 +148,17 @@ export default function TransgateDashboard() {
       ? { isPositive: successRateNum >= 50, value: metrics.successRate }
       : null;
 
-  const applyFilters = () => {
-    setStatsInstitution(isThirdPartyVendor() ? user?.institutionCode || "" : draftInstitution);
-    setStatsDateRange(normalizeDashboardDateRange(draftDateRange));
-  };
-
-  const clearFilters = () => {
+  const resetFilters = () => {
     if (!isThirdPartyVendor()) {
-      setDraftInstitution("all");
       setStatsInstitution("all");
     }
-    setDraftDateRange(DEFAULT_STATS_RANGE);
     setStatsDateRange(DEFAULT_STATS_RANGE);
   };
+
+  const filtersAreDefault =
+    (isThirdPartyVendor() || statsInstitution === "all") &&
+    statsDateRange.start.getTime() === DEFAULT_STATS_RANGE.start.getTime() &&
+    statsDateRange.end.getTime() === DEFAULT_STATS_RANGE.end.getTime();
 
   const shellSurface = brand.theme.shellSurface || "#f7faf2";
 
@@ -220,7 +210,7 @@ export default function TransgateDashboard() {
                 <Label htmlFor="toolbar-institution" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Institution
                 </Label>
-                <Select value={draftInstitution} onValueChange={setDraftInstitution}>
+                <Select value={statsInstitution} onValueChange={setStatsInstitution}>
                   <SelectTrigger id="toolbar-institution" className="bg-card">
                     <SelectValue placeholder="All institutions" />
                   </SelectTrigger>
@@ -245,18 +235,18 @@ export default function TransgateDashboard() {
             <DashboardDateRangePicker
               id="toolbar-date-range"
               label="Date range"
-              value={draftDateRange}
-              onChange={setDraftDateRange}
-              className="min-w-0 sm:min-w-[240px]"
+              value={statsDateRange}
+              onChange={setStatsDateRange}
+              className="min-w-0 sm:min-w-[260px]"
             />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={applyFilters} className="min-w-[5.5rem]">
-                Apply
-              </Button>
-              <Button variant="outline" onClick={clearFilters} className="bg-card">
-                Clear
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={resetFilters}
+              disabled={filtersAreDefault}
+              className="bg-card"
+            >
+              Reset
+            </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             Showing <span className="font-medium text-foreground">{institutionFilterLabel}</span>
