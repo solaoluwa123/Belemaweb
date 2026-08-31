@@ -59,20 +59,21 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-/** Dispute settlement status: Pending (default), Accepted, Rejected. */
+/** Dispute settlement status: Pending (default), Accepted, Rejected, Arbitrated. */
 function normalizeStatus(value) {
   const raw = String(value || "").trim();
   const lower = raw.toLowerCase();
   if (!raw) return "Pending";
   if (/^-?\d+$/.test(lower)) {
+    if (Number(lower) === -1) return "Arbitrated";
     if (Number(lower) === 0) return "Pending";
     if (Number(lower) === 1) return "Accepted";
     if (Number(lower) === 2) return "Rejected";
   }
   if (lower.includes("reject") || lower.includes("declin")) return "Rejected";
   if (lower.includes("accept") || lower.includes("approv") || lower.includes("success")) return "Accepted";
-  if (lower.includes("pending") || lower.includes("review")) return "Pending";
   if (lower.includes("arbitrat")) return "Arbitrated";
+  if (lower.includes("pending") || lower.includes("review")) return "Pending";
   return raw || "Pending";
 }
 
@@ -80,16 +81,21 @@ function normalizeDispute(row, index = 0) {
   const source = row && typeof row === "object" ? row : {};
   const resolvedFlag = Number(firstDefined(source.resolved, source.isResolved, source.resolvedFlag, 0));
   const rawStatus = String(firstDefined(source.status, source.current_status, "")).trim();
-  const settlementStatus =
-    resolvedFlag > 0 ? normalizeStatus(rawStatus) : "Pending";
+  const numericStatus = /^-?\d+$/.test(rawStatus) ? Number(rawStatus) : null;
+  const isArbitrated = numericStatus === -1 || String(rawStatus).toLowerCase().includes("arbitrat");
+  const settlementStatus = isArbitrated
+    ? "Arbitrated"
+    : resolvedFlag > 0
+      ? normalizeStatus(rawStatus)
+      : "Pending";
   return {
     id: String(firstDefined(source.id, source.disputeId, source.transactionId, `DIS${index + 1}`)),
-    sessionId: String(firstDefined(source.srcSessionid, source.sessionId, source.transactionId, "")),
-    transactionId: String(firstDefined(source.transactionId, source.srcSessionid, source.sessionId, "")),
-    sourceAccountName: String(firstDefined(source.srcAccountName, source.sourceAccountName, source.accountNameFrom, "")),
+    sessionId: String(firstDefined(source.srcSessionid, source.sessionId, source.session_id, source.transactionId, "")),
+    transactionId: String(firstDefined(source.transactionId, source.transactionid, source.srcSessionid, source.sessionId, source.session_id, "")),
+    sourceAccountName: String(firstDefined(source.srcAccountName, source.originator_account_name, source.sourceAccountName, source.accountNameFrom, "")),
     sourceBank: String(firstDefined(source.srcInstitutionName, source.sourceBank, source.institutionFrom, "")),
     sourceAccountNumber: String(firstDefined(source.srcAccountNumber, source.sourceAccountNumber, "")),
-    beneficiaryAccountName: String(firstDefined(source.destAccountName, source.beneficiaryAccountName, source.accountNameTo, "")),
+    beneficiaryAccountName: String(firstDefined(source.destAccountName, source.beneficiary_account_name, source.beneficiaryAccountName, source.accountNameTo, "")),
     beneficiaryBank: String(firstDefined(source.destInstitutionName, source.beneficiaryBank, source.institutionTo, "")),
     beneficiaryAccountNumber: String(firstDefined(source.destAccountNumber, source.beneficiaryAccountNumber, "")),
     amount: toNumber(firstDefined(source.srcAmount, source.amount, source.destAmount)),
@@ -97,14 +103,14 @@ function normalizeDispute(row, index = 0) {
     description: String(firstDefined(source.description, source.narration, source.records, "")),
     disputeType: String(firstDefined(source.disputeType, source.type, "")),
     submittedBy: String(firstDefined(source.submittedBy, source.loggedBy, source.username, "")),
-    submittedDate: String(firstDefined(source.submittedDate, source.dateCreated, source.transactiondate, source.createdAt, "")),
-    timelineDate: String(firstDefined(source.timeline_date, source.timelineDate, source.dateModified, source.dateCreated, "")),
+    submittedDate: String(firstDefined(source.submittedDate, source.dateCreated, source.date_created, source.transactiondate, source.createdAt, "")),
+    timelineDate: String(firstDefined(source.timeline_date, source.timelineDate, source.dateModified, source.date_modified, source.dateCreated, "")),
     currentStatusCode: settlementStatus,
     newStatusCode: String(firstDefined(source.type, source.new_status, "")),
     resolvedBy: String(firstDefined(source.resolvedBy, source.resolved_by, "")),
     status: settlementStatus,
     /** Raw status string from the API (used for arbitrated / non-settlement states). */
-    originalStatus: rawStatus,
+    originalStatus: isArbitrated ? "Arbitrated" : rawStatus,
   };
 }
 
