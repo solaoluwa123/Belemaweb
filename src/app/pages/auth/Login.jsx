@@ -106,11 +106,12 @@ export default function Login() {
           style={{ backgroundColor: brand.theme.loginHero || brand.theme.sidebar }}
         >
           <BrandPattern opacity={0.2} />
-          <div className="relative z-10 px-6 py-10 sm:px-10">
+          <div className="relative z-10 flex w-full flex-col items-center justify-center px-6 py-10 sm:px-10">
             <ETranzactWordmark
               markOnly
               variant="light"
-              className="mx-auto"
+              className="mx-auto items-center"
+              iconClassName="object-center"
               textClassName="text-[3.5rem] sm:text-[4.25rem] md:text-[5rem]"
             />
             <p className="mt-4 max-w-xs text-center text-sm italic text-[#CEF445]/90 sm:text-base">
