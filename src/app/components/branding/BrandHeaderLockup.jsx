@@ -2,14 +2,14 @@ import { cn } from "../ui/utils";
 import { ETranzactWordmark } from "./ETranzactWordmark";
 
 /**
- * Compact header lockup for the main app bar (light `bg-card` surface).
- * Uses the brand wordmark PNG suited for light backgrounds.
+ * Compact header lockup for the main app bar.
+ * Uses the brand light wordmark (`logo-light`).
  */
 export function BrandHeaderLockup({ className }) {
   return (
     <ETranzactWordmark
-      variant="dark"
-      surface="light"
+      variant="light"
+      surface="dark"
       compact
       className={cn("min-w-0 text-[2rem] sm:text-[2.35rem]", className)}
     />
