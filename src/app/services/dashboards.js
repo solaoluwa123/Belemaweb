@@ -1,6 +1,7 @@
 import { API_ENDPOINTS, apiClient } from "./api";
 import {
   buildBackendTransactionSearchParams,
+  fetchLiveTransactionFeed as fetchLiveFeedFromApi,
   fetchTransactionSearchRaw,
   fetchTransactions,
   fetchTransactionsByInstitution,
@@ -656,142 +657,6 @@ function normalizeResponseCodes(codes) {
   }));
 }
 
-function normalizeLiveMonitoringPlaceholder() {
-  return {
-    rows: [],
-    unsupported: false,
-    message: "",
-  };
-}
-
-function pickNumberOrUndefined(source, keys) {
-  for (const key of keys) {
-    const v = source?.[key];
-    if (v === undefined || v === null || v === "") continue;
-    const n = toNumber(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return undefined;
-}
-
-function normalizeLiveMonitoringTimeSeries(institutionRow) {
-  const rawSeries =
-    institutionRow?.timeSeries ??
-    institutionRow?.time_series ??
-    institutionRow?.series ??
-    institutionRow?.data ??
-    institutionRow?.chart ??
-    institutionRow?.points ??
-    null;
-
-  // Case A: already an array of time points: [{time,inflow,outflow}, ...]
-  const seriesRows = asArray(rawSeries);
-  if (seriesRows.length > 0) {
-    return seriesRows
-      .map((pt) => {
-        const source = pt && typeof pt === "object" ? pt : {};
-        return {
-          time: pickString(source, ["time", "label", "t", "timestamp", "datetime", "date", "period"]) || "",
-          inflow: pickNumber(source, ["inflow", "inflowValue", "inflowVolume", "inward", "inValue"]) || 0,
-          outflow: pickNumber(source, ["outflow", "outflowValue", "outflowVolume", "outward", "outValue"]) || 0,
-        };
-      })
-      .filter((row) => row.time);
-  }
-
-  // Case B: separate arrays (mock-like): inflowData/outflowData + optional timeLabels
-  const inflowArr = asArray(
-    institutionRow?.inflowData ?? institutionRow?.inflow ?? institutionRow?.inflow_values ?? []
-  );
-  const outflowArr = asArray(
-    institutionRow?.outflowData ?? institutionRow?.outflow ?? institutionRow?.outflow_values ?? []
-  );
-  const timeLabelsArr = asArray(
-    institutionRow?.timeLabels ?? institutionRow?.time_labels ?? institutionRow?.labels ?? []
-  );
-  const n = Math.max(inflowArr.length, outflowArr.length, timeLabelsArr.length);
-  if (n === 0) return [];
-
-  const labels =
-    timeLabelsArr.length === n
-      ? timeLabelsArr
-      : Array.from({ length: n }, (_, i) => String(i + 1));
-
-  return labels.map((label, i) => ({
-    time: String(label),
-    inflow: toNumber(inflowArr[i]),
-    outflow: toNumber(outflowArr[i]),
-  }));
-}
-
-function normalizeLiveMonitoringRows(payload) {
-  const rows = asArray(payload);
-
-  return rows
-    .map((row) => {
-      const source = row && typeof row === "object" ? row : {};
-
-      const name = pickString(source, [
-        "name",
-        "institutionName",
-        "financialInstitutionName",
-        "institution",
-        "institutionLabel",
-      ]);
-      if (!name) return null;
-
-      const timeSeries = normalizeLiveMonitoringTimeSeries(source);
-
-      // Prefer explicit success/failure percentages if provided
-      const inflowSuccess = pickNumberOrUndefined(source, [
-        "inflowSuccess",
-        "inflow_success",
-        "inflowSuccessRate",
-        "inflow_success_rate",
-      ]);
-      const inflowFailure = pickNumberOrUndefined(source, ["inflowFailure", "inflow_failure", "inflowFailureRate"]);
-      const outflowSuccess = pickNumberOrUndefined(source, [
-        "outflowSuccess",
-        "outflow_success",
-        "outflowSuccessRate",
-        "outflow_success_rate",
-      ]);
-      const outflowFailure = pickNumberOrUndefined(source, ["outflowFailure", "outflow_failure", "outflowFailureRate"]);
-
-      const inflowSuccessFinal = inflowSuccess ?? (inflowFailure !== undefined ? 100 - inflowFailure : 0);
-      const inflowFailureFinal = inflowFailure ?? (inflowSuccess !== undefined ? 100 - inflowSuccess : 100);
-      const outflowSuccessFinal = outflowSuccess ?? (outflowFailure !== undefined ? 100 - outflowFailure : 0);
-      const outflowFailureFinal = outflowFailure ?? (outflowSuccess !== undefined ? 100 - outflowSuccess : 100);
-
-      const maxVal = Math.max(
-        0,
-        ...timeSeries.flatMap((pt) => [Number(pt.inflow) || 0, Number(pt.outflow) || 0])
-      );
-      const yAxisDomain = maxVal > 0 ? [0, Math.ceil(maxVal)] : [-1, 1];
-
-      return {
-        name,
-        timeSeries,
-        inflowSuccess: inflowSuccessFinal,
-        inflowFailure: inflowFailureFinal,
-        outflowSuccess: outflowSuccessFinal,
-        outflowFailure: outflowFailureFinal,
-        yAxisDomain: source.yAxisDomain ?? yAxisDomain,
-      };
-    })
-    .filter(Boolean);
-}
-
-function buildLiveMonitoringDateRange() {
-  // Match existing mock UI density: 10 points over ~90 minutes.
-  const endDate = new Date();
-  const startDate = new Date(endDate.getTime() - 90 * 60 * 1000);
-  return {
-    startDate: formatDashboardRangeDateParam(startDate),
-    endDate: formatDashboardRangeDateParam(endDate),
-  };
-}
-
 function buildSuccessFailurePie(summary) {
   const total = Number(summary?.totalTransactions ?? 0);
   const success = Number(summary?.successCount ?? 0);
@@ -1195,30 +1060,9 @@ export async function fetchStatusSummary({ institutionCode, dateRange, isCurrent
   return normalizeStatusSummaryRows(payload);
 }
 
-export async function fetchLiveMonitoringData({ institutionCode } = {}) {
-  try {
-    const dateParams = buildLiveMonitoringDateRange();
-    const params = {
-      ...dateParams,
-      bucketMinutes: 10,
-      limit: 8,
-    };
-    const scope = institutionCodeForDashboardScope(institutionCode);
-    if (scope) params.institution = scope;
+export const LIVE_FEED_POLL_MS = 5000;
 
-    const payload = await fetchOrNull(API_ENDPOINTS.dashboards.liveMonitoring, params);
-    if (!payload) return normalizeLiveMonitoringPlaceholder();
-
-    const root = getRawResponseObject(payload);
-    const data = root?.data ?? payload;
-    const rows = normalizeLiveMonitoringRows(data);
-    return {
-      rows,
-      unsupported: false,
-      message: "",
-    };
-  } catch {
-    return normalizeLiveMonitoringPlaceholder();
-  }
+export async function fetchLiveTransactionFeed(options = {}) {
+  return fetchLiveFeedFromApi(options);
 }
 

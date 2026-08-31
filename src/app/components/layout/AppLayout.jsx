@@ -38,6 +38,7 @@ import { getVendorNavItems, isVendorAllowedPath } from "../../utils/transgateMen
 
 const accountsMenuBase = [
   { label: "Dashboard", path: "/dashboard/accounts", icon: <LayoutDashboard className="w-4 h-4" /> },
+  { label: "Live Monitoring", path: "/dashboard/live-monitoring", icon: <Activity className="w-4 h-4" /> },
   { label: "Transactions", path: "/transactions", icon: <ArrowLeftRight className="w-4 h-4" /> },
   {
     label: "Transaction Status Change",

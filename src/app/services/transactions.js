@@ -739,6 +739,30 @@ export async function searchTransactionsBySessionIds(sessionIds, extraBody = {})
   return normalizeTransactionCollection(response, lookup);
 }
 
+export async function fetchLiveTransactionFeed({ since, limit = 50, institution } = {}) {
+  const params = { limit };
+  if (since) params.since = since;
+  if (institution) params.institution = institution;
+
+  const [response, lookup] = await Promise.all([
+    apiClient.get(API_ENDPOINTS.dashboards.liveFeed, params),
+    getInstitutionNameLookup(),
+  ]);
+
+  const rows = normalizeTransactionCollection(response, lookup);
+  const root = unwrapPayload(response);
+  let meta = {};
+  if (root && typeof root === "object" && root.meta != null) {
+    try {
+      meta = typeof root.meta === "string" ? JSON.parse(root.meta) : root.meta;
+    } catch {
+      meta = {};
+    }
+  }
+
+  return { rows, meta };
+}
+
 export async function fetchLiveTransactions() {
   const transactions = await fetchTransactions();
   return transactions

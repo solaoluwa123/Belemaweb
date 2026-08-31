@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {
     transactionsTrendByInstitution: (code) => `/transactions-trend/${code}`,
     transactionsRates: '/transactions-rates',
     liveMonitoring: '/transactions/live-monitoring',
+    liveFeed: '/transactions/live-feed',
     statusSummary: '/transactions/status-summary',
   },
   wallets: {
