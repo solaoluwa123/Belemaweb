@@ -293,11 +293,12 @@ export default function AppLayout() {
         <div className="relative z-10 border-b border-sidebar-border p-4">
           <div className="flex items-start justify-between gap-2">
             <ETranzactWordmark
+              markOnly
               compact
               variant="light"
               surface="dark"
-              className="text-sidebar-foreground min-w-0 flex-1"
-              textClassName="text-[1.35rem] sm:text-[1.5rem]"
+              className="min-w-0 flex-1"
+              textClassName="text-[2.75rem]"
             />
             <Button
               type="button"
