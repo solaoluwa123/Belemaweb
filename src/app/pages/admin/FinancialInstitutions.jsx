@@ -115,6 +115,10 @@ function validateInstitutionForm(form, { requireSecrets, isCreate }) {
     if (form.isSettlementBank !== true && (!form.walletname.trim() || !form.walletTypeName)) {
       return "Create a wallet before submitting when Settlement bank is No.";
     }
+  } else {
+    if (!form.serverIP.trim()) return "Server IP is required.";
+    if (!isFiniteNumber(form.neTimeout)) return "Name enquiry timeout is required.";
+    if (!isFiniteNumber(form.ftTimeout)) return "Funds transfer timeout is required.";
   }
   return "";
 }
@@ -169,7 +173,8 @@ function YesNoSwitch({ id, label, checked, onCheckedChange }) {
   );
 }
 
-function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCreateExtras, onSettlementChange, idPrefix }) {
+function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCreateExtras, includeNetworkConfig, onSettlementChange, idPrefix }) {
+  const showNetworkConfig = includeNetworkConfig || includeCreateExtras;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div className="space-y-1.5">
@@ -355,6 +360,32 @@ function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCr
               </Button>
             </div>
           )}
+        </>
+      ) : (
+        <>
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label htmlFor={`${idPrefix}-cbn`}>Central Bank of Nigeria bank account</Label>
+            <Input
+              id={`${idPrefix}-cbn`}
+              value={form.cbnBankAccount}
+              onChange={(e) => setForm((p) => ({ ...p, cbnBankAccount: e.target.value }))}
+              placeholder="Settlement account"
+            />
+          </div>
+          <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+            <Checkbox
+              id={`${idPrefix}-tsq`}
+              checked={!!form.isProcessTSQ}
+              onCheckedChange={(checked) => setForm((p) => ({ ...p, isProcessTSQ: checked === true }))}
+            />
+            <Label htmlFor={`${idPrefix}-tsq`} className="font-normal">
+              Process transaction status query
+            </Label>
+          </div>
+        </>
+      )}
+      {showNetworkConfig ? (
+        <>
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-serverIP`}>Server IP address *</Label>
             <Input
@@ -468,29 +499,7 @@ function InstitutionFormFields({ form, setForm, types, includeSecrets, includeCr
             </>
           ) : null}
         </>
-      ) : (
-        <>
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label htmlFor={`${idPrefix}-cbn`}>Central Bank of Nigeria bank account</Label>
-            <Input
-              id={`${idPrefix}-cbn`}
-              value={form.cbnBankAccount}
-              onChange={(e) => setForm((p) => ({ ...p, cbnBankAccount: e.target.value }))}
-              placeholder="Settlement account"
-            />
-          </div>
-          <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-            <Checkbox
-              id={`${idPrefix}-tsq`}
-              checked={!!form.isProcessTSQ}
-              onCheckedChange={(checked) => setForm((p) => ({ ...p, isProcessTSQ: checked === true }))}
-            />
-            <Label htmlFor={`${idPrefix}-tsq`} className="font-normal">
-              Process transaction status query
-            </Label>
-          </div>
-        </>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -597,6 +606,10 @@ export default function FinancialInstitutions() {
   const openEditModal = (row) => {
     const raw = row._raw && typeof row._raw === "object" ? row._raw : {};
     const portNumber = row.portNumber === "-" ? "" : String(row.portNumber ?? raw.port_number ?? "");
+    const hasInward =
+      Number(raw.enableInward) === 1 ||
+      Number(raw.ext_active) === 1 ||
+      Boolean(String(raw.url || raw.neEnvelope || "").trim());
     setEditingInstitution(row);
     setForm({
       ...EMPTY_FORM,
@@ -613,6 +626,21 @@ export default function FinancialInstitutions() {
       isProcessTSQ: Number(raw.isProcessTSQ) === 1,
       isSettlementBank: Number(raw.issettlementbank ?? raw.isSettlementBank) === 1,
       color: raw.color ?? "",
+      serverIP: raw.serverIP ?? "localhost",
+      neTimeout: String(raw.neTimeout ?? 5),
+      ftTimeout: String(raw.ftTimeout ?? 10),
+      enableInwardTransactions: hasInward,
+      url: raw.url ?? "",
+      urlTSQ: raw.urlTSQ ?? "",
+      neEnvelope: raw.neEnvelope ?? "",
+      neResponseStartTag: raw.neResponseStartTag ?? "",
+      neResponseEndTag: raw.neResponseEndTag ?? "",
+      ftEnvelope: raw.ftEnvelope ?? "",
+      ftResponseStartTag: raw.ftResponseStartTag ?? "",
+      ftResponseEndTag: raw.ftResponseEndTag ?? "",
+      tsqEnvelope: raw.tsqEnvelope ?? "",
+      tsqResponseStartTag: raw.tsqResponseStartTag ?? "",
+      tsqResponseEndTag: raw.tsqResponseEndTag ?? "",
     });
     setFormError("");
   };
@@ -819,6 +847,7 @@ export default function FinancialInstitutions() {
               setForm={setForm}
               types={institutionTypesFromTypesEndpoint}
               includeSecrets={false}
+              includeNetworkConfig
               idPrefix="edit-fi"
             />
           </div>
