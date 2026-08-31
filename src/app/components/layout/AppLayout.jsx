@@ -314,10 +314,12 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <div className="relative z-10 border-b border-sidebar-border bg-sidebar-accent p-4">
+        <div className="relative z-10 border-b border-sidebar-border bg-sidebar-accent p-4 text-center">
           <p className="text-sm font-medium">{user?.username}</p>
           <p className="text-xs text-sidebar-accent-foreground">{user?.roleName}</p>
-          <p className="mt-1 text-xs text-sidebar-accent-foreground/80">{user?.institutionName}</p>
+          {user?.institutionName ? (
+            <p className="mt-1 text-xs text-sidebar-accent-foreground/80">{user.institutionName}</p>
+          ) : null}
         </div>
 
         <nav className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
