@@ -291,20 +291,21 @@ export default function AppLayout() {
         <BrandPattern opacity={0.16} />
 
         <div className="relative z-10 border-b border-sidebar-border p-4">
-          <div className="flex items-start justify-between gap-2">
+          <div className="relative flex items-center justify-center min-h-11">
             <ETranzactWordmark
               markOnly
               compact
               variant="light"
               surface="dark"
-              className="min-w-0 flex-1"
+              className="items-center"
               textClassName="text-[2.75rem]"
+              iconClassName="object-center mx-auto"
             />
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="shrink-0 h-9 w-9 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="absolute right-0 top-1/2 shrink-0 h-9 w-9 -translate-y-1/2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
               onClick={() => setSidebarOpen(false)}
               aria-label="Close menu"
             >
