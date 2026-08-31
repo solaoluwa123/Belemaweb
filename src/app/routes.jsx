@@ -27,6 +27,7 @@ import Forced2FASetupPage from "./pages/auth/password-recovery/Forced2FASetupPag
 import SecuritySettings from "./pages/settings/SecuritySettings";
 
 import TransgateDashboard from "./pages/dashboards/TransgateDashboard";
+import LiveMonitoring from "./pages/dashboards/LiveMonitoring";
 import StatisticsPage from "./pages/dashboards/statistics/StatisticsPage";
 import SuccessfulTransactionsPage from "./pages/dashboards/statistics/SuccessfulTransactionsPage";
 import AverageTimePage from "./pages/dashboards/statistics/AverageTimePage";
@@ -118,7 +119,7 @@ export const router = createBrowserRouter(
       { path: "dashboard", element: <Navigate to="/dashboard/accounts" replace /> },
       { path: "dashboard/accounts", Component: TransgateDashboard },
       { path: "dashboard/transgate", element: <Navigate to="/dashboard/accounts" replace /> },
-      { path: "dashboard/live-monitoring", element: <Navigate to="/transactions" replace /> },
+      { path: "dashboard/live-monitoring", Component: LiveMonitoring },
       { path: "dashboard/statistics", Component: StatisticsPage },
       { path: "dashboard/statistics/successful-transactions", Component: SuccessfulTransactionsPage },
       { path: "dashboard/statistics/average-time", Component: AverageTimePage },

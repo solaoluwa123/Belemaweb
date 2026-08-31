@@ -23,7 +23,7 @@ import {
 } from "recharts";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
-import { fetchAccountsDashboardData, formatDashboardRangeLabel } from "../../services/dashboards";
+import { fetchAccountsDashboardData, formatDashboardRangeLabel, STATUS_PIE_COLORS } from "../../services/dashboards";
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "./DashboardDateRangePicker";
 import {
@@ -109,7 +109,7 @@ function ChartGrid({
       {wrapCard(
         "success-fail-pie",
         undefined,
-        <StatisticsCard title="Success vs Failed" to="/dashboard/statistics/successful-transactions" variant={cardVariant}>
+        <StatisticsCard title="Transaction Status" to="/dashboard/statistics/successful-transactions" variant={cardVariant}>
           {wrapChart(
             <ResponsiveContainer width="100%" height={chartHeight}>
               <PieChart>
@@ -125,7 +125,10 @@ function ChartGrid({
                   {...CHART_ANIMATION}
                 >
                   {(successFailurePie || []).map((entry, index) => (
-                    <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                    <Cell
+                      key={entry.name}
+                      fill={STATUS_PIE_COLORS[entry.name] ?? chartColors[index % chartColors.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [Number(v).toLocaleString(), "Count"]} />

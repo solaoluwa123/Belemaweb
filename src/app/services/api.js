@@ -62,6 +62,8 @@ export const API_ENDPOINTS = {
     ftAverageTimeByInstitution: (code) => `/ft-average-time/institution/${code}`,
     transactionsTrendByInstitution: (code) => `/transactions-trend/${code}`,
     transactionsRates: '/transactions-rates',
+    liveMonitoring: '/transactions/live-monitoring',
+    statusSummary: '/transactions/status-summary',
   },
   wallets: {
     list: '/wallets/get',

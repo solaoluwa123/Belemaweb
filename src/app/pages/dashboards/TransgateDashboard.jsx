@@ -26,6 +26,7 @@ import {
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
 import { DashboardStagger, DashboardStaggerItem } from "../../components/dashboard/DashboardMotion";
+import { LiveMonitoringSection } from "../../components/dashboard/LiveMonitoringSection";
 
 const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
   start: new Date(),
@@ -161,6 +162,14 @@ export default function TransgateDashboard() {
     statsDateRange.end.getTime() === DEFAULT_STATS_RANGE.end.getTime();
 
   const shellSurface = brand.theme.shellSurface || "#f7faf2";
+
+  const liveInstitutionCode = isThirdPartyVendor()
+    ? user?.institutionCode || null
+    : statsInstitution !== "all"
+      ? statsInstitution
+      : !isAdmin()
+        ? user?.institutionCode || null
+        : null;
 
   return (
     <div
@@ -310,6 +319,15 @@ export default function TransgateDashboard() {
               />
             </DashboardStaggerItem>
           </DashboardStagger>
+
+          {isLiveRange ? (
+            <LiveMonitoringSection
+              institutionCode={liveInstitutionCode}
+              compact
+              autoRefresh
+              showHeader
+            />
+          ) : null}
 
           <StatisticsSection
             variant="analytics"

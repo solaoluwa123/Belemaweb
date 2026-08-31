@@ -804,6 +804,34 @@ function buildSuccessFailurePie(summary) {
   ].filter((row) => row.value > 0);
 }
 
+/** Belema brand colors for transaction status pie slices. */
+export const STATUS_PIE_COLORS = {
+  Successful: "#00411A",
+  Pending: "#FFD600",
+  Failed: "#E84A25",
+};
+
+function normalizeStatusSummaryRows(payload) {
+  const tnx = getTnxModelFromPayload(payload);
+  const rows = asArray(tnx?.summary ?? payload);
+  if (!rows.length) return [];
+  return rows
+    .map((row) => {
+      const source = row && typeof row === "object" ? row : {};
+      const name = pickString(source, ["label", "name"]) || "Unknown";
+      const value = pickNumber(source, ["volume", "value", "count"]);
+      return { name, value };
+    })
+    .filter((row) => row.name && row.value > 0);
+}
+
+function buildStatusSummaryPie(statusRows, summaryFallback) {
+  if (Array.isArray(statusRows) && statusRows.length) {
+    return statusRows;
+  }
+  return buildSuccessFailurePie(summaryFallback);
+}
+
 function buildChannelPieRows(channelRows) {
   if (!Array.isArray(channelRows) || !channelRows.length) return [];
   return channelRows
@@ -942,6 +970,7 @@ export async function fetchAccountsDashboardData({
       failedCodesPayload,
       averageTimePayload,
       successPayload,
+      statusSummaryRows,
     ] = await Promise.all([
       fetchOrNull(byDateEndpoint, pagedDateParams),
       fetchOrNull(byDateOnlyEndpoint, pagedDateParams),
@@ -949,6 +978,11 @@ export async function fetchAccountsDashboardData({
       fetchOrNull(failedCodesEndpoint, pagedDateParams),
       fetchOrNull(averageTimeEndpoint, averageTimeParams),
       fetchOrNull(successEndpoint, dateParams),
+      fetchStatusSummary({
+        institutionCode: scope,
+        dateRange: resolvedRange,
+        isCurrent: dateParams.isCurrent !== "false",
+      }),
     ]);
 
     const byDateMeta =
@@ -1003,7 +1037,7 @@ export async function fetchAccountsDashboardData({
       transactionsByChannel: hasTransactions ? transactionsByChannel : [],
       failureByInstitution: [],
       averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
-      successFailurePie: hasTransactions ? buildSuccessFailurePie(summary) : [],
+      successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
       channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
       rawSummary: summary,
     };
@@ -1039,6 +1073,7 @@ export async function fetchAccountsDashboardData({
     trendPayload,
     txnSearch,
     pendingDisputesCount,
+    statusSummaryRows,
   ] = await Promise.all([
     fetchOrNull(summaryEndpoint, dateParams),
     fetchOrNull(successEndpoint, dateParams),
@@ -1051,6 +1086,11 @@ export async function fetchAccountsDashboardData({
     fetchOrNull(trendEndpoint, trendParams),
     txnSearchPromise,
     fetchPendingDisputesCount(scope),
+    fetchStatusSummary({
+      institutionCode: scope,
+      dateRange: resolvedRange,
+      isCurrent: dateParams.isCurrent !== "false",
+    }),
   ]);
 
   const byDateMeta =
@@ -1122,7 +1162,7 @@ export async function fetchAccountsDashboardData({
     transactionsByChannel: hasTransactions ? transactionsByChannel : [],
     failureByInstitution: hasTransactions ? failureByInstitution : [],
     averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
-    successFailurePie: hasTransactions ? buildSuccessFailurePie(summary) : [],
+    successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
     channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
     rawSummary: summary,
   };
@@ -1141,13 +1181,37 @@ export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, dat
   return normalizeResponseCodes(normalizeFailedCodes(payload));
 }
 
-export async function fetchLiveMonitoringData() {
+export async function fetchStatusSummary({ institutionCode, dateRange, isCurrent = true } = {}) {
+  const resolvedRange = dateRange ?? null;
+  const dateParams = buildDateRangeParams(resolvedRange);
+  const params = {
+    ...dateParams,
+    isCurrent: isCurrent ? "true" : "false",
+  };
+  const scope = institutionCodeForDashboardScope(institutionCode);
+  if (scope) params.institution = scope;
+
+  const payload = await fetchOrNull(API_ENDPOINTS.dashboards.statusSummary, params);
+  return normalizeStatusSummaryRows(payload);
+}
+
+export async function fetchLiveMonitoringData({ institutionCode } = {}) {
   try {
     const dateParams = buildLiveMonitoringDateRange();
-    // Swagger shows this endpoint returns time-series "rates" and (typically) success/failure rates per institution.
-    const payload = await fetchOrNull(API_ENDPOINTS.dashboards.transactionsRates, dateParams);
+    const params = {
+      ...dateParams,
+      bucketMinutes: 10,
+      limit: 8,
+    };
+    const scope = institutionCodeForDashboardScope(institutionCode);
+    if (scope) params.institution = scope;
+
+    const payload = await fetchOrNull(API_ENDPOINTS.dashboards.liveMonitoring, params);
     if (!payload) return normalizeLiveMonitoringPlaceholder();
-    const rows = normalizeLiveMonitoringRows(payload);
+
+    const root = getRawResponseObject(payload);
+    const data = root?.data ?? payload;
+    const rows = normalizeLiveMonitoringRows(data);
     return {
       rows,
       unsupported: false,
