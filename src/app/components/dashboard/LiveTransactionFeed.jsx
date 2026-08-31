@@ -22,6 +22,8 @@ import {
 import { Activity, Loader2, Pause, Play, Radio, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
 import { fetchLiveTransactionFeed, LIVE_FEED_POLL_MS } from "../../services/dashboards";
+import { normalizeStreamTransaction } from "../../services/transactions";
+import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { formatEmptyCell, getBackendDateTime, parseBackendDate } from "../../utils/formatters";
 import {
@@ -96,6 +98,8 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [streamConnected, setStreamConnected] = useState(false);
+  const [usePollingFallback, setUsePollingFallback] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const newestTimestampRef = useRef("");
@@ -195,16 +199,48 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
       return;
     }
     newestTimestampRef.current = "";
+    setUsePollingFallback(false);
+    setStreamConnected(false);
     loadFeed({ initial: true });
   }, [effectiveInstitution, userInstitutionCode, loadFeed, isVendor]);
 
+  const handleStreamTransaction = useCallback(
+    async (rawRow) => {
+      try {
+        const row = await normalizeStreamTransaction(rawRow);
+        markHighlights([row]);
+        setRows((prev) => mergeFeedRows(prev, [row], { prepend: true }));
+        newestTimestampRef.current = row.dateTime || row.raw?.transactiondate || newestTimestampRef.current;
+        setLastUpdatedAt(new Date());
+      } catch {
+        /* ignore malformed stream row */
+      }
+    },
+    [markHighlights],
+  );
+
+  useLiveTransactionStream({
+    institution: effectiveInstitution,
+    enabled: !isLoading && !errorMessage && !usePollingFallback,
+    paused: isPaused,
+    onConnected: () => {
+      setStreamConnected(true);
+      setUsePollingFallback(false);
+    },
+    onTransaction: handleStreamTransaction,
+    onStreamError: () => {
+      setStreamConnected(false);
+      setUsePollingFallback(true);
+    },
+  });
+
   useEffect(() => {
-    if (isPaused || isLoading || errorMessage) return undefined;
+    if (!usePollingFallback || isPaused || isLoading || errorMessage) return undefined;
     const timer = window.setInterval(() => {
       loadFeed({ silent: true });
     }, LIVE_FEED_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [isPaused, isLoading, errorMessage, loadFeed]);
+  }, [usePollingFallback, isPaused, isLoading, errorMessage, loadFeed]);
 
   useEffect(
     () => () => {
@@ -231,13 +267,14 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
             </h1>
             {!isPaused && !errorMessage ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-2.5 py-1 text-xs font-medium text-[#00411A]">
-                <Radio className={`h-3 w-3 ${isRefreshing ? "animate-pulse" : "animate-pulse"}`} aria-hidden />
-                Live
+                <Radio className={`h-3 w-3 ${streamConnected && !usePollingFallback ? "animate-pulse" : ""}`} aria-hidden />
+                {usePollingFallback ? "Polling" : "Live stream"}
               </span>
             ) : null}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Transactions as they arrive in the switch — polling every {LIVE_FEED_POLL_MS / 1000}s
+            Transactions as they arrive in the switch
+            {usePollingFallback ? ` — polling every ${LIVE_FEED_POLL_MS / 1000}s (stream unavailable)` : " — pushed from server"}
             {isPaused ? " (paused)" : ""}.
           </p>
         </div>

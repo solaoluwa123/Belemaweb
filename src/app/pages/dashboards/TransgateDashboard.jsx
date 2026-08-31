@@ -26,6 +26,7 @@ import {
   normalizeDashboardDateRange,
 } from "../../services/dashboards";
 import { APIError } from "../../services/api";
+import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
 import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
 import { DashboardStagger, DashboardStaggerItem } from "../../components/dashboard/DashboardMotion";
 import {
@@ -64,7 +65,16 @@ export default function TransgateDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [streamConnected, setStreamConnected] = useState(false);
+  const [usePollingFallback, setUsePollingFallback] = useState(false);
+  const [streamDelta, setStreamDelta] = useState({
+    successful: 0,
+    pending: 0,
+    failed: 0,
+    total: 0,
+  });
   const loadSeq = useRef(0);
+  const chartRefreshTimerRef = useRef(null);
 
   const statsRangeStartMs = statsDateRange.start.getTime();
   const statsRangeEndMs = statsDateRange.end.getTime();
@@ -94,6 +104,7 @@ export default function TransgateDashboard() {
         });
         if (seq !== loadSeq.current) return;
         setStatsData(data);
+        setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
         setLastUpdatedAt(new Date());
       } catch (error) {
         if (seq !== loadSeq.current) return;
@@ -132,13 +143,66 @@ export default function TransgateDashboard() {
 
   const isLiveRange = dashboardRangeIncludesToday(statsDateRange);
 
+  const streamInstitution = useMemo(() => {
+    if (isVendor) return userInstitutionCode || null;
+    if (statsInstitution !== "all") return statsInstitution;
+    if (!isAdminUser) return userInstitutionCode || null;
+    return null;
+  }, [isVendor, statsInstitution, isAdminUser, userInstitutionCode]);
+
+  const scheduleChartRefresh = useCallback(() => {
+    if (chartRefreshTimerRef.current) {
+      window.clearTimeout(chartRefreshTimerRef.current);
+    }
+    chartRefreshTimerRef.current = window.setTimeout(() => {
+      loadDashboard({ silent: true });
+    }, 10000);
+  }, [loadDashboard]);
+
+  const handleMetricsDelta = useCallback(
+    (delta) => {
+      setStreamDelta((prev) => ({
+        successful: prev.successful + (Number(delta?.successful) || 0),
+        pending: prev.pending + (Number(delta?.pending) || 0),
+        failed: prev.failed + (Number(delta?.failed) || 0),
+        total: prev.total + (Number(delta?.total) || 0),
+      }));
+      setLastUpdatedAt(new Date());
+      scheduleChartRefresh();
+    },
+    [scheduleChartRefresh],
+  );
+
+  useLiveTransactionStream({
+    institution: streamInstitution || undefined,
+    enabled: isLiveRange && !isLoading && !(isVendor && !userInstitutionCode),
+    onConnected: () => {
+      setStreamConnected(true);
+      setUsePollingFallback(false);
+    },
+    onMetricsDelta: handleMetricsDelta,
+    onStreamError: () => {
+      setStreamConnected(false);
+      setUsePollingFallback(true);
+    },
+  });
+
+  useEffect(
+    () => () => {
+      if (chartRefreshTimerRef.current) {
+        window.clearTimeout(chartRefreshTimerRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (!isLiveRange || (isVendor && !userInstitutionCode)) return undefined;
+    if (!isLiveRange || !usePollingFallback || (isVendor && !userInstitutionCode)) return undefined;
     const timer = window.setInterval(() => {
       loadDashboard({ silent: true });
     }, DASHBOARD_AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [isLiveRange, loadDashboard, userInstitutionCode, userRoleId, isVendor]);
+  }, [isLiveRange, usePollingFallback, loadDashboard, userInstitutionCode, isVendor]);
 
   const institutionFilterLabel = useMemo(() => {
     if (isVendor) {
@@ -168,22 +232,45 @@ export default function TransgateDashboard() {
 
   const statusCounts = useMemo(() => {
     const fromApi = statsData?.statusCounts;
+    let base;
     if (fromApi) {
-      return {
+      base = {
         successful: Number(fromApi.successful) || 0,
         pending: Number(fromApi.pending) || 0,
         failed: Number(fromApi.failed) || 0,
       };
+    } else {
+      const pie = statsData?.successFailurePie ?? [];
+      const pick = (matcher) =>
+        pie.find((row) => matcher(String(row.name || "").toLowerCase()))?.value ?? 0;
+      base = {
+        successful: pick((n) => n.includes("success")) || Number(metrics.successCount) || 0,
+        pending: pick((n) => n.includes("pending")),
+        failed: pick((n) => n.includes("fail")),
+      };
     }
-    const pie = statsData?.successFailurePie ?? [];
-    const pick = (matcher) =>
-      pie.find((row) => matcher(String(row.name || "").toLowerCase()))?.value ?? 0;
     return {
-      successful: pick((n) => n.includes("success")) || Number(metrics.successCount) || 0,
-      pending: pick((n) => n.includes("pending")),
-      failed: pick((n) => n.includes("fail")),
+      successful: base.successful + streamDelta.successful,
+      pending: base.pending + streamDelta.pending,
+      failed: base.failed + streamDelta.failed,
     };
-  }, [statsData, metrics.successCount]);
+  }, [statsData, metrics.successCount, streamDelta]);
+
+  const displayMetrics = useMemo(() => {
+    const baseTotal =
+      Number(String(metrics.totalTransactions || "0").replace(/,/g, "")) || 0;
+    const adjustedTotal = baseTotal + streamDelta.total;
+    const counted = statusCounts.successful + statusCounts.pending + statusCounts.failed;
+    const successRate =
+      counted > 0
+        ? `${((statusCounts.successful / counted) * 100).toFixed(1)}%`
+        : metrics.successRate;
+    return {
+      ...metrics,
+      totalTransactions: formatCount(adjustedTotal),
+      successRate,
+    };
+  }, [metrics, streamDelta.total, statusCounts]);
 
   const resetFilters = () => {
     if (!isVendor) {
@@ -214,8 +301,12 @@ export default function TransgateDashboard() {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {isLiveRange ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-3 py-1.5 text-xs font-medium text-[#00411A]">
-              <Radio className={`h-3.5 w-3.5 ${isRefreshing ? "animate-pulse" : ""}`} aria-hidden />
-              Live — {DASHBOARD_AUTO_REFRESH_MS / 1000}s
+              <Radio className={`h-3.5 w-3.5 ${isRefreshing || streamConnected ? "animate-pulse" : ""}`} aria-hidden />
+              {usePollingFallback
+                ? `Polling — ${DASHBOARD_AUTO_REFRESH_MS / 1000}s`
+                : streamConnected
+                  ? "Live stream"
+                  : "Connecting…"}
             </div>
           ) : null}
           {lastUpdatedAt ? (
@@ -323,7 +414,7 @@ export default function TransgateDashboard() {
             <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Transaction Volume"
-                value={metrics.totalTransactions}
+                value={displayMetrics.totalTransactions}
                 icon={ArrowLeftRight}
                 iconAccent="yellow"
               />
@@ -331,7 +422,7 @@ export default function TransgateDashboard() {
             <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Transaction Value"
-                value={metrics.volume}
+                value={displayMetrics.volume}
                 icon={Banknote}
                 iconAccent="lime"
               />
@@ -339,7 +430,7 @@ export default function TransgateDashboard() {
             <DashboardStaggerItem className="h-full">
               <MetricCard
                 title="Success Rate"
-                value={metrics.successRate}
+                value={displayMetrics.successRate}
                 icon={CheckCircle}
                 iconAccent="lime"
               />

@@ -763,6 +763,11 @@ export async function fetchLiveTransactionFeed({ since, limit = 50, institution 
   return { rows, meta };
 }
 
+export async function normalizeStreamTransaction(rawRow) {
+  const lookup = await getInstitutionNameLookup();
+  return normalizeTransaction(rawRow, 0, lookup);
+}
+
 export async function fetchLiveTransactions() {
   const transactions = await fetchTransactions();
   return transactions

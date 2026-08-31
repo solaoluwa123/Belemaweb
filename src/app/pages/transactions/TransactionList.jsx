@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -30,8 +30,10 @@ import { APIError } from "../../services/api";
 import {
   buildTransactionSearchParams,
   fetchTransactions,
+  normalizeStreamTransaction,
   searchTransactions,
 } from "../../services/transactions";
+import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
 import {
   format,
   startOfDay,
@@ -157,7 +159,15 @@ export default function TransactionList() {
   const [advancedFiltersApplied, setAdvancedFiltersApplied] = useState(ADVANCED_FILTERS_INITIAL);
   /** Editable fields in the overlay (updated on Clear / when opening panel). */
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState(ADVANCED_FILTERS_INITIAL);
+  const [liveHighlightIds, setLiveHighlightIds] = useState(() => new Set());
+  const highlightTimersRef = useRef([]);
 
+  const isLiveRange = useMemo(() => {
+    const todayStart = startOfDay(new Date()).getTime();
+    return dateRangeEnd.getTime() >= todayStart;
+  }, [dateRangeEnd]);
+
+  const streamInstitution = requireScope ? institutionCode || null : null;
   const advancedFiltersActive = useMemo(() => {
     return Object.entries(advancedFiltersApplied).some(([key, v]) => {
       if (key === "status") return v !== "all";
@@ -226,6 +236,51 @@ export default function TransactionList() {
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  const handleStreamTransaction = useCallback(
+    async (rawRow) => {
+      try {
+        const row = await normalizeStreamTransaction(rawRow);
+        const t = getBackendDateTime(row.dateTime);
+        if (t < dateRangeStart.getTime() || t > dateRangeEnd.getTime()) return;
+
+        setTransactions((prev) => {
+          if (prev.some((item) => item.sessionId && item.sessionId === row.sessionId)) {
+            return prev;
+          }
+          return [row, ...prev];
+        });
+
+        const key = row.sessionId || row.id;
+        if (!key) return;
+        setLiveHighlightIds((prev) => new Set(prev).add(key));
+        const timer = window.setTimeout(() => {
+          setLiveHighlightIds((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        }, 4000);
+        highlightTimersRef.current.push(timer);
+      } catch {
+        /* ignore bad stream payload */
+      }
+    },
+    [dateRangeEnd, dateRangeStart],
+  );
+
+  useLiveTransactionStream({
+    institution: streamInstitution || undefined,
+    enabled: isLiveRange && !advancedFiltersActive && !isLoading,
+    onTransaction: handleStreamTransaction,
+  });
+
+  useEffect(
+    () => () => {
+      highlightTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    },
+    [],
+  );
 
   const channelOptions = useMemo(() => {
     const set = new Set();
@@ -867,7 +922,7 @@ export default function TransactionList() {
               paginatedRows.map((row, idx) => (
                 <TableRow
                   key={row.id}
-                  className="hover:bg-slate-50"
+                  className={`hover:bg-slate-50 ${liveHighlightIds.has(row.sessionId || row.id) ? "bg-[#eef8c8]/80" : ""}`}
                 >
                   <TableCell className="text-slate-700">{recordsFrom + idx}</TableCell>
                   <TableCell className="text-slate-800 font-mono text-xs whitespace-nowrap">{formatEmptyCell(row.sessionId)}</TableCell>

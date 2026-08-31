@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
     transactionsRates: '/transactions-rates',
     liveMonitoring: '/transactions/live-monitoring',
     liveFeed: '/transactions/live-feed',
+    liveStream: '/transactions/live-stream',
     statusSummary: '/transactions/status-summary',
   },
   wallets: {
