@@ -127,13 +127,7 @@ export default function Login() {
         >
           <BrandPattern opacity={0.08} />
 
-          <ETranzactWordmark
-            variant="dark"
-            className="relative z-10 w-full max-w-[300px] sm:max-w-[360px]"
-            textClassName="text-[1.75rem] sm:text-[2.15rem]"
-          />
-
-          <div className="relative z-10 mt-4 flex w-full max-w-sm flex-col items-center sm:mt-5">
+          <div className="relative z-10 flex w-full max-w-sm flex-col items-center">
             <h2 className="text-center text-xl font-bold text-black sm:text-2xl">{brand.productText.loginHeading}</h2>
 
             <form
