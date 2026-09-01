@@ -34,7 +34,7 @@ function isAdminCreateRequest(row) {
 export default function PendingUserApprovals() {
   const { user, isApprover, isAdmin } = useAuth();
   const canApprove = isApprover() || isAdmin();
-  const approverIdentity = String(user?.username || user?.email || "").trim();
+  const approverIdentity = String(user?.email || user?.username || "").trim();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");

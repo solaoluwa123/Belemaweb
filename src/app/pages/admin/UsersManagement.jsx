@@ -62,7 +62,7 @@ export default function UsersManagement() {
   const { isOperator, isAdmin, canManageUsers, user } = useAuth();
   const canMutateUsers = canManageUsers();
   const canViewUsers = canMutateUsers || isAdmin();
-  const requester = String(user?.username || user?.email || "").trim();
+  const requester = String(user?.email || user?.username || "").trim();
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -413,7 +413,7 @@ export default function UsersManagement() {
       return;
     }
     try {
-      await createUserWithApi(
+      const result = await createUserWithApi(
         {
           username: form.username.trim(),
           email: form.email.trim(),
@@ -426,9 +426,9 @@ export default function UsersManagement() {
         instContext,
       );
       toast.success(
-        isAdmin()
-          ? "User created successfully."
-          : "User create submitted for approval.",
+        result?.mode === "pending"
+          ? "User submitted for approval. Check Pending User Approvals."
+          : "User created successfully.",
       );
       setForm({
         username: "",

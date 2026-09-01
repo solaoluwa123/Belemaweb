@@ -1,5 +1,19 @@
 import { APIError, API_ENDPOINTS, apiClient } from "./api";
 
+function assertApprovalSuccess(payload, fallbackMessage = "Approval request failed.") {
+  const data = payload && typeof payload === "object" ? payload : {};
+  const status = String(data.status || "").toLowerCase();
+  const message = String(data.message || "").trim();
+  const code = Number(data.code);
+  if (status === "failed" || status === "error") {
+    throw new APIError(message || fallbackMessage, 400, data);
+  }
+  if (Number.isFinite(code) && code >= 400 && message) {
+    throw new APIError(message, code, data);
+  }
+  return payload;
+}
+
 function safeJsonParse(value) {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
@@ -376,11 +390,17 @@ export async function approveUserApproval({
     if (institutionCode) {
       body.institution = institutionCode;
     }
-    const result = await apiClient.put(API_ENDPOINTS.approvals.approveContactUser, body);
+    const result = assertApprovalSuccess(
+      await apiClient.put(API_ENDPOINTS.approvals.approveContactUser, body),
+      "Unable to approve contact request.",
+    );
     rememberHiddenUserApprovalId(id);
     return result;
   }
-  const result = await apiClient.put(API_ENDPOINTS.approvals.approveUser, body);
+  const result = assertApprovalSuccess(
+    await apiClient.put(API_ENDPOINTS.approvals.approveUser, body),
+    "Unable to approve user request.",
+  );
   rememberHiddenUserApprovalId(id);
   return result;
 }

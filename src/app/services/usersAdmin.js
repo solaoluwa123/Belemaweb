@@ -1,6 +1,44 @@
 import { API_ENDPOINTS, APIError, apiClient } from "./api";
 import { normalizeToStoredPhone } from "../utils/phone";
 
+/** Backend often returns HTTP 200 with `{ status: "failed", message: "..." }`. */
+function assertMutationSuccess(payload, fallbackMessage = "Request failed.") {
+  const data = payload && typeof payload === "object" ? payload : {};
+  const status = String(data.status || "").toLowerCase();
+  const message = String(data.message || "").trim();
+  const code = Number(data.code);
+  if (status === "failed" || status === "error") {
+    throw new APIError(message || fallbackMessage, 400, data);
+  }
+  if (Number.isFinite(code) && code >= 400 && message) {
+    throw new APIError(message, code, data);
+  }
+  const lowerMsg = message.toLowerCase();
+  if (
+    lowerMsg.includes("not allowed") ||
+    lowerMsg.includes("already exists") ||
+    lowerMsg.includes("already pending") ||
+    lowerMsg.includes("maximum of")
+  ) {
+    throw new APIError(message, 400, data);
+  }
+  return payload;
+}
+
+/** Immediate create (Admin) vs maker-checker queue (Operator/Approver). */
+function resolveUserCreateMode(payload) {
+  const data = payload && typeof payload === "object" ? payload : {};
+  const message = String(data.message || "").toLowerCase();
+  const code = Number(data.code);
+  if (message.includes("request accepted")) {
+    return "pending";
+  }
+  if (code === 201 || message.includes("account created")) {
+    return "created";
+  }
+  return "created";
+}
+
 function mapUiStatusToApi(uiStatus) {
   const u = String(uiStatus || "Active");
   if (u === "Active") return "Approved";
@@ -124,7 +162,11 @@ export async function createUserWithApi(
     }
   }
 
-  return apiClient.put(API_ENDPOINTS.admin.createUser, body);
+  const payload = assertMutationSuccess(
+    await apiClient.put(API_ENDPOINTS.admin.createUser, body),
+    "Unable to create user.",
+  );
+  return { mode: resolveUserCreateMode(payload), payload };
 }
 
 /**
@@ -176,7 +218,10 @@ export async function createOtherUserWithApi(
     financial_institution_name: institutionName,
   };
 
-  return apiClient.put(API_ENDPOINTS.admin.createOtherUser, body);
+  return assertMutationSuccess(
+    await apiClient.put(API_ENDPOINTS.admin.createOtherUser, body),
+    "Unable to create user.",
+  );
 }
 
 /**
@@ -222,7 +267,10 @@ export async function updateUserWithApi(
     if (context.institutionName) body.financial_institution_name = String(context.institutionName).trim();
   }
 
-  return apiClient.post(API_ENDPOINTS.admin.editUser, body);
+  return assertMutationSuccess(
+    await apiClient.post(API_ENDPOINTS.admin.editUser, body),
+    "Unable to update user.",
+  );
 }
 
 /**
@@ -252,7 +300,10 @@ export async function resetUser2faWithApi({ id, email, creator } = {}) {
   };
   if (userId != null && userId !== 0) body.id = userId;
   if (emailAddress) body.email_address = emailAddress;
-  return apiClient.post(API_ENDPOINTS.admin.reset2fa, body);
+  return assertMutationSuccess(
+    await apiClient.post(API_ENDPOINTS.admin.reset2fa, body),
+    "Unable to reset 2FA.",
+  );
 }
 
 /**

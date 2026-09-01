@@ -929,13 +929,34 @@ async function resolveDashboardSummary(ctx) {
   return summary;
 }
 
+function sumStatusSummaryRows(rows) {
+  if (!Array.isArray(rows)) return 0;
+  return rows.reduce((sum, row) => sum + (Number(row?.value) || 0), 0);
+}
+
+function dashboardHasChartData(data) {
+  if (!data || typeof data !== "object") return false;
+  return (
+    (Array.isArray(data.successVolumes7d) && data.successVolumes7d.length > 0) ||
+    (Array.isArray(data.failedTop5Codes) && data.failedTop5Codes.length > 0) ||
+    (Array.isArray(data.transactionsByChannel) && data.transactionsByChannel.length > 0) ||
+    (Array.isArray(data.failureByInstitution) && data.failureByInstitution.length > 0) ||
+    (Array.isArray(data.successFailurePie) && data.successFailurePie.length > 0) ||
+    (Array.isArray(data.channelPie) && data.channelPie.length > 0) ||
+    (Array.isArray(data.chartData7d) &&
+      data.chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0))
+  );
+}
+
 function buildMetricsPayload(ctx, summary, statusSummaryRows) {
   const { cache } = ctx;
   const chartData7d = normalizeTrendRows(cache.byDateOnlyPayload);
+  const statusTotal = sumStatusSummaryRows(statusSummaryRows);
   const hasTransactions =
     Number(summary.totalTransactions) > 0 ||
     (Array.isArray(cache.workingRows) && cache.workingRows.length > 0) ||
-    chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
+    chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0) ||
+    statusTotal > 0;
 
   return {
     hasTransactions,
@@ -993,21 +1014,37 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
 
   const transactionsByChannel = normalizeChannelRows(channelsPayload);
   const failureByInstitution = scope ? [] : normalizeInstitutionRows(failingInstitutionsPayload);
+  const chartPayload = {
+    chartData7d,
+    responseCodes,
+    successVolumes7d,
+    failedTop5Codes: responseCodes,
+    transactionsByChannel,
+    failureByInstitution,
+    averageTime: summary.averageTime,
+    successFailurePie: buildStatusSummaryPie(statusSummaryRows, summary),
+    channelPie: buildChannelPieRows(transactionsByChannel),
+  };
+  const hasChartData = dashboardHasChartData(chartPayload);
   const hasTransactions =
     Number(summary.totalTransactions) > 0 ||
     workingRows.length > 0 ||
-    chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0);
+    chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0) ||
+    sumStatusSummaryRows(statusSummaryRows) > 0 ||
+    hasChartData;
+  const showData = hasTransactions || hasChartData;
 
   return {
-    chartData7d: hasTransactions ? chartData7d : [],
-    responseCodes: hasTransactions ? responseCodes : [],
-    successVolumes7d: hasTransactions ? successVolumes7d : [],
-    failedTop5Codes: hasTransactions ? responseCodes : [],
-    transactionsByChannel: hasTransactions ? transactionsByChannel : [],
-    failureByInstitution: hasTransactions ? failureByInstitution : [],
-    averageTime: hasTransactions ? summary.averageTime : { ne: 0, ft: 0 },
-    successFailurePie: hasTransactions ? buildStatusSummaryPie(statusSummaryRows, summary) : [],
-    channelPie: hasTransactions ? buildChannelPieRows(transactionsByChannel) : [],
+    hasTransactions,
+    chartData7d: showData ? chartData7d : [],
+    responseCodes: showData ? responseCodes : [],
+    successVolumes7d: showData ? successVolumes7d : [],
+    failedTop5Codes: showData ? responseCodes : [],
+    transactionsByChannel: showData ? transactionsByChannel : [],
+    failureByInstitution: showData ? failureByInstitution : [],
+    averageTime: showData ? summary.averageTime : { ne: 0, ft: 0 },
+    successFailurePie: showData ? chartPayload.successFailurePie : [],
+    channelPie: showData ? chartPayload.channelPie : [],
   };
 }
 
@@ -1090,7 +1127,11 @@ export async function fetchAccountsDashboardData({
   }
 
   const charts = await fetchAccountsDashboardCharts(options, ctx);
-  return { ...metrics, ...charts };
+  return {
+    ...metrics,
+    ...charts,
+    hasTransactions: Boolean(metrics.hasTransactions || charts.hasTransactions),
+  };
 }
 
 export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, date, dateRange } = {}) {
