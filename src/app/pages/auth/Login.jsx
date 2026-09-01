@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { detectSuspiciousPatterns, rateLimiter, sanitizeInput } from "../../utils/security";
@@ -174,12 +174,12 @@ export default function Login() {
                   Remember me
                 </label>
 
-                <a
-                  href="/password-recovery"
+                <Link
+                  to="/password-recovery"
                   className="flex items-center gap-1 text-sm text-primary hover:underline"
                 >
                   <FaLock size={12} /> Forgot password?
-                </a>
+                </Link>
               </div>
 
               <button
@@ -203,12 +203,12 @@ export default function Login() {
 
               <div className="mt-4 flex w-full flex-wrap justify-center text-center text-sm text-gray-600">
                 Need activation?{" "}
-                <a
-                  href="/activate"
+                <Link
+                  to="/activate"
                   className="ml-1 text-primary hover:underline"
                 >
                   {brand.productText.activationPrompt}
-                </a>
+                </Link>
               </div>
             </form>
           </div>
