@@ -141,6 +141,14 @@ function endOfLocalDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 0);
 }
 
+/** Default range for statistics pages that omit an explicit picker (last N calendar days, inclusive). */
+export function defaultDashboardDateRange(days = 7) {
+  const end = startOfLocalDay(new Date());
+  const start = new Date(end);
+  start.setDate(start.getDate() - Math.max(0, days - 1));
+  return { start, end };
+}
+
 /** Dashboard auto-refresh interval when the selected range includes today. */
 export const DASHBOARD_AUTO_REFRESH_MS = 30_000;
 
@@ -840,7 +848,8 @@ function resolveDashboardContext({
   if (requireInstitutionScope && !scope) {
     throw new Error("Institution code is required to load dashboard data.");
   }
-  const resolvedRange = dateRange ?? (date ? { start: date, end: date } : null);
+  const resolvedRange =
+    dateRange ?? (date ? { start: date, end: date } : null) ?? defaultDashboardDateRange();
   const dateParams = buildDateRangeParams(resolvedRange);
   const pagedDateParams = withPagination(dateParams);
   const averageTimeParams = {
@@ -1088,7 +1097,8 @@ export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, dat
   const scope = institutionCodeForDashboardScope(institutionCode);
   if (!scope) return [];
 
-  const resolvedRange = dateRange ?? (date ? { start: date, end: date } : null);
+  const resolvedRange =
+    dateRange ?? (date ? { start: date, end: date } : null) ?? defaultDashboardDateRange();
   const payload = await fetchOrNull(
     API_ENDPOINTS.dashboards.topFailedResponseCodesByInstitution(scope),
     withPagination(buildDateRangeParams(resolvedRange))
@@ -1098,7 +1108,7 @@ export async function fetchInstitutionFailedCodeBreakdown({ institutionCode, dat
 }
 
 export async function fetchStatusSummary({ institutionCode, dateRange, isCurrent = true } = {}) {
-  const resolvedRange = dateRange ?? null;
+  const resolvedRange = dateRange ?? defaultDashboardDateRange();
   const dateParams = buildDateRangeParams(resolvedRange);
   const params = {
     ...dateParams,
