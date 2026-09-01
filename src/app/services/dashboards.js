@@ -1168,3 +1168,173 @@ export async function fetchLiveTransactionFeed(options = {}) {
   return fetchLiveFeedFromApi(options);
 }
 
+/** Equal-length range immediately before `range`. */
+export function priorPeriodRange(range) {
+  const { start, end } = normalizeDashboardDateRange(range);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / dayMs) + 1);
+  const priorEnd = new Date(start);
+  priorEnd.setDate(priorEnd.getDate() - 1);
+  const priorStart = new Date(priorEnd);
+  priorStart.setDate(priorStart.getDate() - (days - 1));
+  return normalizeDashboardDateRange({ start: priorStart, end: priorEnd });
+}
+
+function formatInsightCount(value) {
+  return Number(value || 0).toLocaleString("en-NG");
+}
+
+function formatInsightVolume(amount) {
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n)) return "₦0";
+  if (Math.abs(n) >= 1e9) return `₦${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6) return `₦${(n / 1e6).toFixed(2)}M`;
+  if (Math.abs(n) >= 1e3) return `₦${(n / 1e3).toFixed(1)}k`;
+  return `₦${n.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+}
+
+/** One-line insight summary for the analytics section header. */
+export function buildInsightSummary(statsData) {
+  const summary = statsData?.rawSummary;
+  const counts = statsData?.statusCounts;
+  const total =
+    Number(summary?.totalTransactions) ||
+    (counts ? (counts.successful || 0) + (counts.pending || 0) + (counts.failed || 0) : 0);
+  const successCount = Number(counts?.successful ?? summary?.successCount ?? 0);
+  const successRate = total > 0 ? ((successCount / total) * 100).toFixed(1) : "0.0";
+  const volume = Number(summary?.totalAmount ?? 0);
+  return `${formatInsightCount(total)} transactions · ${successRate}% success · ${formatInsightVolume(volume)} volume`;
+}
+
+function sumPieValues(rows) {
+  if (!Array.isArray(rows)) return 0;
+  return rows.reduce((sum, row) => sum + (Number(row?.value) || 0), 0);
+}
+
+function pickPieValue(rows, matcher) {
+  if (!Array.isArray(rows)) return 0;
+  const row = rows.find((r) => matcher(String(r?.name || "").toLowerCase()));
+  return Number(row?.value) || 0;
+}
+
+function dominantChannel(channelRows) {
+  if (!Array.isArray(channelRows) || !channelRows.length) return null;
+  const sorted = [...channelRows].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0));
+  const top = sorted[0];
+  const total = channelRows.reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const share = total > 0 ? ((Number(top.count) / total) * 100).toFixed(1) : "0";
+  return { name: top.channel, share };
+}
+
+/** KPI headlines for each analytics chart card. */
+export function buildChartCardMeta(statsData, resolvedRange, priorStats = null) {
+  const range = resolvedRange ? formatDashboardRangeLabel(resolvedRange) : "";
+  const summary = statsData?.rawSummary || {};
+  const pie = statsData?.successFailurePie || [];
+  const pieTotal = sumPieValues(pie);
+  const successVal = pickPieValue(pie, (n) => n.includes("success"));
+  const failedVal = pickPieValue(pie, (n) => n.includes("fail"));
+  const successRate = pieTotal > 0 ? ((successVal / pieTotal) * 100).toFixed(1) : "0.0";
+  const heroTotal = (statsData?.chartData7d || []).reduce(
+    (s, r) => s + (Number(r.transactions) || 0),
+    0,
+  );
+  const heroValue = (statsData?.chartData7d || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const topCode = (statsData?.failedTop5Codes || [])[0];
+  const failedTotal = (statsData?.failedTop5Codes || []).reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const channel = dominantChannel(statsData?.transactionsByChannel);
+  const ftAvg = Number(statsData?.averageTime?.ft ?? 0);
+
+  const priorHeroTotal = (priorStats?.chartData7d || []).reduce(
+    (s, r) => s + (Number(r.transactions) || 0),
+    0,
+  );
+  const priorPie = priorStats?.successFailurePie || [];
+  const priorPieTotal = sumPieValues(priorPie);
+  const priorSuccessVal = pickPieValue(priorPie, (n) => n.includes("success"));
+  const priorSuccessRate = priorPieTotal > 0 ? (priorSuccessVal / priorPieTotal) * 100 : 0;
+  const priorFailedTotal = (priorStats?.failedTop5Codes || []).reduce(
+    (s, r) => s + (Number(r.count) || 0),
+    0,
+  );
+
+  function delta(current, prior) {
+    if (!priorStats || !Number.isFinite(prior) || prior === 0) return undefined;
+    const pct = ((Number(current) - prior) / prior) * 100;
+    const sign = pct >= 0 ? "+" : "";
+    return `${sign}${pct.toFixed(1)}% vs prior`;
+  }
+
+  return {
+    hero: {
+      subtitle: range,
+      kpi: {
+        label: "Total volume",
+        value: formatInsightCount(heroTotal || summary.totalTransactions || 0),
+        delta: delta(heroTotal || summary.totalTransactions, priorHeroTotal),
+      },
+      kpiSecondary: {
+        label: "Total value",
+        value: formatInsightVolume(heroValue || summary.totalAmount),
+      },
+    },
+    status: {
+      subtitle: range,
+      kpi: {
+        label: "Success rate",
+        value: `${successRate}%`,
+        delta: delta(Number(successRate), priorSuccessRate),
+      },
+    },
+    avgTime: {
+      subtitle: range,
+      kpi: { label: "FT average", value: `${ftAvg.toFixed(1)}s` },
+    },
+    failedCodes: {
+      subtitle: range,
+      kpi: {
+        label: topCode ? `Top: ${topCode.code}` : "Failures",
+        value: formatInsightCount(failedTotal || failedVal),
+        delta: delta(failedTotal || failedVal, priorFailedTotal),
+      },
+    },
+    channels: {
+      subtitle: range,
+      kpi: channel
+        ? { label: "Leading channel", value: `${channel.name} (${channel.share}%)` }
+        : { label: "Channels", value: "—" },
+    },
+    institutions: {
+      subtitle: range,
+      kpi: {
+        label: "Institutions",
+        value: formatInsightCount((statsData?.failureByInstitution || []).length),
+      },
+    },
+    successLine: {
+      subtitle: range,
+      kpi: {
+        label: "Successful",
+        value: formatInsightCount(
+          (statsData?.successVolumes7d || []).reduce((s, r) => s + (Number(r.volume) || 0), 0) ||
+            successVal,
+        ),
+      },
+    },
+  };
+}
+
+/** Fetch chart payload for the prior equal-length period (for comparison deltas). */
+export async function fetchPriorPeriodDashboardCharts(options = {}) {
+  const { dateRange, ...rest } = options;
+  if (!dateRange) return null;
+  try {
+    return await fetchAccountsDashboardCharts({
+      ...rest,
+      dateRange: priorPeriodRange(dateRange),
+    });
+  } catch {
+    return null;
+  }
+}
+

@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
-import { ArrowLeft, Loader2, RefreshCcw } from "lucide-react";
 import { fetchAccountsDashboardData } from "../../../services/dashboards";
 import { APIError } from "../../../services/api";
-import { useAuth } from "../../../context/AuthContext";
+import { StatisticsDrilldownLayout } from "../../../components/dashboard/StatisticsDrilldownLayout";
+import { useStatisticsPageFilters } from "./useStatisticsPageFilters";
+
+const FT_TARGET_SECS = 3;
 
 export default function AverageTimePage() {
-  const navigate = useNavigate();
-  const { user, requiresInstitutionScope } = useAuth();
+  const { dateRange, institution, fetchOptions } = useStatisticsPageFilters();
   const [averageTime, setAverageTime] = useState({ ne: 0, ft: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -18,11 +16,8 @@ export default function AverageTimePage() {
     setIsLoading(true);
     setErrorMessage("");
     try {
-      const data = await fetchAccountsDashboardData({
-        institutionCode: requiresInstitutionScope() ? user?.institutionCode : undefined,
-        requireInstitutionScope: requiresInstitutionScope(),
-      });
-      setAverageTime(data.averageTime);
+      const data = await fetchAccountsDashboardData(fetchOptions);
+      setAverageTime(data.averageTime || { ne: 0, ft: 0 });
     } catch (error) {
       setAverageTime({ ne: 0, ft: 0 });
       setErrorMessage(error instanceof APIError ? error.message : "Unable to load average-time metrics.");
@@ -33,50 +28,40 @@ export default function AverageTimePage() {
 
   useEffect(() => {
     loadPage();
-  }, []);
+  }, [fetchOptions]);
+
+  const ftPct = Math.min(100, (Number(averageTime.ft) / FT_TARGET_SECS) * 100);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <Button variant="outline" onClick={loadPage} disabled={isLoading} className="gap-2">
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-          Refresh
-        </Button>
-      </div>
-      {errorMessage ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {errorMessage}
-        </div>
-      ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>Average Time</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="py-12 text-center text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading average-time metrics...
-              </span>
+    <StatisticsDrilldownLayout
+      title="Average processing time"
+      subtitle={`FT target: ${FT_TARGET_SECS}s`}
+      dateRange={dateRange}
+      institution={institution}
+      isLoading={isLoading}
+      errorMessage={errorMessage}
+      onRefresh={loadPage}
+      chart={
+        <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+            <dt className="text-sm font-medium text-slate-500">NE</dt>
+            <dd className="mt-1 text-2xl font-bold text-slate-900">{averageTime.ne} secs</dd>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+            <dt className="text-sm font-medium text-slate-500">FT</dt>
+            <dd className="mt-1 text-2xl font-bold text-slate-900">{Number(averageTime.ft || 0).toFixed(1)} secs</dd>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-[#00411A] transition-all"
+                style={{ width: `${ftPct}%` }}
+              />
             </div>
-          ) : (
-            <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-              <dt className="text-sm font-medium text-slate-500">NE</dt>
-              <dd className="text-2xl font-bold text-slate-900 mt-1">{averageTime.ne} secs</dd>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-              <dt className="text-sm font-medium text-slate-500">FT</dt>
-              <dd className="text-2xl font-bold text-slate-900 mt-1">{averageTime.ft.toFixed(2)} secs</dd>
-            </div>
-            </dl>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {Number(averageTime.ft) <= FT_TARGET_SECS ? "Within target" : "Above target"}
+            </p>
+          </div>
+        </dl>
+      }
+    />
   );
 }

@@ -7,16 +7,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Loader2, RefreshCcw } from "lucide-react";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { useBrand } from "../../../branding/useBrand";
-import { fetchAccountsDashboardData, formatDashboardRangeLabel } from "../../services/dashboards";
+import {
+  buildChartCardMeta,
+  buildInsightSummary,
+  fetchAccountsDashboardData,
+  formatDashboardRangeLabel,
+  STATUS_PIE_COLORS,
+} from "../../services/dashboards";
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "./DashboardDateRangePicker";
 import { ClassicChartGrid } from "./DashboardChartGrids";
+import { dashboardFiltersToSearchParams } from "../../utils/dashboardFilterParams";
 
 const DEFAULT_RANGE = (() => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return { start: d, end: d };
 })();
+
+const STATUS_LEGEND = [
+  { key: "Successful", label: "Successful" },
+  { key: "Pending", label: "Pending" },
+  { key: "Failed", label: "Failed" },
+];
 
 export function StatisticsSection({
   statsInstitution: controlledInstitution,
@@ -26,6 +39,7 @@ export function StatisticsSection({
   statsDateRange: controlledDateRange,
   onDateRangeChange,
   statsData,
+  priorStatsData,
   isLoading: controlledLoading,
   chartsLoading: controlledChartsLoading = false,
   errorMessage: controlledError,
@@ -67,6 +81,10 @@ export function StatisticsSection({
   const embedded = Boolean(statsData);
   const isAnalytics = variant === "analytics";
 
+  const filterQuery = useMemo(() => {
+    return dashboardFiltersToSearchParams({ dateRange, institution }).toString();
+  }, [dateRange, institution]);
+
   const loadStatistics = async () => {
     if (statsData) return;
 
@@ -102,6 +120,7 @@ export function StatisticsSection({
     return (
       statsData ??
       internalStats ?? {
+        chartData7d: [],
         successVolumes7d: [],
         failedTop5Codes: [],
         transactionsByChannel: [],
@@ -114,6 +133,7 @@ export function StatisticsSection({
   }, [statsData, internalStats]);
 
   const {
+    chartData7d,
     successVolumes7d,
     failedTop5Codes,
     transactionsByChannel,
@@ -123,6 +143,18 @@ export function StatisticsSection({
     channelPie,
     hasTransactions,
   } = stats;
+
+  const chartCardMeta = useMemo(
+    () => buildChartCardMeta(stats, dateRange, priorStatsData),
+    [stats, dateRange, priorStatsData],
+  );
+
+  const insightSummary = useMemo(() => {
+    if (!isAnalytics || !embedded) return "";
+    return buildInsightSummary(stats);
+  }, [isAnalytics, embedded, stats]);
+
+  const priorChartData7d = priorStatsData?.chartData7d || [];
 
   const chartColors = brand.theme.chart;
   const isLoading = controlledLoading ?? internalLoading;
@@ -136,6 +168,7 @@ export function StatisticsSection({
     !errorMessage &&
     hasTransactions !== false &&
     (hasTransactions === true ||
+      (chartData7d?.length > 0) ||
       successVolumes7d.length > 0 ||
       failedTop5Codes.length > 0 ||
       transactionsByChannel.length > 0 ||
@@ -176,6 +209,21 @@ export function StatisticsSection({
             {rangeLabel}
             {isLiveRange ? " · updating live" : ""}
           </p>
+          {insightSummary ? (
+            <p className="mt-1 text-sm font-medium text-foreground">{insightSummary}</p>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {STATUS_LEGEND.map(({ key, label }) => (
+              <span key={key} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: STATUS_PIE_COLORS[key] ?? "#94a3b8" }}
+                  aria-hidden
+                />
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
@@ -252,6 +300,8 @@ export function StatisticsSection({
         <ClassicChartGrid
           variant={variant}
           lockInstitution={lockInstitution}
+          chartData7d={chartData7d}
+          priorChartData7d={priorChartData7d}
           successVolumes7d={successVolumes7d}
           successFailurePie={successFailurePie}
           averageTime={averageTime}
@@ -260,6 +310,8 @@ export function StatisticsSection({
           channelPie={channelPie}
           failureByInstitution={failureByInstitution}
           chartColors={chartColors}
+          chartCardMeta={chartCardMeta}
+          filterQuery={filterQuery}
         />
       ) : null}
     </section>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { MetricCard } from "../../components/shared/MetricCard";
 import { StatisticsSection } from "../../components/dashboard/StatisticsSection";
@@ -22,9 +23,14 @@ import {
   DASHBOARD_AUTO_REFRESH_MS,
   dashboardRangeIncludesToday,
   fetchAccountsDashboardData,
+  fetchPriorPeriodDashboardCharts,
   formatDashboardRangeLabel,
   normalizeDashboardDateRange,
 } from "../../services/dashboards";
+import {
+  dashboardFiltersToSearchParams,
+  parseDashboardFiltersFromSearch,
+} from "../../utils/dashboardFilterParams";
 import { APIError } from "../../services/api";
 import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
 import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDateRangePicker";
@@ -44,6 +50,7 @@ function formatCount(value) {
 }
 
 export default function TransgateDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const userRoleId = user?.roleId;
   const userInstitutionCode = user?.institutionCode;
@@ -61,6 +68,7 @@ export default function TransgateDashboard() {
   const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
   const [statsInstitution, setStatsInstitution] = useState("all");
   const [statsData, setStatsData] = useState(null);
+  const [priorStatsData, setPriorStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [chartsLoading, setChartsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -76,6 +84,30 @@ export default function TransgateDashboard() {
   });
   const loadSeq = useRef(0);
   const chartRefreshTimerRef = useRef(null);
+  const urlInitialized = useRef(false);
+
+  useEffect(() => {
+    if (urlInitialized.current) return;
+    const { dateRange, institution } = parseDashboardFiltersFromSearch(searchParams);
+    if (dateRange) setStatsDateRange(dateRange);
+    if (institution && institution !== "all" && !isVendor) {
+      setStatsInstitution(institution);
+    }
+    urlInitialized.current = true;
+  }, [searchParams, isVendor]);
+
+  useEffect(() => {
+    if (!urlInitialized.current) return;
+    const next = dashboardFiltersToSearchParams({
+      dateRange: statsDateRange,
+      institution: isVendor ? userInstitutionCode || "all" : statsInstitution,
+    });
+    const current = searchParams.toString();
+    const nextStr = next.toString();
+    if (current !== nextStr) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [statsDateRange, statsInstitution, isVendor, userInstitutionCode, searchParams, setSearchParams]);
 
   const statsRangeStartMs = statsDateRange.start.getTime();
   const statsRangeEndMs = statsDateRange.end.getTime();
@@ -105,6 +137,7 @@ export default function TransgateDashboard() {
       };
 
       try {
+        const priorPromise = fetchPriorPeriodDashboardCharts(fetchOptions);
         const data = await fetchAccountsDashboardData({
           ...fetchOptions,
           onMetricsReady: silent
@@ -118,8 +151,10 @@ export default function TransgateDashboard() {
                 setChartsLoading(true);
               },
         });
+        const prior = await priorPromise;
         if (seq !== loadSeq.current) return;
         setStatsData(data);
+        setPriorStatsData(prior);
         setStreamDelta({ successful: 0, pending: 0, failed: 0, total: 0 });
         if (silent) {
           setLastUpdatedAt(new Date());
@@ -495,6 +530,7 @@ export default function TransgateDashboard() {
             statsInstitution={isVendor ? vendorLockedInstitution : statsInstitution}
             onInstitutionChange={setStatsInstitution}
             statsData={statsData}
+            priorStatsData={priorStatsData}
             isLoading={isLoading}
             chartsLoading={chartsLoading}
             errorMessage={errorMessage}

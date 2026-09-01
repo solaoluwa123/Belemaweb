@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import {
   Table,
@@ -44,6 +44,7 @@ import {
   subMonths,
 } from "date-fns";
 import { parseBackendDate, getBackendDateTime, formatEmptyCell } from "../../utils/formatters";
+import { parseFilterDateParam } from "../../utils/dashboardFilterParams";
 
 function formatDate(d) {
   const parsed = parseBackendDate(d);
@@ -139,6 +140,7 @@ const ADVANCED_FILTERS_INITIAL = {
 
 export default function TransactionList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, requiresInstitutionScope } = useAuth();
   const institutionCode = user?.institutionCode || "";
   const requireScope = requiresInstitutionScope();
@@ -161,6 +163,30 @@ export default function TransactionList() {
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState(ADVANCED_FILTERS_INITIAL);
   const [liveHighlightIds, setLiveHighlightIds] = useState(() => new Set());
   const highlightTimersRef = useRef([]);
+  const urlFiltersInitialized = useRef(false);
+
+  useEffect(() => {
+    if (urlFiltersInitialized.current) return;
+    const responseCode = searchParams.get("responseCode");
+    const from = parseFilterDateParam(searchParams.get("from"));
+    const to = parseFilterDateParam(searchParams.get("to"));
+    if (responseCode) {
+      const next = { ...ADVANCED_FILTERS_INITIAL, responseCode };
+      setAdvancedFiltersApplied(next);
+      setAdvancedFiltersDraft(next);
+      setFiltersOpen(true);
+    }
+    if (from && to) {
+      setDatePreset("custom");
+      const start = startOfDay(from);
+      const end = endOfDay(to);
+      setDateRangeStart(start);
+      setDateRangeEnd(end);
+      setCustomStart(start);
+      setCustomEnd(end);
+    }
+    urlFiltersInitialized.current = true;
+  }, [searchParams]);
 
   const isLiveRange = useMemo(() => {
     const todayStart = startOfDay(new Date()).getTime();
