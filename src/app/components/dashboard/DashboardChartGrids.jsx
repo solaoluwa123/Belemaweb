@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -10,6 +9,7 @@ import {
   Legend,
   Line,
   LineChart,
+  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -17,6 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "react-router";
 import { StatisticsCard } from "./StatisticsCard";
 import { STATUS_PIE_COLORS } from "../../services/dashboards";
 import {
@@ -30,12 +31,18 @@ import {
 import {
   ChartEmptyState,
   DonutCenterLabel,
+  StatusLegendTable,
+  alignPriorTrendByIndex,
+  buildStatusTableRows,
   formatCompactCount,
   formatCountNg,
   formatNaira,
   formatNairaFull,
+  prepareChannelRowsWithShare,
+  prepareInstitutionTopRows,
   truncateLabel,
 } from "../../utils/dashboardChartUtils";
+import { appendDashboardFiltersToPath } from "../../utils/dashboardFilterParams";
 
 const chartHeight = 170;
 const heroHeight = 220;
@@ -106,12 +113,24 @@ function prepareFailedCodes(rows) {
   }));
 }
 
-function prepareInstitutionRows(rows) {
-  return (rows || []).map((row) => ({
-    ...row,
-    fullName: row.name,
-    name: truncateLabel(row.name, 22),
-  }));
+function prepareInstitutionRows(rows, limit) {
+  if (limit == null) {
+    return (rows || []).map((row) => ({
+      ...row,
+      fullName: row.name,
+      name: truncateLabel(row.name, 22),
+    }));
+  }
+  return prepareInstitutionTopRows(rows, limit);
+}
+
+function ChannelBarLabel({ x, y, width, height, value }) {
+  if (value == null) return null;
+  return (
+    <text x={x + width + 6} y={y + height / 2} dy={4} fill="var(--muted-foreground, #64748b)" fontSize={10}>
+      {value}
+    </text>
+  );
 }
 
 function computeSuccessPct(pie) {
@@ -259,6 +278,10 @@ export function ClassicChartGrid(props) {
     chartColors,
     chartCardMeta = {},
     filterQuery = "",
+    totalAmount = 0,
+    ftTargetSeconds = 3,
+    dateRange,
+    institutionFilter = "all",
   } = props;
 
   const isAnalytics = variant === "analytics";
@@ -269,19 +292,19 @@ export function ClassicChartGrid(props) {
     : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4";
 
   const failedRows = prepareFailedCodes(failedTop5Codes);
-  const instRows = prepareInstitutionRows(failureByInstitution);
+  const instRowsAll = prepareInstitutionRows(failureByInstitution, 10);
+  const instRows = instRowsAll;
+  const instTotalCount = (failureByInstitution || []).length;
+  const channelRows = prepareChannelRowsWithShare(transactionsByChannel);
+  const statusTableRows = buildStatusTableRows(successFailurePie, totalAmount);
   const pieTotal = (successFailurePie || []).reduce((s, r) => s + (Number(r.value) || 0), 0);
   const successPct = computeSuccessPct(successFailurePie);
+  const institutionViewAllPath = appendDashboardFiltersToPath("/dashboard/statistics/by-institution", {
+    dateRange,
+    institution: institutionFilter,
+  });
 
-  const priorMap = useMemo(
-    () => new Map((priorChartData7d || []).map((r) => [r.date, Number(r.transactions) || 0])),
-    [priorChartData7d],
-  );
-
-  const heroData = (chartData7d || []).map((row) => ({
-    ...row,
-    priorTransactions: priorMap.has(row.date) ? priorMap.get(row.date) : undefined,
-  }));
+  const heroData = alignPriorTrendByIndex(chartData7d, priorChartData7d);
 
   const wrapCard = (key, className, card) => {
     if (!isAnalytics) return card;
@@ -386,34 +409,36 @@ export function ClassicChartGrid(props) {
               <ChartEmptyState message="No status breakdown for this period" />
             ) : (
               wrapChart(
-                <ResponsiveContainer width="100%" height={chartHeight}>
-                  <PieChart>
-                    <Pie
-                      data={successFailurePie}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={36}
-                      outerRadius={58}
-                      paddingAngle={2}
-                      label={({ cx, cy }) => (
-                        <DonutCenterLabel viewBox={{ cx, cy }} total={pieTotal} successPct={successPct} />
-                      )}
-                      labelLine={false}
-                      {...CHART_ANIMATION}
-                    >
-                      {(successFailurePie || []).map((entry, index) => (
-                        <Cell
-                          key={entry.name}
-                          fill={STATUS_PIE_COLORS[entry.name] ?? chartColors[index % chartColors.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Count"]} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                  </PieChart>
-                </ResponsiveContainer>,
+                <div className="space-y-1">
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie
+                        data={successFailurePie}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={32}
+                        outerRadius={52}
+                        paddingAngle={2}
+                        label={({ cx, cy }) => (
+                          <DonutCenterLabel viewBox={{ cx, cy }} total={pieTotal} successPct={successPct} />
+                        )}
+                        labelLine={false}
+                        {...CHART_ANIMATION}
+                      >
+                        {(successFailurePie || []).map((entry, index) => (
+                          <Cell
+                            key={entry.name}
+                            fill={STATUS_PIE_COLORS[entry.name] ?? chartColors[index % chartColors.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Count"]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <StatusLegendTable rows={statusTableRows} />
+                </div>,
               )
             )}
           </StatisticsCard>,
@@ -438,6 +463,18 @@ export function ClassicChartGrid(props) {
               <div className="rounded-lg bg-[#eef8c8] px-3 py-2">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[#00411A]/70">FT</p>
                 <p className="text-lg font-bold text-[#00411A]">{Number(averageTime?.ft || 0).toFixed(1)} secs</p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dce8c8]">
+                  <div
+                    className="h-full rounded-full bg-[#00411A] transition-all"
+                    style={{
+                      width: `${Math.min(100, (Number(averageTime?.ft || 0) / ftTargetSeconds) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Target {ftTargetSeconds}s ·{" "}
+                  {Number(averageTime?.ft || 0) <= ftTargetSeconds ? "Within SLA" : "Above SLA"}
+                </p>
               </div>
             </div>
           </StatisticsCard>,
@@ -488,23 +525,25 @@ export function ClassicChartGrid(props) {
             ) : (
               wrapChart(
                 <ResponsiveContainer width="100%" height={chartHeight}>
-                  <BarChart data={transactionsByChannel} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-                    <XAxis
-                      dataKey="channel"
-                      tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
-                      interval={0}
-                      angle={-25}
-                      textAnchor="end"
-                      height={45}
-                    />
+                  <BarChart data={channelRows} layout="vertical" margin={{ top: 5, right: 48, left: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
                     <YAxis
-                      width={42}
-                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                      tickFormatter={formatCompactCount}
+                      type="category"
+                      dataKey="channel"
+                      width={72}
+                      tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
                     />
-                    <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Count"]} />
-                    <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[4, 4, 0, 0]} {...CHART_ANIMATION} />
+                    <Tooltip
+                      {...CHART_TOOLTIP_STYLE}
+                      formatter={(v, _n, item) => [
+                        `${formatCountNg(v)} (${item?.payload?.shareLabel ?? ""})`,
+                        "Count",
+                      ]}
+                    />
+                    <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                      <LabelList dataKey="shareLabel" content={<ChannelBarLabel />} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>,
               )
@@ -527,21 +566,32 @@ export function ClassicChartGrid(props) {
                 {instRows.length === 0 ? (
                   <ChartEmptyState message="No institution failures in this period" />
                 ) : (
-                  wrapChart(
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={instRows} layout="vertical" margin={{ top: 5, right: 5, left: 80, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-                        <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
-                        <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} />
-                        <Tooltip content={<InstitutionTooltip />} />
-                        <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
-                          {instRows.map((entry) => (
-                            <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[0]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>,
-                  )
+                  <div className="space-y-2">
+                    {wrapChart(
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={instRows} layout="vertical" margin={{ top: 5, right: 5, left: 80, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
+                          <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} />
+                          <Tooltip content={<InstitutionTooltip />} />
+                          <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                            {instRows.map((entry) => (
+                              <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[0]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>,
+                    )}
+                    {instTotalCount > 10 ? (
+                      <Link
+                        to={institutionViewAllPath}
+                        className="inline-flex text-xs font-medium text-[#00411A] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View all {instTotalCount} institutions →
+                      </Link>
+                    ) : null}
+                  </div>
                 )}
               </StatisticsCard>,
             )

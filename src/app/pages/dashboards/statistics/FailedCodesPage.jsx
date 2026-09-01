@@ -80,7 +80,7 @@ export default function FailedCodesPage() {
       csvFilename="failed-response-codes.csv"
       tableColumns={tableColumns}
       tableRows={rows}
-      transactionLink={buildTransactionListLink({ dateRange, institution })}
+      transactionLink={buildTransactionListLink({ dateRange, institution, status: "failed" })}
       chart={
         rows.length === 0 ? (
           <p className="py-12 text-center text-slate-500">No failed response-code data was returned.</p>

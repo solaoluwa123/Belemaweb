@@ -31,6 +31,10 @@ export const belemaBrand = {
     accountsDashboard: "/dashboard/accounts",
     liveMonitoring: "/dashboard/live-monitoring",
   },
+  dashboard: {
+    /** FT processing-time SLA target shown on avg-time cards (seconds). */
+    ftTargetSeconds: 3,
+  },
   menus: {
     groupLabels: {
       accounts: "Accounts",

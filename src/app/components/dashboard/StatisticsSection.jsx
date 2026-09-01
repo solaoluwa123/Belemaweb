@@ -312,6 +312,10 @@ export function StatisticsSection({
           chartColors={chartColors}
           chartCardMeta={chartCardMeta}
           filterQuery={filterQuery}
+          totalAmount={stats?.rawSummary?.totalAmount ?? 0}
+          ftTargetSeconds={brand?.dashboard?.ftTargetSeconds ?? 3}
+          dateRange={dateRange}
+          institutionFilter={institution}
         />
       ) : null}
     </section>

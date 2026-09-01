@@ -61,10 +61,11 @@ export function appendDashboardFiltersToPath(path, filters = {}) {
   return path.includes("?") ? `${path}&${qs}` : `${path}?${qs}`;
 }
 
-/** Build transaction list deep link with optional response code and date range. */
-export function buildTransactionListLink({ responseCode, dateRange, institution } = {}) {
+/** Build transaction list deep link with optional filters. */
+export function buildTransactionListLink({ responseCode, dateRange, institution, status } = {}) {
   const params = new URLSearchParams();
   if (responseCode) params.set("responseCode", String(responseCode));
+  if (status && status !== "all") params.set("status", String(status));
   if (dateRange) {
     const { start, end } = normalizeDashboardDateRange(dateRange);
     const from = formatFilterDateParam(start);

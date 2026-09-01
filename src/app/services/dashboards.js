@@ -1338,3 +1338,58 @@ export async function fetchPriorPeriodDashboardCharts(options = {}) {
   }
 }
 
+function normalizeDashboardCompareSlice(slice) {
+  if (!slice || typeof slice !== "object") return null;
+  const byDatePayload = {
+    data: slice.byDateRows,
+    meta: slice.byDateMeta,
+  };
+  const chartData7d = normalizeTrendRows(byDatePayload);
+  const statusSummaryRows = normalizeStatusSummaryRows({ summary: slice.statusSummary });
+  const failedTop5Codes = normalizeResponseCodes(normalizeFailedCodes({ data: slice.failedTop5Codes }));
+  const successFailurePie = buildStatusSummaryPie(statusSummaryRows, null);
+  return {
+    chartData7d,
+    successFailurePie,
+    failedTop5Codes,
+    hasTransactions:
+      chartData7d.some((row) => Number(row.transactions) > 0) ||
+      successFailurePie.length > 0 ||
+      failedTop5Codes.length > 0,
+  };
+}
+
+/** Single API call for current + prior dashboard comparison slices. Falls back to null on 404. */
+export async function fetchDashboardCompare(options = {}) {
+  const ctx = resolveDashboardContext(options);
+  const params = {
+    ...ctx.dateParams,
+    institution: ctx.scope || undefined,
+  };
+  try {
+    const payload = await apiClient.get(API_ENDPOINTS.dashboards.dashboardCompare, params);
+    const raw = getRawResponseObject(payload);
+    const block = Array.isArray(raw?.data) ? raw.data[0] : raw?.data?.[0] ?? raw;
+    if (!block || typeof block !== "object") return null;
+    const prior = normalizeDashboardCompareSlice(block.prior);
+    if (!prior) return null;
+    return {
+      ...prior,
+      priorRange: block.priorRange,
+      currentSlice: normalizeDashboardCompareSlice(block.current),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Prefer compare endpoint; fall back to full prior-period chart fetch. */
+export async function fetchPriorPeriodForDashboard(options = {}) {
+  const compare = await fetchDashboardCompare(options);
+  if (compare) {
+    const { priorRange, currentSlice, ...priorStats } = compare;
+    return priorStats;
+  }
+  return fetchPriorPeriodDashboardCharts(options);
+}
+

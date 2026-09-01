@@ -168,13 +168,25 @@ export default function TransactionList() {
   useEffect(() => {
     if (urlFiltersInitialized.current) return;
     const responseCode = searchParams.get("responseCode");
+    const status = searchParams.get("status");
+    const urlInstitution = searchParams.get("institution");
     const from = parseFilterDateParam(searchParams.get("from"));
     const to = parseFilterDateParam(searchParams.get("to"));
+    let nextFilters = { ...ADVANCED_FILTERS_INITIAL };
     if (responseCode) {
-      const next = { ...ADVANCED_FILTERS_INITIAL, responseCode };
-      setAdvancedFiltersApplied(next);
-      setAdvancedFiltersDraft(next);
+      nextFilters = { ...nextFilters, responseCode };
       setFiltersOpen(true);
+    }
+    if (status && ["all", "successful", "pending", "failed"].includes(status.toLowerCase())) {
+      nextFilters = { ...nextFilters, status: status.toLowerCase() };
+      setFiltersOpen(true);
+    }
+    if (urlInstitution && !requireScope) {
+      nextFilters = { ...nextFilters, sourceBank: urlInstitution };
+    }
+    if (responseCode || status || urlInstitution) {
+      setAdvancedFiltersApplied(nextFilters);
+      setAdvancedFiltersDraft(nextFilters);
     }
     if (from && to) {
       setDatePreset("custom");

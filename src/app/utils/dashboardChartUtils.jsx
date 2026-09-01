@@ -64,3 +64,98 @@ export function formatDeltaPct(current, prior) {
   const sign = pct >= 0 ? "+" : "";
   return { text: `${sign}${pct.toFixed(1)}% vs prior`, positive: pct >= 0 };
 }
+
+const SEVERITY_COLORS = ["#00411A", "#7CB342", "#FFD600", "#F59E0B", "#E84A25"];
+
+/** Pro-rate total amount across status pie slices for the legend table. */
+export function buildStatusTableRows(pie, totalAmount = 0) {
+  if (!Array.isArray(pie) || !pie.length) return [];
+  const total = pie.reduce((s, r) => s + (Number(r.value) || 0), 0);
+  const amount = Number(totalAmount) || 0;
+  return pie.map((row) => {
+    const count = Number(row.value) || 0;
+    const share = total > 0 ? (count / total) * 100 : 0;
+    const rowAmount = total > 0 ? (amount * count) / total : 0;
+    return {
+      name: row.name,
+      count,
+      share: share.toFixed(1),
+      amount: rowAmount,
+    };
+  });
+}
+
+export function StatusLegendTable({ rows = [] }) {
+  if (!rows.length) return null;
+  return (
+    <div className="mt-3 overflow-x-auto rounded-lg border border-[color:var(--border)]">
+      <table className="w-full text-left text-[11px]">
+        <thead>
+          <tr className="border-b border-[color:var(--border)] bg-muted/40 text-muted-foreground">
+            <th className="px-2 py-1.5 font-medium">Status</th>
+            <th className="px-2 py-1.5 font-medium text-right">Count</th>
+            <th className="px-2 py-1.5 font-medium text-right">%</th>
+            <th className="px-2 py-1.5 font-medium text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name} className="border-b border-[color:var(--border)] last:border-0">
+              <td className="px-2 py-1.5 font-medium text-foreground">{row.name}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatCountNg(row.count)}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{row.share}%</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatNairaFull(row.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Channel rows with share % for horizontal bar labels. */
+export function prepareChannelRowsWithShare(channelRows) {
+  if (!Array.isArray(channelRows) || !channelRows.length) return [];
+  const total = channelRows.reduce((s, r) => s + (Number(r.count) || 0), 0);
+  return channelRows.map((row) => {
+    const count = Number(row.count) || 0;
+    const share = total > 0 ? (count / total) * 100 : 0;
+    return {
+      ...row,
+      share,
+      shareLabel: `${share.toFixed(1)}%`,
+    };
+  });
+}
+
+/** Top N institutions with severity coloring by failure rank. */
+export function prepareInstitutionTopRows(rows, limit = 10) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const sorted = [...rows].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0));
+  const top = sorted.slice(0, limit);
+  const max = Number(top[0]?.count) || 1;
+  return top.map((row, index) => {
+    const ratio = (Number(row.count) || 0) / max;
+    const colorIndex = Math.min(
+      SEVERITY_COLORS.length - 1,
+      Math.floor((1 - ratio) * (SEVERITY_COLORS.length - 1)),
+    );
+    return {
+      ...row,
+      fullName: row.name,
+      name: truncateLabel(row.name, 22),
+      fill: SEVERITY_COLORS[colorIndex] ?? SEVERITY_COLORS[SEVERITY_COLORS.length - 1],
+      rank: index + 1,
+    };
+  });
+}
+
+/** Align prior-period trend to current buckets by day index (not calendar label). */
+export function alignPriorTrendByIndex(currentRows, priorRows) {
+  const prior = Array.isArray(priorRows) ? priorRows : [];
+  return (currentRows || []).map((row, index) => ({
+    ...row,
+    priorTransactions:
+      prior[index] != null ? Number(prior[index].transactions ?? prior[index].volume) || 0 : undefined,
+  }));
+}

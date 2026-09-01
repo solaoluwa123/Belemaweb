@@ -3,11 +3,12 @@ import { fetchAccountsDashboardData } from "../../../services/dashboards";
 import { APIError } from "../../../services/api";
 import { StatisticsDrilldownLayout } from "../../../components/dashboard/StatisticsDrilldownLayout";
 import { useStatisticsPageFilters } from "./useStatisticsPageFilters";
-
-const FT_TARGET_SECS = 3;
+import { useBrand } from "../../../../branding/useBrand";
 
 export default function AverageTimePage() {
+  const { brand } = useBrand();
   const { dateRange, institution, fetchOptions } = useStatisticsPageFilters();
+  const ftTargetSeconds = brand?.dashboard?.ftTargetSeconds ?? 3;
   const [averageTime, setAverageTime] = useState({ ne: 0, ft: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -30,12 +31,12 @@ export default function AverageTimePage() {
     loadPage();
   }, [fetchOptions]);
 
-  const ftPct = Math.min(100, (Number(averageTime.ft) / FT_TARGET_SECS) * 100);
+  const ftPct = Math.min(100, (Number(averageTime.ft) / ftTargetSeconds) * 100);
 
   return (
     <StatisticsDrilldownLayout
       title="Average processing time"
-      subtitle={`FT target: ${FT_TARGET_SECS}s`}
+      subtitle={`FT target: ${ftTargetSeconds}s`}
       dateRange={dateRange}
       institution={institution}
       isLoading={isLoading}
@@ -57,7 +58,7 @@ export default function AverageTimePage() {
               />
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              {Number(averageTime.ft) <= FT_TARGET_SECS ? "Within target" : "Above target"}
+              {Number(averageTime.ft) <= ftTargetSeconds ? "Within target" : "Above target"}
             </p>
           </div>
         </dl>

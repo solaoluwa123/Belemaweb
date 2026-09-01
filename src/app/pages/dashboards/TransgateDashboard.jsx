@@ -23,7 +23,7 @@ import {
   DASHBOARD_AUTO_REFRESH_MS,
   dashboardRangeIncludesToday,
   fetchAccountsDashboardData,
-  fetchPriorPeriodDashboardCharts,
+  fetchPriorPeriodForDashboard,
   formatDashboardRangeLabel,
   normalizeDashboardDateRange,
 } from "../../services/dashboards";
@@ -137,7 +137,7 @@ export default function TransgateDashboard() {
       };
 
       try {
-        const priorPromise = fetchPriorPeriodDashboardCharts(fetchOptions);
+        const priorPromise = fetchPriorPeriodForDashboard(fetchOptions);
         const data = await fetchAccountsDashboardData({
           ...fetchOptions,
           onMetricsReady: silent
