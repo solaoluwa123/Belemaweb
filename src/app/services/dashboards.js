@@ -260,6 +260,36 @@ function aggregateTrendFromTransactionRows(rows) {
     .map(([date, v]) => ({ date, transactions: v.transactions, amount: v.amount }));
 }
 
+/** When `/transactions-by-date-only` returns raw txn rows in `data`, bucket them for charts. */
+function aggregateTrendFromRawTransactionList(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const map = new Map();
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const k = transactionDateBucketKey(
+      pickString(row, [
+        "transaction_date_time",
+        "transactionDateTime",
+        "dateTime",
+        "transactiondate",
+        "date",
+      ]),
+    );
+    if (!k) continue;
+    const cur = map.get(k) || { transactions: 0, amount: 0 };
+    cur.transactions += 1;
+    cur.amount += pickNumber(row, ["srcAmount", "amount", "destAmount", "transactionAmount"]);
+    map.set(k, cur);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date: formatDisplayDate(`${date}T12:00:00`) || date,
+      transactions: v.transactions,
+      amount: v.amount,
+    }));
+}
+
 function aggregateSuccessVolumesFromTransactionRows(rows) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const map = new Map();
@@ -458,7 +488,7 @@ function normalizeTrendRows(payload) {
 }
 
 function normalizeFailedCodes(payload) {
-  return asArray(payload)
+  return getChartRowsFromPayload(payload)
     .map((row) => {
       const source = row && typeof row === "object" ? row : {};
       return {
@@ -472,11 +502,18 @@ function normalizeFailedCodes(payload) {
 }
 
 function normalizeChannelRows(payload) {
-  return asArray(payload)
+  return getChartRowsFromPayload(payload)
     .map((row) => {
       const source = row && typeof row === "object" ? row : {};
+      const channel = pickString(source, [
+        "channelCode",
+        "channelName",
+        "channel",
+        "name",
+        "label",
+      ]);
       return {
-        channel: pickString(source, ["channel", "name", "label", "channelName"]),
+        channel,
         count: pickNumber(source, ["count", "total", "value", "volume"]),
       };
     })
@@ -529,6 +566,14 @@ function getTnxModelFromPayload(payload) {
     return data.tnxModel;
   }
   return null;
+}
+
+/** Chart list endpoints often put rows in `tnxModel.summary` with `data` null. */
+function getChartRowsFromPayload(payload) {
+  const tnx = getTnxModelFromPayload(payload);
+  const fromTnx = asArray(tnx?.summary ?? tnx?.summaries);
+  if (fromTnx.length) return fromTnx;
+  return asArray(payload);
 }
 
 /** Prefer outflows for institution totals; fall back to inflows; tolerate Jackson camelCase. */
@@ -651,8 +696,11 @@ function normalizeSuccessVolumes(successPayload, trendPayload) {
     })
     .filter((row) => row.date);
 
-  if (successRows.length > 1) {
-    return successRows;
+  if (successRows.length >= 1) {
+    return successRows.map((row) => ({
+      ...row,
+      date: formatDisplayDate(row.date) || row.date,
+    }));
   }
 
   return normalizeTrendRows(trendPayload).map((row) => ({
@@ -913,8 +961,14 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
   }
 
   let chartData7d = normalizeTrendRows(byDateOnlyPayload);
-  if (!chartData7d.length && workingRows.length) {
+  if (!chartData7d.some((row) => Number(row.transactions) > 0) && workingRows.length) {
     chartData7d = aggregateTrendFromTransactionRows(workingRows);
+  }
+  if (!chartData7d.some((row) => Number(row.transactions) > 0)) {
+    const rawList = getRawResponseObject(byDateOnlyPayload)?.data;
+    if (Array.isArray(rawList) && rawList.length > 0) {
+      chartData7d = aggregateTrendFromRawTransactionList(rawList);
+    }
   }
 
   const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
