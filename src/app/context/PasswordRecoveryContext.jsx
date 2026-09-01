@@ -15,6 +15,8 @@ const TOKEN_STATUS = {
 
 export function PasswordRecoveryProvider({ children }) {
   const [email, setEmailState] = useState("");
+  /** Six-character reference from reset link; sent as username on POST /users/resetpassword. */
+  const [recoveryRef, setRecoveryRef] = useState("");
   /** Raw token from reset link (query or email flow); sent with POST /users/resetpassword. */
   const [recoveryToken, setRecoveryToken] = useState("");
   const [tokenStatus, setTokenStatus] = useState(TOKEN_STATUS.IDLE);
@@ -66,6 +68,7 @@ export function PasswordRecoveryProvider({ children }) {
 
   const resetFlow = useCallback(() => {
     setEmailState("");
+    setRecoveryRef("");
     setRecoveryToken("");
     setTokenStatus(TOKEN_STATUS.IDLE);
     setMfaVerified(false);
@@ -76,6 +79,8 @@ export function PasswordRecoveryProvider({ children }) {
   const value = {
     email,
     setEmail,
+    recoveryRef,
+    setRecoveryRef,
     recoveryToken,
     setRecoveryToken,
     tokenStatus: tokenStatus,

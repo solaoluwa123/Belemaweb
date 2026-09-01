@@ -566,21 +566,27 @@ export async function updatePasswordWithApi(user, newPassword, currentPassword =
   });
 }
 
-/** Password recovery: set new password using token from email link (`POST /users/resetpassword`). */
-export async function resetPasswordWithApi({ username, password, token = "" }) {
+/** Password recovery: set new password using ref + token from email link (`POST /users/resetpassword`). */
+export async function resetPasswordWithApi({ ref, password, token = "" }) {
+  const reference = String(ref || "").trim();
+  const recoveryToken = String(token || "").trim();
+  if (!reference || !recoveryToken) {
+    throw new APIError("Reset link is invalid or incomplete.", 400, null);
+  }
   if (!password) {
     throw new APIError("Password is required.", 400, null);
   }
-  return apiClient.request(API_ENDPOINTS.auth.resetPassword, {
+  // Backend LoginResponse mapping: username=reference, firstname=token, surname=new password.
+  const payload = await apiClient.request(API_ENDPOINTS.auth.resetPassword, {
     method: "POST",
     body: JSON.stringify({
-      username: String(username || "").trim(),
-      password: String(password),
-      security: String(password),
-      session_token: String(token || "").trim(),
-      token: String(token || "").trim(),
+      username: reference,
+      firstname: recoveryToken,
+      surname: String(password),
     }),
   });
+  assertAuthBusinessSuccess(payload);
+  return payload;
 }
 
 /** Optional: exchange refresh token for new session (`POST /auth/refresh`). */

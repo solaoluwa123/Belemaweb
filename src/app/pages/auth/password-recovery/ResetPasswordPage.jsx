@@ -21,7 +21,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { markResetComplete, email, recoveryToken } = usePasswordRecovery();
+  const { markResetComplete, recoveryRef, recoveryToken } = usePasswordRecovery();
 
   const requirementsMet = meetsAllPasswordRequirements(password);
   const passwordsMatch = password && confirm && password === confirm;
@@ -31,19 +31,15 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError("");
     if (!canSubmit) return;
-    const identifier = String(email || "").trim();
+    const ref = String(recoveryRef || "").trim();
     const token = String(recoveryToken || "").trim();
-    if (!identifier) {
-      setError('Recovery email is missing. Start again from "Forgot password".');
-      return;
-    }
-    if (!token) {
+    if (!ref || !token) {
       setError("Reset link is invalid or expired. Request a new link.");
       return;
     }
     setLoading(true);
     try {
-      await resetPasswordWithApi({ username: identifier, password, token });
+      await resetPasswordWithApi({ ref, password, token });
       markResetComplete();
       navigate("/password-recovery/success", { replace: true });
     } catch (err) {
