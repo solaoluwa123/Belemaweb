@@ -239,6 +239,140 @@ function transactionDateBucketKey(dateTimeStr) {
   return m ? m[1] : "";
 }
 
+function isSingleDayDashboardRange(range) {
+  if (!range) return false;
+  const { start, end } = normalizeDashboardDateRange(range);
+  return start.getTime() === end.getTime();
+}
+
+function formatHourAxisLabel(hour) {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function extractRawTransactionList(payload) {
+  const rawRoot = getRawResponseObject(payload);
+  if (Array.isArray(rawRoot?.data)) return rawRoot.data;
+  if (Array.isArray(payload)) return payload;
+  return asArray(payload);
+}
+
+/**
+ * Single-day hero charts need an intraday series — one daily bucket only draws two floating dots.
+ * Returns hour labels `00:00`… with zeros filled through the last hour that has data (or now).
+ */
+function aggregateHourlyTrendFromSources(sources, dayDate) {
+  const day = startOfLocalDay(dayDate instanceof Date ? dayDate : new Date());
+  const dayKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+  const byHour = new Map();
+  for (let h = 0; h < 24; h += 1) byHour.set(h, { transactions: 0, amount: 0 });
+
+  let lastHourWithData = -1;
+  for (const source of sources) {
+    if (!Array.isArray(source) || !source.length) continue;
+    for (const row of source) {
+      if (!row || typeof row !== "object") continue;
+      const rawDate =
+        row.dateTime ??
+        pickString(row, [
+          "transaction_date_time",
+          "transactionDateTime",
+          "dateTime",
+          "transactiondate",
+          "date",
+        ]);
+      const parsed = parseBackendDate(rawDate);
+      if (!parsed) continue;
+      const rowDay = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+      if (rowDay !== dayKey) continue;
+      const hour = parsed.getHours();
+      const cur = byHour.get(hour);
+      cur.transactions += 1;
+      cur.amount +=
+        row.amount != null && row.amount !== ""
+          ? toNumber(row.amount)
+          : pickNumber(row, ["srcAmount", "amount", "destAmount", "transactionAmount"]);
+      if (hour > lastHourWithData) lastHourWithData = hour;
+    }
+  }
+
+  if (lastHourWithData < 0) return [];
+
+  const now = new Date();
+  const sameDayAsToday =
+    now.getFullYear() === day.getFullYear() &&
+    now.getMonth() === day.getMonth() &&
+    now.getDate() === day.getDate();
+  const endHour = sameDayAsToday ? Math.max(lastHourWithData, now.getHours()) : Math.max(lastHourWithData, 23);
+
+  const rows = [];
+  for (let h = 0; h <= endHour; h += 1) {
+    const v = byHour.get(h);
+    rows.push({
+      date: formatHourAxisLabel(h),
+      transactions: v.transactions,
+      amount: v.amount,
+    });
+  }
+  return rows;
+}
+
+/** Ensure every calendar day in the selected range appears so the area chart spans the full period. */
+function fillDailyTrendGaps(rows, range) {
+  const { start, end } = normalizeDashboardDateRange(range);
+  const byLabel = new Map();
+  for (const row of rows || []) {
+    if (!row?.date) continue;
+    byLabel.set(String(row.date), {
+      date: row.date,
+      transactions: Number(row.transactions) || 0,
+      amount: Number(row.amount) || 0,
+    });
+  }
+  // Also index by ISO day when we still have raw keys from aggregation.
+  const byIso = new Map();
+  for (const row of rows || []) {
+    const iso = transactionDateBucketKey(row?.date) || transactionDateBucketKey(row?.isoDate);
+    if (iso) byIso.set(iso, row);
+  }
+
+  const filled = [];
+  for (let cursor = new Date(start); cursor.getTime() <= end.getTime(); cursor.setDate(cursor.getDate() + 1)) {
+    const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+    const label = formatDisplayDate(`${iso}T12:00:00`) || iso;
+    const fromIso = byIso.get(iso);
+    const fromLabel = byLabel.get(label);
+    const hit = fromIso || fromLabel;
+    filled.push({
+      date: label,
+      transactions: hit ? Number(hit.transactions) || 0 : 0,
+      amount: hit ? Number(hit.amount) || 0 : 0,
+    });
+  }
+  return filled;
+}
+
+function shapeHeroTrendRows(chartData7d, ctx) {
+  const { resolvedRange, cache } = ctx;
+  const rawList = extractRawTransactionList(cache.byDateOnlyPayload);
+  const workingRows = Array.isArray(cache.workingRows) ? cache.workingRows : [];
+
+  if (isSingleDayDashboardRange(resolvedRange)) {
+    const hourly = aggregateHourlyTrendFromSources([workingRows, rawList], resolvedRange.start);
+    if (hourly.length > 1) return hourly;
+    return chartData7d;
+  }
+
+  if (!resolvedRange) return chartData7d;
+
+  let daily = chartData7d;
+  if (!daily.some((row) => Number(row.transactions) > 0)) {
+    const fromWorking = aggregateTrendFromTransactionRows(workingRows);
+    const fromRaw = aggregateTrendFromRawTransactionList(rawList);
+    daily = fromRaw.length >= fromWorking.length ? fromRaw : fromWorking;
+  }
+  return fillDailyTrendGaps(daily, resolvedRange);
+}
+
 function aggregateMetricsFromTransactionRows(rows) {
   if (!Array.isArray(rows) || !rows.length) return null;
   let totalAmount = 0;
@@ -876,7 +1010,11 @@ function resolveDashboardContext({
   const resolvedRange =
     dateRange ?? (date ? { start: date, end: date } : null) ?? defaultDashboardDateRange();
   const dateParams = buildDateRangeParams(resolvedRange);
-  const pagedDateParams = withPagination(dateParams);
+  const pagedDateParams = withPagination(dateParams, {
+    page: 1,
+    // Single-day hero charts bucket by hour — need enough txn rows for a real curve.
+    limit: isSingleDayDashboardRange(resolvedRange) ? 500 : 100,
+  });
   const averageTimeParams = {
     ...dateParams,
     isCurrent: dateParams.isCurrent || "true",
@@ -1041,6 +1179,8 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
       },
     ];
   }
+
+  chartData7d = shapeHeroTrendRows(chartData7d, ctx);
 
   const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
   let successVolumes7d = normalizeSuccessVolumes(successPayload, byDateOnlyPayload);

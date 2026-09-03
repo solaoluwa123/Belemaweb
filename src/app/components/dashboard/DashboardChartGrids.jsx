@@ -363,6 +363,8 @@ export function ClassicChartGrid(props) {
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                       axisLine={false}
                       tickLine={false}
+                      minTickGap={28}
+                      interval="preserveStartEnd"
                     />
                     <YAxis
                       yAxisId="volume"
@@ -394,6 +396,8 @@ export function ClassicChartGrid(props) {
                       stroke={chartColors[0] ?? "#00411A"}
                       strokeWidth={2.25}
                       fill="url(#heroVolumeFill)"
+                      fillOpacity={1}
+                      baseValue={0}
                       dot={false}
                       activeDot={{
                         r: 5,
@@ -692,6 +696,8 @@ export function ClassicChartGrid(props) {
                     stroke={chartColors[0]}
                     strokeWidth={2.25}
                     fill="url(#classicVolumeFill)"
+                    fillOpacity={1}
+                    baseValue={0}
                     dot={false}
                     activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2, fill: chartColors[0] }}
                     {...CHART_ANIMATION}

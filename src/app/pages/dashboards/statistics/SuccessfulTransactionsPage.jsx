@@ -149,6 +149,8 @@ export default function SuccessfulTransactionsPage() {
                 stroke={volumeColor}
                 strokeWidth={2.25}
                 fill="url(#successVolumeFill)"
+                fillOpacity={1}
+                baseValue={0}
                 dot={false}
                 activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2, fill: volumeColor }}
               />
