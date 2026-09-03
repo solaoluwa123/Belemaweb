@@ -457,11 +457,27 @@ function getRawResponseObject(payload) {
   return null;
 }
 
+/** True when a row looks like a raw FT/NIP transaction, not a daily aggregate. */
+function looksLikeRawTransactionRow(row) {
+  if (!row || typeof row !== "object") return false;
+  return Boolean(
+    row.srcSessionid ||
+      row.session_id ||
+      row.transactiondate ||
+      row.transaction_date_time ||
+      row.srcAmount ||
+      row.destAmount ||
+      row.paymentReference ||
+      row.payment_reference,
+  );
+}
+
 function normalizeTrendRowsFromTnxSummary(payload) {
   const tnx = getTnxModelFromPayload(payload);
   if (!tnx) return null;
   const rows = asArray(tnx.summary ?? tnx.summaries);
   if (!rows.length) return null;
+  if (rows.some(looksLikeRawTransactionRow)) return null;
   return rows
     .map((row, index) => {
       const source = row && typeof row === "object" ? row : {};
@@ -470,8 +486,8 @@ function normalizeTrendRowsFromTnxSummary(payload) {
           pickString(source, ["date", "label", "day", "name", "period"]),
           `Point ${index + 1}`
         ),
-        transactions: pickNumber(source, ["transactions", "count", "totalTransactions", "value", "volume"]),
-        amount: pickNumber(source, ["amount", "value", "volume", "totalAmount"]),
+        transactions: pickNumber(source, ["transactions", "count", "totalTransactions", "volume"]),
+        amount: pickNumber(source, ["amount", "value", "totalAmount", "totalValue"]),
       };
     })
     .filter((row) => row.date);
@@ -480,7 +496,11 @@ function normalizeTrendRowsFromTnxSummary(payload) {
 function normalizeTrendRows(payload) {
   const fromTnx = normalizeTrendRowsFromTnxSummary(payload);
   if (fromTnx?.length) return fromTnx;
-  return asArray(payload)
+  const rows = asArray(payload);
+  if (!rows.length) return [];
+  // `/transactions-by-date-only` returns txn rows in `data` — bucket via aggregateTrendFromRawTransactionList.
+  if (rows.some(looksLikeRawTransactionRow)) return [];
+  return rows
     .map((row, index) => {
       const source = row && typeof row === "object" ? row : {};
       return {
@@ -488,8 +508,8 @@ function normalizeTrendRows(payload) {
           pickString(source, ["date", "label", "day", "name", "period"]),
           `Point ${index + 1}`
         ),
-        transactions: pickNumber(source, ["transactions", "count", "totalTransactions", "value", "volume"]),
-        amount: pickNumber(source, ["amount", "value", "volume", "totalAmount"]),
+        transactions: pickNumber(source, ["transactions", "count", "totalTransactions", "volume"]),
+        amount: pickNumber(source, ["amount", "value", "totalAmount", "totalValue"]),
       };
     })
     .filter((row) => row.date);
@@ -538,25 +558,30 @@ function normalizeInstitutionRows(payload) {
       const institutionCode = pickString(source, [
         "institutionCode",
         "financialInstitutionCode",
-        "code",
         "destination_institution_code",
         "destinationInstitutionCode",
         "source_institution_code",
         "sourceInstitutionCode",
         "institution_code",
+        "code",
       ]);
-      const name = pickString(source, [
-        "name",
+      const rawName = pickString(source, [
         "institutionName",
-        "financialInstitutionName",
         "institution_name",
+        "financialInstitutionName",
+        "name",
+        "shortName",
         "label",
       ]);
+      // Prefer real name; ignore label when it is just the institution code repeating.
+      const name =
+        rawName && institutionCode && rawName === institutionCode
+          ? institutionCode
+          : rawName || institutionCode;
       return {
-        /** `/top-failing-institutions` only returns the code, so label the bar with it. */
-        name: name || institutionCode,
+        name,
         institutionCode,
-        count: pickNumber(source, ["count", "total", "value", "volume"]),
+        count: pickNumber(source, ["count", "total", "volume", "value"]),
         fill: pickString(source, ["fill", "color"]) || undefined,
       };
     })
@@ -995,10 +1020,26 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     chartData7d = aggregateTrendFromTransactionRows(workingRows);
   }
   if (!chartData7d.some((row) => Number(row.transactions) > 0)) {
-    const rawList = getRawResponseObject(byDateOnlyPayload)?.data;
+    const rawRoot = getRawResponseObject(byDateOnlyPayload);
+    const rawList = Array.isArray(rawRoot?.data)
+      ? rawRoot.data
+      : Array.isArray(byDateOnlyPayload)
+        ? byDateOnlyPayload
+        : asArray(byDateOnlyPayload);
     if (Array.isArray(rawList) && rawList.length > 0) {
       chartData7d = aggregateTrendFromRawTransactionList(rawList);
     }
+  }
+  // Last resort: single bucket from by-date meta so the hero is never blank when KPIs have volume.
+  if (!chartData7d.some((row) => Number(row.transactions) > 0) && byDateMeta?.totalTransactions > 0) {
+    const label = resolvedRange ? formatDashboardRangeLabel(resolvedRange) : "Selected range";
+    chartData7d = [
+      {
+        date: label,
+        transactions: byDateMeta.totalTransactions,
+        amount: byDateMeta.totalAmount || 0,
+      },
+    ];
   }
 
   const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
@@ -1049,8 +1090,8 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
 }
 
 /** Fast path: KPI cards and status counts (2 API calls). */
-export async function fetchAccountsDashboardMetrics(options = {}) {
-  const ctx = resolveDashboardContext(options);
+export async function fetchAccountsDashboardMetrics(options = {}, sharedCtx = null) {
+  const ctx = sharedCtx ?? resolveDashboardContext(options);
   const { scope, pagedDateParams, resolvedRange, dateParams } = ctx;
 
   const [byDateOnlyPayload, statusSummaryRows] = await Promise.all([
@@ -1072,7 +1113,7 @@ export async function fetchAccountsDashboardMetrics(options = {}) {
 /** Chart widgets — runs after metrics; reuses cached by-date payload when possible. */
 export async function fetchAccountsDashboardCharts(options = {}, metricsContext = null) {
   const ctx = metricsContext ?? resolveDashboardContext(options);
-  if (!metricsContext) {
+  if (!ctx.cache.byDateOnlyPayload) {
     const [byDateOnlyPayload, statusSummaryRows] = await Promise.all([
       fetchOrNull(ctx.byDateOnlyEndpoint, ctx.pagedDateParams),
       fetchStatusSummary({
@@ -1083,6 +1124,8 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
     ]);
     ctx.cache.byDateOnlyPayload = byDateOnlyPayload;
     ctx.cache.statusSummaryRows = statusSummaryRows;
+  }
+  if (!ctx.cache.summary) {
     ctx.cache.summary = await resolveDashboardSummary(ctx);
   }
 
@@ -1119,9 +1162,10 @@ export async function fetchAccountsDashboardData({
   onMetricsReady,
 } = {}) {
   const options = { institutionCode, date, dateRange, requireInstitutionScope };
+  // Share one context so charts reuse the by-date payload / summary filled by metrics.
   const ctx = resolveDashboardContext(options);
 
-  const metrics = await fetchAccountsDashboardMetrics(options);
+  const metrics = await fetchAccountsDashboardMetrics(options, ctx);
   if (typeof onMetricsReady === "function") {
     onMetricsReady(metrics);
   }
@@ -1344,7 +1388,20 @@ function normalizeDashboardCompareSlice(slice) {
     data: slice.byDateRows,
     meta: slice.byDateMeta,
   };
-  const chartData7d = normalizeTrendRows(byDatePayload);
+  let chartData7d = normalizeTrendRows(byDatePayload);
+  if (!chartData7d.some((row) => Number(row.transactions) > 0) && Array.isArray(slice.byDateRows)) {
+    chartData7d = aggregateTrendFromRawTransactionList(slice.byDateRows);
+  }
+  const byDateMeta = extractMetaAggFromPayload(byDatePayload);
+  if (!chartData7d.some((row) => Number(row.transactions) > 0) && byDateMeta?.totalTransactions > 0) {
+    chartData7d = [
+      {
+        date: "Period",
+        transactions: byDateMeta.totalTransactions,
+        amount: byDateMeta.totalAmount || 0,
+      },
+    ];
+  }
   const statusSummaryRows = normalizeStatusSummaryRows({ summary: slice.statusSummary });
   const failedTop5Codes = normalizeResponseCodes(normalizeFailedCodes({ data: slice.failedTop5Codes }));
   const successFailurePie = buildStatusSummaryPie(statusSummaryRows, null);
