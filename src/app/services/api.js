@@ -70,6 +70,10 @@ export const API_ENDPOINTS = {
     statusSummary: '/transactions/status-summary',
     dashboardCompare: '/transactions/dashboard-compare',
   },
+  commissions: {
+    /** `-1` (or `000013`) returns every institution; any other code filters to that institution. */
+    byInstitution: (institutionCode) => `/commissions/${institutionCode}`,
+  },
   wallets: {
     list: '/wallets/get',
     listByInstitution: (code) => `/wallets/get/${code}`,

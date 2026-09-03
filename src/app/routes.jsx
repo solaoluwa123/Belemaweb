@@ -36,6 +36,8 @@ import ByChannelPage from "./pages/dashboards/statistics/ByChannelPage";
 import ByInstitutionPage from "./pages/dashboards/statistics/ByInstitutionPage";
 import InstitutionDetailPage from "./pages/dashboards/statistics/InstitutionDetailPage";
 
+import CommissionsPage from "./pages/commissions/CommissionsPage";
+
 import TransactionList from "./pages/transactions/TransactionList";
 import TransactionDetails from "./pages/transactions/TransactionDetails";
 import TransactionStatusChange from "./pages/transactions/TransactionStatusChange";
@@ -128,6 +130,8 @@ export const router = createBrowserRouter(
       { path: "dashboard/statistics/by-channel", Component: ByChannelPage },
       { path: "dashboard/statistics/by-institution", Component: ByInstitutionPage },
       { path: "dashboard/statistics/institution/:institutionName", Component: InstitutionDetailPage },
+
+      { path: "commissions", Component: CommissionsPage },
 
       { path: "transactions", Component: TransactionList },
       { path: "settings/security", Component: SecuritySettings },

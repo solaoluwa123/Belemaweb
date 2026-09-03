@@ -141,6 +141,7 @@ export function getVendorFallbackMenu({ accountsDashboard = "/dashboard/accounts
   return [
     { label: "Dashboard", path: accountsDashboard, icon: LayoutDashboard },
     { label: "Transactions", path: "/transactions", icon: ArrowLeftRight },
+    { label: "Commissions", path: "/commissions", icon: Banknote },
     { label: "Wallets", path: "/wallets", icon: Eye },
     { label: "Wallet Activities", path: "/wallets/activities", icon: Activity },
     { label: "Log Dispute", path: "/disputes/log", icon: AlertCircle },
@@ -188,6 +189,7 @@ export const VENDOR_ALLOWED_ROUTE_PREFIXES = [
   "/dashboard/transgate",
   "/",
   "/transactions",
+  "/commissions",
   "/wallets",
   "/auth/",
 ];
@@ -197,6 +199,8 @@ export function isVendorAllowedPath(pathname, accountsDashboard = "/dashboard/ac
   if (pathname.startsWith("/dashboard/statistics")) return true;
   if (pathname.startsWith("/settings/security")) return true;
   if (pathname.startsWith("/dashboard/live-monitoring")) return true;
+  // Commissions is server-scoped to the vendor's own institution by vendorInstitutionGate.
+  if (pathname === "/commissions") return true;
   if (pathname.startsWith("/transactions/status-change")) return false;
   if (pathname.startsWith("/transactions/tsq-retry")) return false;
   // Vendors: Log Dispute only — not list, arbitrated, or other dispute routes.

@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { ArrowLeft, Download, ExternalLink, Loader2, RefreshCcw } from "lucide-react";
+import { cn } from "../ui/utils";
 import { formatDashboardRangeLabel } from "../../services/dashboards";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { buildTransactionListLink } from "../../utils/dashboardFilterParams";
@@ -53,6 +54,7 @@ export function StatisticsDrilldownLayout({
   subtitle,
   dateRange,
   institution = "all",
+  institutionLabel: institutionLabelOverride,
   isLoading,
   errorMessage,
   onRefresh,
@@ -61,15 +63,20 @@ export function StatisticsDrilldownLayout({
   tableRows = [],
   csvFilename = "export.csv",
   transactionLink,
+  /** Top-level pages (reached from the sidebar) have nowhere to go "back" to. */
+  showBack = true,
+  /** Filter controls rendered in the action bar, e.g. date range and institution pickers. */
+  controls,
   children,
 }) {
   const navigate = useNavigate();
 
   const rangeLabel = dateRange ? formatDashboardRangeLabel(dateRange) : "Last 7 days";
   const institutionLabel = useMemo(() => {
+    if (institutionLabelOverride) return institutionLabelOverride;
     if (!institution || institution === "all") return "All institutions";
     return TRANSGATE_BANKS.find((b) => b.id === institution)?.name ?? institution;
-  }, [institution]);
+  }, [institution, institutionLabelOverride]);
 
   const handleExport = () => {
     if (!tableRows.length || !tableColumns.length) return;
@@ -78,10 +85,20 @@ export function StatisticsDrilldownLayout({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
+      <div
+        className={cn(
+          "flex flex-wrap justify-between gap-3",
+          controls ? "items-end" : "items-center",
+        )}
+      >
+        <div className={cn("flex flex-wrap gap-3", controls ? "items-end" : "items-center")}>
+          {showBack ? (
+            <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+          ) : null}
+          {controls}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {transactionLink ? (
             <Button variant="outline" size="sm" onClick={() => navigate(transactionLink)} className="gap-2">
