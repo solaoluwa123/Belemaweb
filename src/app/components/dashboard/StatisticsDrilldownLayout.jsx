@@ -67,6 +67,7 @@ export function StatisticsDrilldownLayout({
   showBack = true,
   /** Filter controls rendered in the action bar, e.g. date range and institution pickers. */
   controls,
+  emptyMessage = "No data for this period.",
   children,
 }) {
   const navigate = useNavigate();
@@ -161,7 +162,7 @@ export function StatisticsDrilldownLayout({
                       {tableRows.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={tableColumns.length} className="text-center text-muted-foreground">
-                            No data for this period.
+                            {emptyMessage}
                           </TableCell>
                         </TableRow>
                       ) : (

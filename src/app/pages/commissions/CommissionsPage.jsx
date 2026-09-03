@@ -15,7 +15,7 @@ import { ALL_INSTITUTIONS_CODE, fetchCommissions } from "../../services/commissi
 import { defaultDashboardDateRange } from "../../services/dashboards";
 import { fetchInstitutionsList } from "../../services/financialInstitutions";
 import { formatCountNg, formatNairaFull } from "../../utils/dashboardChartUtils";
-import { formatBackendDate } from "../../utils/formatters";
+import { formatBackendDateTime } from "../../utils/formatters";
 
 const EMPTY_SUMMARY = {
   rows: [],
@@ -25,14 +25,40 @@ const EMPTY_SUMMARY = {
   totalChargeAmount: 0,
 };
 
-function SummaryCard({ label, value }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
-    </div>
-  );
-}
+/** Columns mirror `tbl_commission_paid` (exclude `id`; institution_code → name). */
+const COMMISSION_TABLE_COLUMNS = [
+  {
+    header: "Institution",
+    accessor: (r) => r.institutionName || r.institutionCode || "Unknown",
+  },
+  { header: "Total count", accessor: (r) => formatCountNg(r.totalCount) },
+  {
+    header: "Start date",
+    accessor: (r) => formatBackendDateTime(r.startDate, { fallback: "—" }),
+  },
+  {
+    header: "End date",
+    accessor: (r) => formatBackendDateTime(r.endDate, { fallback: "—" }),
+  },
+  { header: "Charge amount", accessor: (r) => formatNairaFull(r.chargeAmount) },
+  { header: "Total commission", accessor: (r) => formatNairaFull(r.totalCommission) },
+  { header: "Total VAT", accessor: (r) => formatNairaFull(r.totalVat) },
+  {
+    header: "Income account credited",
+    accessor: (r) => (r.incomeAccountCredited ? "Yes" : "No"),
+  },
+  {
+    header: "Generation date",
+    accessor: (r) => formatBackendDateTime(r.generationDate, { fallback: "—" }),
+  },
+  {
+    header: "Paid date",
+    accessor: (r) => formatBackendDateTime(r.paidDate, { fallback: "—" }),
+  },
+  { header: "Session ID", accessor: (r) => r.sessionId || "—" },
+  { header: "Commission", accessor: (r) => formatNairaFull(r.commission) },
+  { header: "Report location", accessor: (r) => r.reportLocation || "—" },
+];
 
 export default function CommissionsPage() {
   const { user, isThirdPartyVendor } = useAuth();
@@ -58,7 +84,6 @@ export default function CommissionsPage() {
         if (!cancelled) setInstitutions(list);
       })
       .catch(() => {
-        // A failed lookup only costs the picker its options; the default "all" view still loads.
         if (!cancelled) setInstitutions([]);
       });
     return () => {
@@ -94,25 +119,6 @@ export default function CommissionsPage() {
     if (institutionCode === ALL_INSTITUTIONS_CODE) return "All institutions";
     return institutions.find((item) => item.code === institutionCode)?.name ?? institutionCode;
   }, [isVendor, vendorLabel, institutionCode, institutions]);
-
-  const tableColumns = useMemo(
-    () => [
-      { header: "Generated", accessor: (r) => formatBackendDate(r.generationDate, { fallback: "—" }) },
-      { header: "Institution", accessor: (r) => r.institutionName || r.institutionCode || "Unknown" },
-      {
-        header: "Period",
-        accessor: (r) =>
-          `${formatBackendDate(r.startDate, { fallback: "—" })} – ${formatBackendDate(r.endDate, { fallback: "—" })}`,
-      },
-      { header: "Txn count", accessor: (r) => formatCountNg(r.totalCount) },
-      { header: "Charge amount", accessor: (r) => formatNairaFull(r.chargeAmount) },
-      { header: "Commission", accessor: (r) => formatNairaFull(r.commission || r.totalCommission) },
-      { header: "VAT", accessor: (r) => formatNairaFull(r.totalVat) },
-      { header: "Income account credited", accessor: (r) => (r.incomeAccountCredited ? "Yes" : "No") },
-      { header: "Paid", accessor: (r) => formatBackendDate(r.paidDate, { fallback: "—" }) },
-    ],
-    [],
-  );
 
   const controls = (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
@@ -151,12 +157,10 @@ export default function CommissionsPage() {
     </div>
   );
 
-  const hasRows = summary.rows.length > 0;
-
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="Commission generated per settlement run, from paid commission records."
+      subtitle="Paid commission records from settlement runs."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading}
@@ -165,24 +169,13 @@ export default function CommissionsPage() {
       showBack={false}
       controls={controls}
       csvFilename="commissions.csv"
-      tableColumns={hasRows ? tableColumns : []}
+      tableColumns={COMMISSION_TABLE_COLUMNS}
       tableRows={summary.rows}
-      chart={
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label="Commission records" value={formatCountNg(summary.totalRecords)} />
-          <SummaryCard label="Total commission" value={formatNairaFull(summary.totalCommission)} />
-          <SummaryCard label="Total VAT" value={formatNairaFull(summary.totalVat)} />
-          <SummaryCard label="Total charge amount" value={formatNairaFull(summary.totalChargeAmount)} />
-        </dl>
+      emptyMessage={
+        vendorUnlinked
+          ? "Commissions become available once your account is linked to an institution."
+          : "No commissions were generated for this period."
       }
-    >
-      {hasRows ? null : (
-        <p className="mt-6 rounded-lg border border-dashed border-slate-200 py-10 text-center text-sm text-muted-foreground">
-          {vendorUnlinked
-            ? "Commissions become available once your account is linked to an institution."
-            : "No commissions were generated for this period."}
-        </p>
-      )}
-    </StatisticsDrilldownLayout>
+    />
   );
 }
