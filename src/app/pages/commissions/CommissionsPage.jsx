@@ -55,9 +55,7 @@ const COMMISSION_TABLE_COLUMNS = [
     header: "Paid date",
     accessor: (r) => formatBackendDateTime(r.paidDate, { fallback: "—" }),
   },
-  { header: "Session ID", accessor: (r) => r.sessionId || "—" },
   { header: "Commission", accessor: (r) => formatNairaFull(r.commission) },
-  { header: "Report location", accessor: (r) => r.reportLocation || "—" },
 ];
 
 export default function CommissionsPage() {

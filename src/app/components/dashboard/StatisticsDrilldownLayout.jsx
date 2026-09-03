@@ -161,7 +161,10 @@ export function StatisticsDrilldownLayout({
                     <TableBody>
                       {tableRows.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={tableColumns.length} className="text-center text-muted-foreground">
+                          <TableCell
+                            colSpan={tableColumns.length}
+                            className="py-8 text-center text-muted-foreground"
+                          >
                             {emptyMessage}
                           </TableCell>
                         </TableRow>
