@@ -97,7 +97,7 @@ export default function FailedCodesPage() {
                   return row ? `${row.code} — ${row.description || "Unknown"}` : "";
                 }}
               />
-              <Bar dataKey="count" name="Volume" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="count" name="Volume" radius={[0, 4, 4, 0]} maxBarSize={16}>
                 {rows.map((entry, index) => (
                   <Cell key={entry.code} fill={entry.fill || brand.theme.chart[index % brand.theme.chart.length]} />
                 ))}

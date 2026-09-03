@@ -102,7 +102,7 @@ export default function InstitutionDetailPage() {
                   return row ? `${row.code} — ${row.description || "Unknown"}` : "";
                 }}
               />
-              <Bar dataKey="count" name="Count" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" name="Count" radius={[4, 4, 0, 0]} maxBarSize={28}>
                 {rows.map((entry, i) => (
                   <Cell key={entry.code} fill={entry.fill || brand.theme.chart[i % brand.theme.chart.length]} />
                 ))}

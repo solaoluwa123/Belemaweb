@@ -94,7 +94,7 @@ export default function ByInstitutionPage() {
                 }}
                 cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
               />
-              <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} cursor="pointer" onClick={handleBarClick}>
+              <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} maxBarSize={16} cursor="pointer" onClick={handleBarClick}>
                 {rows.map((entry, index) => (
                   <Cell key={entry.name || entry.institutionCode} fill={entry.fill || brand.theme.chart[index % brand.theme.chart.length]} />
                 ))}

@@ -70,7 +70,7 @@ export default function ByChannelPage() {
               <XAxis dataKey="channel" angle={-25} textAnchor="end" height={70} />
               <YAxis tickFormatter={formatCompactCount} />
               <Tooltip formatter={(v) => [formatCountNg(v), "Count"]} />
-              <Bar dataKey="count" fill={brand.theme.chart[2]} radius={[4, 4, 0, 0]} name="Transactions" />
+              <Bar dataKey="count" fill={brand.theme.chart[2]} radius={[4, 4, 0, 0]} maxBarSize={28} name="Transactions" />
             </BarChart>
           </ResponsiveContainer>
         )

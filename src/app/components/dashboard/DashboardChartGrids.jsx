@@ -1,13 +1,14 @@
 "use client";
 
 import {
+  Area,
   Bar,
   BarChart,
   Cell,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
   LabelList,
   Pie,
   PieChart,
@@ -45,6 +46,19 @@ import { appendDashboardFiltersToPath } from "../../utils/dashboardFilterParams"
 
 const chartHeight = 170;
 const heroHeight = 220;
+/** Keep category bars slender — recharts otherwise fills the full band. */
+const BAR_MAX = 12;
+
+function VolumeValueGradient({ id, color }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color} stopOpacity={0.32} />
+        <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+      </linearGradient>
+    </defs>
+  );
+}
 
 function FailedCodeTick({ x, y, payload }) {
   const row = payload?.payload;
@@ -91,16 +105,20 @@ function FailedCodeTooltip({ active, payload }) {
 
 function HeroTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
-  const vol = payload.find((p) => p.dataKey === "transactions");
+  const vol = payload.find((p) => p.dataKey === "transactions" || p.dataKey === "volume");
   const val = payload.find((p) => p.dataKey === "amount");
+  const prior = payload.find((p) => p.dataKey === "priorTransactions");
+  const primary = val?.value != null ? formatNairaFull(val.value) : vol ? formatCountNg(vol.value) : null;
   return (
-    <div
-      className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-xs shadow-md"
-      style={CHART_TOOLTIP_STYLE.contentStyle}
-    >
-      <p className="font-semibold text-foreground">{label}</p>
-      {vol ? <p>Volume: {formatCountNg(vol.value)}</p> : null}
-      {val ? <p>Value: {formatNairaFull(val.value)}</p> : null}
+    <div className="min-w-[148px] rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-lg">
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      {primary ? <p className="mt-0.5 text-base font-semibold tracking-tight text-slate-900">{primary}</p> : null}
+      <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-600">
+        {vol && val ? <p>Volume · {formatCountNg(vol.value)}</p> : null}
+        {vol && !val ? <p>Volume · {formatCountNg(vol.value)}</p> : null}
+        {val && vol ? <p>Value · {formatNairaFull(val.value)}</p> : null}
+        {prior?.value != null ? <p className="text-slate-400">Prior · {formatCountNg(prior.value)}</p> : null}
+      </div>
     </div>
   );
 }
@@ -179,7 +197,7 @@ export function SecondaryChartsGrid({
                   <XAxis type="number" hide tickFormatter={formatCompactCount} />
                   <YAxis type="category" dataKey="codeLabel" width={85} tick={<FailedCodeTick />} />
                   <Tooltip content={<FailedCodeTooltip />} />
-                  <Bar dataKey="count" fill={chartColors[3] ?? "#410027"} radius={[0, 4, 4, 0]} {...CHART_ANIMATION} />
+                  <Bar dataKey="count" fill={chartColors[3] ?? "#410027"} radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION} />
                 </BarChart>
               </ResponsiveContainer>,
             )
@@ -217,7 +235,7 @@ export function SecondaryChartsGrid({
                     tickFormatter={formatCompactCount}
                   />
                   <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Count"]} />
-                  <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[4, 4, 0, 0]} {...CHART_ANIMATION} />
+                  <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[4, 4, 0, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION} />
                 </BarChart>
               </ResponsiveContainer>,
             )
@@ -245,7 +263,7 @@ export function SecondaryChartsGrid({
                       <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
                       <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} />
                       <Tooltip content={<InstitutionTooltip />} />
-                      <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                      <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
                         {instRows.map((entry) => (
                           <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[0]} />
                         ))}
@@ -337,14 +355,22 @@ export function ClassicChartGrid(props) {
             ) : (
               wrapChart(
                 <ResponsiveContainer width="100%" height={heroChartHeight}>
-                  <LineChart data={heroData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                  <ComposedChart data={heroData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                    <VolumeValueGradient id="heroVolumeFill" color={chartColors[0] ?? "#00411A"} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <YAxis
                       yAxisId="volume"
                       width={44}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                       tickFormatter={formatCompactCount}
+                      axisLine={false}
+                      tickLine={false}
                     />
                     <YAxis
                       yAxisId="value"
@@ -352,18 +378,29 @@ export function ClassicChartGrid(props) {
                       width={52}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                       tickFormatter={formatNaira}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                    <Tooltip content={<HeroTooltip />} />
+                    <Tooltip
+                      content={<HeroTooltip />}
+                      cursor={{ stroke: "#94a3b8", strokeDasharray: "4 4", strokeWidth: 1 }}
+                    />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Line
+                    <Area
                       yAxisId="volume"
                       type="monotone"
                       dataKey="transactions"
                       name="Volume"
                       stroke={chartColors[0] ?? "#00411A"}
-                      strokeWidth={2.5}
-                      dot={{ r: heroData.length <= 2 ? 4 : 3, fill: chartColors[0] ?? "#00411A" }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth={2.25}
+                      fill="url(#heroVolumeFill)"
+                      dot={false}
+                      activeDot={{
+                        r: 5,
+                        stroke: "#fff",
+                        strokeWidth: 2,
+                        fill: chartColors[0] ?? "#00411A",
+                      }}
                       {...CHART_ANIMATION}
                     />
                     <Line
@@ -372,9 +409,14 @@ export function ClassicChartGrid(props) {
                       dataKey="amount"
                       name="Value"
                       stroke={chartColors[1] ?? "#CEF445"}
-                      strokeWidth={2.5}
-                      dot={{ r: heroData.length <= 2 ? 4 : 3, fill: chartColors[1] ?? "#CEF445" }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth={2.25}
+                      dot={false}
+                      activeDot={{
+                        r: 5,
+                        stroke: "#fff",
+                        strokeWidth: 2,
+                        fill: chartColors[1] ?? "#CEF445",
+                      }}
                       {...CHART_ANIMATION}
                     />
                     {priorChartData7d?.length > 0 ? (
@@ -390,7 +432,7 @@ export function ClassicChartGrid(props) {
                         connectNulls
                       />
                     ) : null}
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>,
               )
             )}
@@ -504,7 +546,7 @@ export function ClassicChartGrid(props) {
                     <XAxis type="number" hide tickFormatter={formatCompactCount} />
                     <YAxis type="category" dataKey="codeLabel" width={85} tick={<FailedCodeTick />} />
                     <Tooltip content={<FailedCodeTooltip />} />
-                    <Bar dataKey="count" fill={chartColors[3] ?? "#E84A25"} radius={[0, 4, 4, 0]} {...CHART_ANIMATION} />
+                    <Bar dataKey="count" fill={chartColors[3] ?? "#E84A25"} radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION} />
                   </BarChart>
                 </ResponsiveContainer>,
               )
@@ -544,7 +586,7 @@ export function ClassicChartGrid(props) {
                         "Count",
                       ]}
                     />
-                    <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                    <Bar dataKey="count" fill={chartColors[2] ?? "#FFD600"} radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
                       <LabelList dataKey="shareLabel" content={<ChannelBarLabel />} />
                     </Bar>
                   </BarChart>
@@ -577,7 +619,7 @@ export function ClassicChartGrid(props) {
                           <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
                           <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} />
                           <Tooltip content={<InstitutionTooltip />} />
-                          <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                          <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
                             {instRows.map((entry) => (
                               <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[0]} />
                             ))}
@@ -623,20 +665,38 @@ export function ClassicChartGrid(props) {
           ) : (
             wrapChart(
               <ResponsiveContainer width="100%" height={heroChartHeight}>
-                <LineChart data={successVolumes7d} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
-                  <YAxis width={40} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
-                  <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Volume"]} />
-                  <Line
+                <ComposedChart data={successVolumes7d} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <VolumeValueGradient id="classicVolumeFill" color={chartColors[0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={40}
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    tickFormatter={formatCompactCount}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={<HeroTooltip />}
+                    cursor={{ stroke: "#94a3b8", strokeDasharray: "4 4", strokeWidth: 1 }}
+                  />
+                  <Area
                     type="monotone"
                     dataKey="volume"
+                    name="Volume"
                     stroke={chartColors[0]}
-                    strokeWidth={2.5}
+                    strokeWidth={2.25}
+                    fill="url(#classicVolumeFill)"
                     dot={false}
+                    activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2, fill: chartColors[0] }}
                     {...CHART_ANIMATION}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>,
             )
           )}
@@ -711,7 +771,7 @@ export function ClassicChartGrid(props) {
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="codeLabel" width={85} tick={<FailedCodeTick />} />
                   <Tooltip content={<FailedCodeTooltip />} />
-                  <Bar dataKey="count" fill={chartColors[3]} radius={[0, 4, 4, 0]} {...CHART_ANIMATION} />
+                  <Bar dataKey="count" fill={chartColors[3]} radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION} />
                 </BarChart>
               </ResponsiveContainer>,
             )
@@ -744,7 +804,7 @@ export function ClassicChartGrid(props) {
                     tickFormatter={formatCompactCount}
                   />
                   <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v) => [formatCountNg(v), "Count"]} />
-                  <Bar dataKey="count" fill={chartColors[2]} radius={[4, 4, 0, 0]} {...CHART_ANIMATION} />
+                  <Bar dataKey="count" fill={chartColors[2]} radius={[4, 4, 0, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION} />
                 </BarChart>
               </ResponsiveContainer>,
             )
@@ -767,7 +827,7 @@ export function ClassicChartGrid(props) {
                       <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickFormatter={formatCompactCount} />
                       <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} />
                       <Tooltip content={<InstitutionTooltip />} />
-                      <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} {...CHART_ANIMATION}>
+                      <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
                         {instRows.map((entry) => (
                           <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[0]} />
                         ))}
