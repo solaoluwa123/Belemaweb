@@ -5,7 +5,6 @@ import {
   BarChart,
   Cell,
   CartesianGrid,
-  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -338,7 +337,7 @@ export function ClassicChartGrid(props) {
             ) : (
               wrapChart(
                 <ResponsiveContainer width="100%" height={heroChartHeight}>
-                  <ComposedChart data={heroData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                  <LineChart data={heroData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
                     <YAxis
@@ -356,12 +355,15 @@ export function ClassicChartGrid(props) {
                     />
                     <Tooltip content={<HeroTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar
+                    <Line
                       yAxisId="volume"
+                      type="monotone"
                       dataKey="transactions"
                       name="Volume"
-                      fill={chartColors[0] ?? "#00411A"}
-                      radius={[4, 4, 0, 0]}
+                      stroke={chartColors[0] ?? "#00411A"}
+                      strokeWidth={2.5}
+                      dot={{ r: heroData.length <= 2 ? 4 : 3, fill: chartColors[0] ?? "#00411A" }}
+                      activeDot={{ r: 5 }}
                       {...CHART_ANIMATION}
                     />
                     <Line
@@ -371,7 +373,8 @@ export function ClassicChartGrid(props) {
                       name="Value"
                       stroke={chartColors[1] ?? "#CEF445"}
                       strokeWidth={2.5}
-                      dot={false}
+                      dot={{ r: heroData.length <= 2 ? 4 : 3, fill: chartColors[1] ?? "#CEF445" }}
+                      activeDot={{ r: 5 }}
                       {...CHART_ANIMATION}
                     />
                     {priorChartData7d?.length > 0 ? (
@@ -387,7 +390,7 @@ export function ClassicChartGrid(props) {
                         connectNulls
                       />
                     ) : null}
-                  </ComposedChart>
+                  </LineChart>
                 </ResponsiveContainer>,
               )
             )}

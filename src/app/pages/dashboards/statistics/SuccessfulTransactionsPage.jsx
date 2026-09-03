@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { fetchAccountsDashboardData } from "../../../services/dashboards";
 import { APIError } from "../../../services/api";
 import { useBrand } from "../../../../branding/useBrand";
@@ -64,12 +64,15 @@ export default function SuccessfulTransactionsPage() {
     },
   ];
 
-  const chartData = trendRows.length ? trendRows : chartRows.map((r) => ({ date: r.date, transactions: r.volume }));
+  const chartData = trendRows.length
+    ? trendRows
+    : chartRows.map((r) => ({ date: r.date, transactions: r.volume, amount: undefined }));
+  const showDots = chartData.length <= 2;
 
   return (
     <StatisticsDrilldownLayout
       title="Transaction volume & value"
-      subtitle="Daily successful transaction trend for the selected period"
+      subtitle="Daily transaction volume and value trend for the selected period"
       dateRange={dateRange}
       institution={institution}
       isLoading={isLoading}
@@ -80,10 +83,10 @@ export default function SuccessfulTransactionsPage() {
       tableRows={tableRows}
       chart={
         chartData.length === 0 ? (
-          <p className="py-12 text-center text-slate-500">No successful transaction volume data was returned.</p>
+          <p className="py-12 text-center text-slate-500">No transaction volume data was returned.</p>
         ) : (
           <ResponsiveContainer width="100%" height={380}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 48, left: 0, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 48, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="volume" tickFormatter={formatCompactCount} />
@@ -94,17 +97,30 @@ export default function SuccessfulTransactionsPage() {
                   name,
                 ]}
               />
-              <Bar
+              <Legend />
+              <Line
                 yAxisId="volume"
-                dataKey={trendRows.length ? "transactions" : "volume"}
+                type="monotone"
+                dataKey="transactions"
                 name="Volume"
-                fill={brand.theme.chart[0]}
-                radius={[4, 4, 0, 0]}
+                stroke={brand.theme.chart[0]}
+                strokeWidth={2.5}
+                dot={{ r: showDots ? 4 : 3, fill: brand.theme.chart[0] }}
+                activeDot={{ r: 5 }}
               />
               {trendRows.length ? (
-                <Line yAxisId="value" type="monotone" dataKey="amount" name="Value" stroke={brand.theme.chart[1]} strokeWidth={2} dot={false} />
+                <Line
+                  yAxisId="value"
+                  type="monotone"
+                  dataKey="amount"
+                  name="Value"
+                  stroke={brand.theme.chart[1]}
+                  strokeWidth={2.5}
+                  dot={{ r: showDots ? 4 : 3, fill: brand.theme.chart[1] }}
+                  activeDot={{ r: 5 }}
+                />
               ) : null}
-            </ComposedChart>
+            </LineChart>
           </ResponsiveContainer>
         )
       }
