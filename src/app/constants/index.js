@@ -9,7 +9,7 @@ export const USER_ROLES = {
   MERCHANT_USER: 6,
   TERMINAL_OWNER_USER: 7,
   PTSP_USER: 8,
-} as const;
+};
 
 export const ROLE_NAMES = {
   1: 'Administrator',
@@ -30,7 +30,7 @@ export const TRANSACTION_STATUS = {
   REVERSED: 'Reversed',
   TIMEOUT: 'Timeout',
   CANCELLED: 'Cancelled',
-} as const;
+};
 
 export const TRANSACTION_TYPE = {
   TRANSFER: 'Transfer',
@@ -39,7 +39,7 @@ export const TRANSACTION_TYPE = {
   DEPOSIT: 'Deposit',
   REVERSAL: 'Reversal',
   REFUND: 'Refund',
-} as const;
+};
 
 export const DISPUTE_STATUS = {
   PENDING: 'Pending',
@@ -49,21 +49,21 @@ export const DISPUTE_STATUS = {
   ARBITRATED: 'Arbitrated',
   RESOLVED: 'Resolved',
   CLOSED: 'Closed',
-} as const;
+};
 
 export const APPROVAL_STATUS = {
   PENDING: 'Pending',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
   EXPIRED: 'Expired',
-} as const;
+};
 
 export const WALLET_STATUS = {
   ACTIVE: 'Active',
   INACTIVE: 'Inactive',
   SUSPENDED: 'Suspended',
   CLOSED: 'Closed',
-} as const;
+};
 
 export const SETTLEMENT_STATUS = {
   PENDING: 'Pending',
@@ -71,14 +71,14 @@ export const SETTLEMENT_STATUS = {
   COMPLETED: 'Completed',
   FAILED: 'Failed',
   REVERSED: 'Reversed',
-} as const;
+};
 
 export const SETTLEMENT_TYPE = {
   DAILY: 'Daily',
   WEEKLY: 'Weekly',
   MONTHLY: 'Monthly',
   ON_DEMAND: 'On-Demand',
-} as const;
+};
 
 export const RESPONSE_CODES = {
   SUCCESS: '00',
@@ -88,14 +88,14 @@ export const RESPONSE_CODES = {
   TIMEOUT: '91',
   SYSTEM_ERROR: '96',
   DUPLICATE_TRANSACTION: '94',
-} as const;
+};
 
 export const CARD_TYPE = {
   VISA: 'Visa',
   MASTERCARD: 'Mastercard',
   VERVE: 'Verve',
   AMEX: 'American Express',
-} as const;
+};
 
 export const PAYMENT_CHANNEL = {
   WEB: 'Web',
@@ -104,7 +104,7 @@ export const PAYMENT_CHANNEL = {
   ATM: 'ATM',
   USSD: 'USSD',
   AGENCY_BANKING: 'Agency Banking',
-} as const;
+};
 
 export const DATE_FORMATS = {
   FULL: 'MMMM d, yyyy h:mm a',
@@ -113,14 +113,14 @@ export const DATE_FORMATS = {
   SHORT: 'MMM d, yyyy',
   ISO: 'yyyy-MM-dd',
   DATETIME: 'yyyy-MM-dd HH:mm:ss',
-} as const;
+};
 
 export const CURRENCY = {
   NGN: 'NGN',
   USD: 'USD',
   EUR: 'EUR',
   GBP: 'GBP',
-} as const;
+};
 
 export const CURRENCY_SYMBOLS = {
   NGN: '₦',
@@ -133,7 +133,7 @@ export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
   PAGE_SIZE_OPTIONS: [10, 25, 50, 100],
   MAX_PAGE_SIZE: 100,
-} as const;
+};
 
 export const FILE_UPLOAD = {
   MAX_SIZE: 5 * 1024 * 1024,
@@ -146,20 +146,20 @@ export const FILE_UPLOAD = {
     'image/png',
   ],
   ALLOWED_EXTENSIONS: ['.pdf', '.xls', '.xlsx', '.csv', '.jpg', '.jpeg', '.png'],
-} as const;
+};
 
 export const SESSION = {
   TIMEOUT_MINUTES: 30,
   WARNING_MINUTES: 5,
   IDLE_TIMEOUT: 30 * 60 * 1000,
-} as const;
+};
 
 export const RATE_LIMIT = {
   LOGIN_ATTEMPTS: 5,
   LOGIN_WINDOW_MS: 15 * 60 * 1000,
   API_REQUESTS: 100,
   API_WINDOW_MS: 60 * 1000,
-} as const;
+};
 
 export const VALIDATION = {
   PASSWORD_MIN_LENGTH: 8,
@@ -171,7 +171,7 @@ export const VALIDATION = {
   NIN_LENGTH: 11,
   PHONE_REGEX: /^(\+234|0)[789][01]\d{8}$/,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-} as const;
+};
 
 export const NIGERIAN_BANKS = [
   { code: '044', name: 'Access Bank' },
@@ -197,7 +197,7 @@ export const NIGERIAN_BANKS = [
   { code: '215', name: 'Unity Bank' },
   { code: '035', name: 'Wema Bank' },
   { code: '057', name: 'Zenith Bank' },
-] as const;
+];
 
 export const CHART_COLORS = {
   PRIMARY: '#00411A',
@@ -208,7 +208,7 @@ export const CHART_COLORS = {
   PURPLE: '#410027',
   PINK: '#E84A25',
   TEAL: '#00411A',
-} as const;
+};
 
 export const STATUS_COLORS = {
   success: 'bg-[#eef8c8] text-[#00411A] border-[#CEF445]',
@@ -233,7 +233,7 @@ export const STATUS_COLORS = {
   reversed: 'bg-blue-100 text-blue-800 border-blue-200',
   refunded: 'bg-blue-100 text-blue-800 border-blue-200',
   arbitrated: 'bg-purple-100 text-purple-800 border-purple-200',
-} as const;
+};
 
 export const STORAGE_KEYS = getStorageKeys();
 
@@ -247,7 +247,7 @@ export const ERROR_MESSAGES = {
   DUPLICATE: 'This record already exists.',
   INSUFFICIENT_FUNDS: 'Insufficient funds to complete this transaction.',
   RATE_LIMIT: 'Too many requests. Please try again later.',
-} as const;
+};
 
 export const SUCCESS_MESSAGES = {
   LOGIN: 'Login successful!',
@@ -260,14 +260,14 @@ export const SUCCESS_MESSAGES = {
   SUBMIT: 'Submitted successfully!',
   UPLOAD: 'File uploaded successfully!',
   SAVE: 'Changes saved successfully!',
-} as const;
+};
 
 export const API_TIMEOUT = {
   DEFAULT: 30000,
   UPLOAD: 120000,
   DOWNLOAD: 120000,
   LONG_RUNNING: 300000,
-} as const;
+};
 
 export const WS_EVENTS = {
   CONNECT: 'connect',
@@ -276,20 +276,20 @@ export const WS_EVENTS = {
   DISPUTE_UPDATE: 'dispute:update',
   NOTIFICATION: 'notification',
   HEARTBEAT: 'heartbeat',
-} as const;
+};
 
 export const NOTIFICATION_TYPE = {
   INFO: 'info',
   SUCCESS: 'success',
   WARNING: 'warning',
   ERROR: 'error',
-} as const;
+};
 
 export const EXPORT_FORMAT = {
   CSV: 'csv',
   EXCEL: 'xlsx',
   PDF: 'pdf',
-} as const;
+};
 
 export const TIME_PERIOD = {
   TODAY: 'today',
@@ -300,4 +300,4 @@ export const TIME_PERIOD = {
   LAST_MONTH: 'last_month',
   THIS_YEAR: 'this_year',
   CUSTOM: 'custom',
-} as const;
+};
