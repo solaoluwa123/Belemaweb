@@ -30,6 +30,7 @@ import {
 import {
   dashboardFiltersToSearchParams,
   parseDashboardFiltersFromSearch,
+  buildTransactionListLink,
 } from "../../utils/dashboardFilterParams";
 import { APIError } from "../../services/api";
 import { useLiveTransactionStream } from "../../hooks/useLiveTransactionStream";
@@ -40,10 +41,17 @@ import {
   isThirdPartyVendor as checkThirdPartyVendor,
 } from "../../utils/roleAccess";
 
-const DEFAULT_STATS_RANGE = normalizeDashboardDateRange({
-  start: new Date(),
-  end: new Date(),
-});
+function defaultAccountsDateRange() {
+  return normalizeDashboardDateRange({ start: new Date(), end: new Date() });
+}
+
+/** Read `from`/`to`/`institution` before first paint so the initial fetch is not today-only. */
+function readFiltersFromLocationSearch() {
+  if (typeof window === "undefined") {
+    return { dateRange: null, institution: "all" };
+  }
+  return parseDashboardFiltersFromSearch(window.location.search);
+}
 
 function formatCount(value) {
   return Number(value || 0).toLocaleString("en-NG");
@@ -65,8 +73,14 @@ export default function TransgateDashboard() {
   );
   const vendorLockedInstitution = isVendor ? userInstitutionCode || "" : "all";
   const { brand } = useBrand();
-  const [statsDateRange, setStatsDateRange] = useState(() => DEFAULT_STATS_RANGE);
-  const [statsInstitution, setStatsInstitution] = useState("all");
+  const [statsDateRange, setStatsDateRange] = useState(() => {
+    const { dateRange } = readFiltersFromLocationSearch();
+    return dateRange ?? defaultAccountsDateRange();
+  });
+  const [statsInstitution, setStatsInstitution] = useState(() => {
+    const { institution } = readFiltersFromLocationSearch();
+    return institution && institution !== "all" ? institution : "all";
+  });
   const [statsData, setStatsData] = useState(null);
   const [priorStatsData, setPriorStatsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,20 +98,8 @@ export default function TransgateDashboard() {
   });
   const loadSeq = useRef(0);
   const chartRefreshTimerRef = useRef(null);
-  const urlInitialized = useRef(false);
 
   useEffect(() => {
-    if (urlInitialized.current) return;
-    const { dateRange, institution } = parseDashboardFiltersFromSearch(searchParams);
-    if (dateRange) setStatsDateRange(dateRange);
-    if (institution && institution !== "all" && !isVendor) {
-      setStatsInstitution(institution);
-    }
-    urlInitialized.current = true;
-  }, [searchParams, isVendor]);
-
-  useEffect(() => {
-    if (!urlInitialized.current) return;
     const next = dashboardFiltersToSearchParams({
       dateRange: statsDateRange,
       institution: isVendor ? userInstitutionCode || "all" : statsInstitution,
@@ -328,17 +330,31 @@ export default function TransgateDashboard() {
     };
   }, [metrics, streamDelta.total, statusCounts]);
 
+  const institutionForLinks = isVendor
+    ? userInstitutionCode || "all"
+    : statsInstitution !== "all"
+      ? statsInstitution
+      : "all";
+
+  const statusTxnLink = (status) =>
+    buildTransactionListLink({
+      status,
+      dateRange: statsDateRange,
+      institution: institutionForLinks,
+    });
+
   const resetFilters = () => {
     if (!isVendor) {
       setStatsInstitution("all");
     }
-    setStatsDateRange(DEFAULT_STATS_RANGE);
+    setStatsDateRange(defaultAccountsDateRange());
   };
 
+  const defaultRange = defaultAccountsDateRange();
   const filtersAreDefault =
     (isVendor || statsInstitution === "all") &&
-    statsDateRange.start.getTime() === DEFAULT_STATS_RANGE.start.getTime() &&
-    statsDateRange.end.getTime() === DEFAULT_STATS_RANGE.end.getTime();
+    statsDateRange.start.getTime() === defaultRange.start.getTime() &&
+    statsDateRange.end.getTime() === defaultRange.end.getTime();
 
   const shellSurface = brand.theme.shellSurface || "#f7faf2";
 
@@ -501,6 +517,7 @@ export default function TransgateDashboard() {
                 icon={CheckCircle}
                 iconAccent="lime"
                 size="compact"
+                to={statusTxnLink("successful")}
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -510,6 +527,7 @@ export default function TransgateDashboard() {
                 icon={XCircle}
                 iconAccent="orange"
                 size="compact"
+                to={statusTxnLink("failed")}
               />
             </DashboardStaggerItem>
             <DashboardStaggerItem className="h-full">
@@ -519,6 +537,7 @@ export default function TransgateDashboard() {
                 icon={Clock}
                 iconAccent="yellow"
                 size="compact"
+                to={statusTxnLink("pending")}
               />
             </DashboardStaggerItem>
           </DashboardStagger>

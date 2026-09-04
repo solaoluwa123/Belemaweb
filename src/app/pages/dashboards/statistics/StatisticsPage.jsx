@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { StatisticsSection } from "../../../components/dashboard/StatisticsSection";
 import { useAuth } from "../../../context/AuthContext";
@@ -8,25 +8,28 @@ import {
   parseDashboardFiltersFromSearch,
 } from "../../../utils/dashboardFilterParams";
 
+function readFiltersFromLocationSearch() {
+  if (typeof window === "undefined") {
+    return { dateRange: null, institution: "all" };
+  }
+  return parseDashboardFiltersFromSearch(window.location.search);
+}
+
 export default function StatisticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isThirdPartyVendor } = useAuth();
   const vendor = isThirdPartyVendor();
-  const urlInitialized = useRef(false);
 
-  const [statsDateRange, setStatsDateRange] = useState(() => defaultDashboardDateRange(7));
-  const [statsInstitution, setStatsInstitution] = useState("all");
-
-  useEffect(() => {
-    if (urlInitialized.current) return;
-    const { dateRange, institution } = parseDashboardFiltersFromSearch(searchParams);
-    if (dateRange) setStatsDateRange(dateRange);
-    if (institution && institution !== "all" && !vendor) setStatsInstitution(institution);
-    urlInitialized.current = true;
-  }, [searchParams, vendor]);
+  const [statsDateRange, setStatsDateRange] = useState(() => {
+    const { dateRange } = readFiltersFromLocationSearch();
+    return dateRange ?? defaultDashboardDateRange(7);
+  });
+  const [statsInstitution, setStatsInstitution] = useState(() => {
+    const { institution } = readFiltersFromLocationSearch();
+    return institution && institution !== "all" ? institution : "all";
+  });
 
   useEffect(() => {
-    if (!urlInitialized.current) return;
     const next = dashboardFiltersToSearchParams({
       dateRange: statsDateRange,
       institution: vendor ? user?.institutionCode || "all" : statsInstitution,

@@ -45,6 +45,52 @@ import {
 } from "date-fns";
 import { parseBackendDate, getBackendDateTime, formatEmptyCell } from "../../utils/formatters";
 import { parseFilterDateParam } from "../../utils/dashboardFilterParams";
+import { RESPONSE_CODES } from "../../constants";
+import { fetchInstitutionsList } from "../../services/financialInstitutions";
+
+function formatResponseCodeLabel(key) {
+  return String(key || "")
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/** Unique code options from RESPONSE_CODES (SUCCESS/APPROVED both map to 00). */
+const RESPONSE_CODE_OPTIONS = (() => {
+  const byCode = new Map();
+  for (const [key, code] of Object.entries(RESPONSE_CODES)) {
+    const value = String(code).trim();
+    if (!value || byCode.has(value)) continue;
+    byCode.set(value, `${value} — ${formatResponseCodeLabel(key)}`);
+  }
+  return Array.from(byCode.entries()).map(([value, label]) => ({ value, label }));
+})();
+
+function normalizeInstitutionCode(value) {
+  return String(value ?? "").trim();
+}
+
+function institutionCodesMatch(left, right) {
+  const a = normalizeInstitutionCode(left);
+  const b = normalizeInstitutionCode(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const stripA = a.replace(/^0+/, "") || a;
+  const stripB = b.replace(/^0+/, "") || b;
+  return stripA === stripB;
+}
+
+function rowMatchesInstitutionFilter(row, filterValue, { codeKey, nameKey }) {
+  const filter = normalizeInstitutionCode(filterValue);
+  if (!filter) return true;
+  const code = normalizeInstitutionCode(row?.[codeKey]);
+  if (code && institutionCodesMatch(code, filter)) return true;
+  const name = String(row?.[nameKey] || "").toLowerCase();
+  const needle = filter.toLowerCase();
+  return name.includes(needle);
+}
 
 function formatDate(d) {
   const parsed = parseBackendDate(d);
@@ -162,8 +208,28 @@ export default function TransactionList() {
   /** Editable fields in the overlay (updated on Clear / when opening panel). */
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState(ADVANCED_FILTERS_INITIAL);
   const [liveHighlightIds, setLiveHighlightIds] = useState(() => new Set());
+  const [institutionOptions, setInstitutionOptions] = useState([]);
   const highlightTimersRef = useRef([]);
   const urlFiltersInitialized = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchInstitutionsList({ activeOnly: true });
+        if (cancelled) return;
+        const sorted = [...list].sort((a, b) =>
+          String(a.name || a.code).localeCompare(String(b.name || b.code), undefined, { sensitivity: "base" }),
+        );
+        setInstitutionOptions(sorted);
+      } catch {
+        if (!cancelled) setInstitutionOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (urlFiltersInitialized.current) return;
@@ -177,9 +243,18 @@ export default function TransactionList() {
       nextFilters = { ...nextFilters, responseCode };
       setFiltersOpen(true);
     }
-    if (status && ["all", "successful", "pending", "failed"].includes(status.toLowerCase())) {
-      nextFilters = { ...nextFilters, status: status.toLowerCase() };
-      setFiltersOpen(true);
+    if (status) {
+      const statusKey = status.toLowerCase();
+      const statusByKey = {
+        all: "all",
+        successful: "Successful",
+        pending: "Pending",
+        failed: "Failed",
+      };
+      if (statusByKey[statusKey]) {
+        nextFilters = { ...nextFilters, status: statusByKey[statusKey] };
+        setFiltersOpen(true);
+      }
     }
     if (urlInstitution && !requireScope) {
       nextFilters = { ...nextFilters, sourceBank: urlInstitution };
@@ -332,23 +407,14 @@ export default function TransactionList() {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [transactions]);
 
-  const sourceBankOptions = useMemo(() => {
-    const set = new Set();
-    for (const row of transactions) {
-      const c = String(row.sourceBank || "").trim();
-      if (c) set.add(c);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [transactions]);
-
-  const beneficiaryBankOptions = useMemo(() => {
-    const set = new Set();
-    for (const row of transactions) {
-      const c = String(row.beneficiaryBank || "").trim();
-      if (c) set.add(c);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [transactions]);
+  const institutionSelectOptions = useMemo(
+    () =>
+      institutionOptions.map((fi) => ({
+        value: fi.code,
+        label: `${fi.code} — ${fi.name || fi.code}`,
+      })),
+    [institutionOptions],
+  );
 
   const filteredTransactions = useMemo(() => {
     let list = transactions;
@@ -377,20 +443,38 @@ export default function TransactionList() {
       if (!t) return false;
       if (t < start || t > end) return false;
 
-      if (!advancedFiltersActive) {
-        if (advStatus !== "all" && String(row.status || "") !== advStatus) return false;
+      if (advSourceBank.trim()) {
+        if (
+          !rowMatchesInstitutionFilter(row, advSourceBank, {
+            codeKey: "sourceInstitutionCode",
+            nameKey: "sourceBank",
+          })
+        ) {
+          return false;
+        }
+      }
+      if (advBeneficiaryBank.trim()) {
+        if (
+          !rowMatchesInstitutionFilter(row, advBeneficiaryBank, {
+            codeKey: "destinationInstitutionCode",
+            nameKey: "beneficiaryBank",
+          })
+        ) {
+          return false;
+        }
+      }
 
+      if (
+        advStatus !== "all" &&
+        String(row.status || "").toLowerCase() !== String(advStatus).toLowerCase()
+      ) {
+        return false;
+      }
+
+      if (!advancedFiltersActive) {
         if (advChannel.trim()) {
           const ch = (row.channelCode || "").toLowerCase();
           if (!ch.includes(advChannel.toLowerCase().trim())) return false;
-        }
-        if (advSourceBank.trim()) {
-          const b = (row.sourceBank || "").toLowerCase();
-          if (!b.includes(advSourceBank.toLowerCase().trim())) return false;
-        }
-        if (advBeneficiaryBank.trim()) {
-          const b = (row.beneficiaryBank || "").toLowerCase();
-          if (!b.includes(advBeneficiaryBank.toLowerCase().trim())) return false;
         }
         if (advResponseCode.trim()) {
           const rc = (row.responseCode || "").toLowerCase();
@@ -803,45 +887,78 @@ export default function TransactionList() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="adv-rc">Response code</Label>
-              <Input
-                id="adv-rc"
-                placeholder="Contains…"
-                className="h-9"
-                value={advancedFiltersDraft.responseCode}
-                onChange={(e) => updateAdvancedDraft({ responseCode: e.target.value })}
-              />
+              <Select
+                value={advancedFiltersDraft.responseCode || "all"}
+                onValueChange={(v) => updateAdvancedDraft({ responseCode: v === "all" ? "" : v })}
+              >
+                <SelectTrigger id="adv-rc" className="h-9">
+                  <SelectValue placeholder="All response codes" />
+                </SelectTrigger>
+                <SelectContent className="z-[110]">
+                  <SelectItem value="all">All response codes</SelectItem>
+                  {RESPONSE_CODE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                  {advancedFiltersDraft.responseCode &&
+                  !RESPONSE_CODE_OPTIONS.some((opt) => opt.value === advancedFiltersDraft.responseCode) ? (
+                    <SelectItem value={advancedFiltersDraft.responseCode}>
+                      {advancedFiltersDraft.responseCode}
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="adv-src-bank">Source bank</Label>
-              <Input
-                id="adv-src-bank"
-                list="txn-src-bank-datalist"
-                placeholder="Contains…"
-                className="h-9"
-                value={advancedFiltersDraft.sourceBank}
-                onChange={(e) => updateAdvancedDraft({ sourceBank: e.target.value })}
-              />
-              <datalist id="txn-src-bank-datalist">
-                {sourceBankOptions.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              <Select
+                value={advancedFiltersDraft.sourceBank || "all"}
+                onValueChange={(v) => updateAdvancedDraft({ sourceBank: v === "all" ? "" : v })}
+              >
+                <SelectTrigger id="adv-src-bank" className="h-9">
+                  <SelectValue placeholder="All source banks" />
+                </SelectTrigger>
+                <SelectContent className="z-[110]">
+                  <SelectItem value="all">All source banks</SelectItem>
+                  {institutionSelectOptions.map((opt) => (
+                    <SelectItem key={`src-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                  {advancedFiltersDraft.sourceBank &&
+                  !institutionSelectOptions.some((opt) => opt.value === advancedFiltersDraft.sourceBank) ? (
+                    <SelectItem value={advancedFiltersDraft.sourceBank}>
+                      {advancedFiltersDraft.sourceBank}
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="adv-ben-bank">Beneficiary bank</Label>
-              <Input
-                id="adv-ben-bank"
-                list="txn-ben-bank-datalist"
-                placeholder="Contains…"
-                className="h-9"
-                value={advancedFiltersDraft.beneficiaryBank}
-                onChange={(e) => updateAdvancedDraft({ beneficiaryBank: e.target.value })}
-              />
-              <datalist id="txn-ben-bank-datalist">
-                {beneficiaryBankOptions.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              <Select
+                value={advancedFiltersDraft.beneficiaryBank || "all"}
+                onValueChange={(v) => updateAdvancedDraft({ beneficiaryBank: v === "all" ? "" : v })}
+              >
+                <SelectTrigger id="adv-ben-bank" className="h-9">
+                  <SelectValue placeholder="All beneficiary banks" />
+                </SelectTrigger>
+                <SelectContent className="z-[110]">
+                  <SelectItem value="all">All beneficiary banks</SelectItem>
+                  {institutionSelectOptions.map((opt) => (
+                    <SelectItem key={`ben-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                  {advancedFiltersDraft.beneficiaryBank &&
+                  !institutionSelectOptions.some((opt) => opt.value === advancedFiltersDraft.beneficiaryBank) ? (
+                    <SelectItem value={advancedFiltersDraft.beneficiaryBank}>
+                      {advancedFiltersDraft.beneficiaryBank}
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="adv-session">Session ID</Label>

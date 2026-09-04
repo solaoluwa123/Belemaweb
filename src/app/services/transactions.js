@@ -644,11 +644,6 @@ export async function buildTransactionSearchParams({
   const q = (v) => String(v ?? "").trim();
   const lookup = await getInstitutionNameLookup();
 
-  let responseCode = q(adv.responseCode);
-  if (!responseCode && adv.status && adv.status !== "all") {
-    responseCode = mapUiStatusToResponseCode(adv.status);
-  }
-
   return {
     ...buildBackendTransactionSearchParams({
       userInstitutionCode,
@@ -659,7 +654,7 @@ export async function buildTransactionSearchParams({
     }),
     srcSessionid: q(adv.sessionId),
     channelCode: resolveChannelCode(q(adv.channel)),
-    responseCode,
+    responseCode: q(adv.responseCode),
     srcInstitutioncode: resolveInstitutionCodeFromInput(lookup, q(adv.sourceBank)),
     destInstitutioncode: resolveInstitutionCodeFromInput(lookup, q(adv.beneficiaryBank)),
     minAmount: q(adv.minAmount),
@@ -682,21 +677,6 @@ const CHANNEL_LABEL_TO_CODE = {
   "agency banking": "11",
   nqr: "12",
 };
-
-function mapUiStatusToResponseCode(status) {
-  switch (String(status || "").trim()) {
-    case "Successful":
-      return "00";
-    case "Failed":
-      return "111";
-    case "Pending":
-      return "09";
-    case "Reversed":
-      return "79";
-    default:
-      return "";
-  }
-}
 
 function resolveChannelCode(input) {
   const value = String(input || "").trim();

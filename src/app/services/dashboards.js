@@ -1276,7 +1276,8 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
     fetchOrNull(ctx.channelsEndpoint, ctx.pagedDateParams),
     fetchOrNull(ctx.failedCodesEndpoint, ctx.pagedDateParams),
     fetchOrNull(ctx.averageTimeEndpoint, ctx.averageTimeParams),
-    fetchOrNull(ctx.successEndpoint, ctx.dateParams),
+    // Same start/end/isCurrent as other charts (page/limit ignored by this endpoint).
+    fetchOrNull(ctx.successEndpoint, ctx.pagedDateParams),
   ];
   if (!ctx.scope) {
     chartRequests.push(fetchOrNull(ctx.failingInstitutionsEndpoint, ctx.pagedDateParams));

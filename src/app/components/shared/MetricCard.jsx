@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { Card, CardContent } from "../ui/card";
 import { cn } from "../ui/utils";
 
@@ -53,10 +54,13 @@ export function MetricCard({
   iconAccent = "lime",
   size = "default",
   className,
+  to,
 }) {
+  const navigate = useNavigate();
   const iconBg = ICON_BG[iconAccent] || ICON_BG.lime;
   const isCompact = size === "compact";
   const showGauge = gauge !== undefined && gauge !== null && !Number.isNaN(Number(gauge));
+  const isLink = Boolean(to);
 
   const trendPill = trend ? (
     <span
@@ -71,8 +75,19 @@ export function MetricCard({
 
   return (
     <Card
+      role={isLink ? "button" : undefined}
+      tabIndex={isLink ? 0 : undefined}
+      onClick={() => isLink && navigate(to)}
+      onKeyDown={(e) => {
+        if (!isLink) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(to);
+        }
+      }}
       className={cn(
         "h-full w-full gap-0 rounded-xl border-[color:var(--border)] bg-card shadow-sm transition-shadow hover:shadow-md",
+        isLink && "cursor-pointer focus:outline-none focus:ring-2 focus:ring-[color:var(--ring)] focus:ring-offset-2",
         className,
       )}
     >
