@@ -12,7 +12,6 @@ import {
   buildInsightSummary,
   fetchAccountsDashboardData,
   formatDashboardRangeLabel,
-  STATUS_PIE_COLORS,
 } from "../../services/dashboards";
 import { APIError } from "../../services/api";
 import { DashboardDateRangePicker } from "./DashboardDateRangePicker";
@@ -24,12 +23,6 @@ const DEFAULT_RANGE = (() => {
   d.setHours(0, 0, 0, 0);
   return { start: d, end: d };
 })();
-
-const STATUS_LEGEND = [
-  { key: "Successful", label: "Successful" },
-  { key: "Pending", label: "Pending" },
-  { key: "Failed", label: "Failed" },
-];
 
 export function StatisticsSection({
   statsInstitution: controlledInstitution,
@@ -212,18 +205,6 @@ export function StatisticsSection({
           {insightSummary ? (
             <p className="mt-1 text-sm font-medium text-foreground">{insightSummary}</p>
           ) : null}
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            {STATUS_LEGEND.map(({ key, label }) => (
-              <span key={key} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: STATUS_PIE_COLORS[key] ?? "#94a3b8" }}
-                  aria-hidden
-                />
-                {label}
-              </span>
-            ))}
-          </div>
         </div>
       )}
 

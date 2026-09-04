@@ -103,6 +103,9 @@ export default function AppLayout() {
   const { brand } = useBrand();
   const accountsDashboard = brand.routes.accountsDashboard;
 
+  const isDesktopViewport = () =>
+    typeof window !== "undefined" ? window.innerWidth >= 1024 : true;
+
   const accountsMenu = accountsMenuBase.map((item, index) =>
     index === 0 ? { ...item, label: brand.menus.dashboardLabels.accounts, path: accountsDashboard } : item,
   );
@@ -188,7 +191,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     const onResize = () => {
-      const desktop = window.innerWidth >= 1024;
+      const desktop = isDesktopViewport();
       if (desktop !== wasDesktopRef.current) {
         wasDesktopRef.current = desktop;
         setSidebarOpen(desktop);
@@ -200,16 +203,18 @@ export default function AppLayout() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  /** Close drawer after any in-app navigation (all viewports). Skip first run so large screens stay default-open. */
+  /** Mobile drawer only: close after in-app navigation. Desktop sidebar stays open. */
   useEffect(() => {
     if (prevPathForSidebarRef.current !== location.pathname) {
       prevPathForSidebarRef.current = location.pathname;
-      setSidebarOpen(false);
+      if (!isDesktopViewport()) {
+        setSidebarOpen(false);
+      }
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!sidebarOpen) return;
+    if (!sidebarOpen || isDesktopViewport()) return;
     const close = (e) => {
       if (e.key === "Escape") setSidebarOpen(false);
     };
@@ -272,7 +277,9 @@ export default function AppLayout() {
 
   const navigateTo = (path) => {
     navigate(path);
-    setSidebarOpen(false);
+    if (!isDesktopViewport()) {
+      setSidebarOpen(false);
+    }
   };
 
   const filterMenuByRole = (items) => {
@@ -292,7 +299,7 @@ export default function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 max-w-[85vw] flex-col overflow-hidden bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-300 lg:w-64 lg:max-w-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 max-w-[85vw] flex-col overflow-hidden bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-300 lg:static lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -313,7 +320,7 @@ export default function AppLayout() {
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-0 top-1/2 shrink-0 h-9 w-9 -translate-y-1/2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="absolute right-0 top-1/2 shrink-0 h-9 w-9 -translate-y-1/2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
               onClick={() => setSidebarOpen(false)}
               aria-label="Close menu"
             >
@@ -570,20 +577,16 @@ export default function AppLayout() {
       <div className="relative z-0 flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            {!sidebarOpen ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Open menu"
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
-            ) : (
-              <span className="w-10 shrink-0" aria-hidden />
-            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
             <BrandHeaderLockup className="min-w-0 flex-1 sm:flex-none" />
           </div>
 
@@ -636,9 +639,9 @@ export default function AppLayout() {
         </main>
       </div>
 
-      {/* After main column so it stacks above page content; backdrop z-40 stays below aside z-50 */}
+      {/* Mobile drawer backdrop only — desktop sidebar is persistent */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 lg:hidden ${
           sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={() => setSidebarOpen(false)}

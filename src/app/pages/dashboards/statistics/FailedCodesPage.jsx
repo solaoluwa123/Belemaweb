@@ -11,6 +11,7 @@ import {
 } from "../../../components/dashboard/StatisticsDrilldownLayout";
 import { Button } from "../../../components/ui/button";
 import { ExternalLink } from "lucide-react";
+import { formatCompactCount } from "../../../utils/dashboardChartUtils";
 import { useStatisticsPageFilters } from "./useStatisticsPageFilters";
 
 export default function FailedCodesPage() {
@@ -86,10 +87,10 @@ export default function FailedCodesPage() {
           <p className="py-12 text-center text-slate-500">No failed response-code data was returned.</p>
         ) : (
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={rows} layout="vertical" margin={{ top: 10, right: 30, left: 100, bottom: 10 }}>
+            <BarChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="code" width={95} tick={{ fontSize: 11 }} />
+              <XAxis dataKey="code" angle={-25} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={formatCompactCount} />
               <Tooltip
                 formatter={(v) => [formatCountNg(v), "Count"]}
                 labelFormatter={(_, payload) => {
@@ -97,7 +98,7 @@ export default function FailedCodesPage() {
                   return row ? `${row.code} — ${row.description || "Unknown"}` : "";
                 }}
               />
-              <Bar dataKey="count" name="Volume" radius={[0, 4, 4, 0]} maxBarSize={16}>
+              <Bar dataKey="count" name="Volume" radius={[4, 4, 0, 0]} maxBarSize={28}>
                 {rows.map((entry, index) => (
                   <Cell key={entry.code} fill={entry.fill || brand.theme.chart[index % brand.theme.chart.length]} />
                 ))}

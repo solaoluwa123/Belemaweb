@@ -82,10 +82,10 @@ export default function ByInstitutionPage() {
           <p className="py-12 text-center text-slate-500">No institution failure data was returned.</p>
         ) : (
           <ResponsiveContainer width="100%" height={480}>
-            <BarChart data={rows} layout="vertical" margin={{ top: 10, right: 30, left: 140, bottom: 10 }}>
+            <BarChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 80 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="name" width={135} />
+              <XAxis dataKey="name" angle={-30} textAnchor="end" height={90} tick={{ fontSize: 11 }} interval={0} />
+              <YAxis />
               <Tooltip
                 formatter={(v) => [formatCountNg(v), "Failures"]}
                 labelFormatter={(_, payload) => {
@@ -94,7 +94,7 @@ export default function ByInstitutionPage() {
                 }}
                 cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
               />
-              <Bar dataKey="count" name="Failures" radius={[0, 4, 4, 0]} maxBarSize={16} cursor="pointer" onClick={handleBarClick}>
+              <Bar dataKey="count" name="Failures" radius={[4, 4, 0, 0]} maxBarSize={28} cursor="pointer" onClick={handleBarClick}>
                 {rows.map((entry, index) => (
                   <Cell key={entry.name || entry.institutionCode} fill={entry.fill || brand.theme.chart[index % brand.theme.chart.length]} />
                 ))}

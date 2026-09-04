@@ -12,6 +12,7 @@ import {
   buildTransactionListLink,
   formatCountNg,
 } from "../../../components/dashboard/StatisticsDrilldownLayout";
+import { formatCompactCount } from "../../../utils/dashboardChartUtils";
 import { useStatisticsPageFilters } from "./useStatisticsPageFilters";
 
 export default function InstitutionDetailPage() {
@@ -94,7 +95,7 @@ export default function InstitutionDetailPage() {
             <BarChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="code" angle={-25} textAnchor="end" height={70} />
-              <YAxis />
+              <YAxis tickFormatter={formatCompactCount} />
               <Tooltip
                 formatter={(v) => [formatCountNg(v), "Count"]}
                 labelFormatter={(_, payload) => {
