@@ -1,5 +1,5 @@
 import { API_ENDPOINTS, APIError, apiClient } from "./api";
-import { normalizeDashboardDateRange } from "./dashboards";
+import { dashboardRangeIncludesToday, normalizeDashboardDateRange } from "./dashboards";
 
 /** Sentinel the backend treats as "every institution" (alongside `000013`). */
 export const ALL_INSTITUTIONS_CODE = "-1";
@@ -154,6 +154,42 @@ export async function fetchCommissions({
   const rows = commissionRowsFromPayload(payload).map(normalizeCommissionRow);
   const meta = metaFromPayload(payload);
 
+  const summedCommission = rows.reduce((sum, row) => sum + (row.commission || row.totalCommission), 0);
+  return {
+    rows,
+    totalRecords: meta?.totalRecords || rows.length,
+    totalCommission: meta?.totalValue || summedCommission,
+    totalVat: rows.reduce((sum, row) => sum + row.totalVat, 0),
+    totalChargeAmount: rows.reduce((sum, row) => sum + row.chargeAmount, 0),
+  };
+}
+
+/**
+ * `POST /commissions/generate` — compute commissions from successful txn counts × tbl_charges
+ * and upsert into `tbl_commission_paid`. Returns the same summary shape as `fetchCommissions`.
+ */
+export async function generateCommissions({
+  institutionCode,
+  dateRange,
+  requireInstitutionScope = false,
+} = {}) {
+  const code = String(institutionCode ?? "").trim();
+  if (requireInstitutionScope && (!code || code === ALL_INSTITUTIONS_CODE)) {
+    throw new APIError("Institution code is required for this role.", 400, null);
+  }
+
+  const resolvedCode = code || ALL_INSTITUTIONS_CODE;
+  const dateParams = buildCommissionDateParams(dateRange);
+  const params = {
+    ...dateParams,
+    isCurrent: dashboardRangeIncludesToday(dateRange) ? "true" : "false",
+    institutioncode: resolvedCode,
+  };
+  const query = new URLSearchParams(params).toString();
+  const payload = await apiClient.post(`${API_ENDPOINTS.commissions.generate}?${query}`, {});
+
+  const rows = commissionRowsFromPayload(payload).map(normalizeCommissionRow);
+  const meta = metaFromPayload(payload);
   const summedCommission = rows.reduce((sum, row) => sum + (row.commission || row.totalCommission), 0);
   return {
     rows,

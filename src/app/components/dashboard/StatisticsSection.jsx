@@ -116,6 +116,9 @@ export function StatisticsSection({
         chartData7d: [],
         successVolumes7d: [],
         failedTop5Codes: [],
+        responseCodeVolumes: [],
+        tpsSeries: [],
+        tpsMeta: { peakTps: 0, avgTps: 0, bucketSeconds: 0 },
         transactionsByChannel: [],
         failureByInstitution: [],
         averageTime: { ne: 0, ft: 0 },
@@ -129,6 +132,8 @@ export function StatisticsSection({
     chartData7d,
     successVolumes7d,
     failedTop5Codes,
+    responseCodeVolumes,
+    tpsSeries,
     transactionsByChannel,
     failureByInstitution,
     averageTime,
@@ -164,6 +169,8 @@ export function StatisticsSection({
       (chartData7d?.length > 0) ||
       successVolumes7d.length > 0 ||
       failedTop5Codes.length > 0 ||
+      responseCodeVolumes?.length > 0 ||
+      tpsSeries?.length > 0 ||
       transactionsByChannel.length > 0 ||
       failureByInstitution.length > 0 ||
       successFailurePie?.length > 0 ||
@@ -287,6 +294,8 @@ export function StatisticsSection({
           successFailurePie={successFailurePie}
           averageTime={averageTime}
           failedTop5Codes={failedTop5Codes}
+          responseCodeVolumes={responseCodeVolumes}
+          tpsSeries={tpsSeries}
           transactionsByChannel={transactionsByChannel}
           channelPie={channelPie}
           failureByInstitution={failureByInstitution}

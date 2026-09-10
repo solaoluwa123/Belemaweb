@@ -58,6 +58,10 @@ export const API_ENDPOINTS = {
     transactionsByChannelsByInstitution: (code) => `/transactions-by-channels/institution/${code}`,
     topFailedResponseCodes: '/top-failed-response-codes',
     topFailedResponseCodesByInstitution: (code) => `/top-failed-response-codes/institution/${code}`,
+    responseCodeVolumes: '/response-code-volumes',
+    responseCodeVolumesByInstitution: (code) => `/response-code-volumes/institution/${code}`,
+    transactionsTps: '/transactions-tps',
+    transactionsTpsByInstitution: (code) => `/transactions-tps/institution/${code}`,
     topFailingInstitutions: '/top-failing-institutions',
     topFailingInstitutionsByInstitution: (code) => `/top-failing-institutions/institution/${code}`,
     ftAverageTime: '/ft-average-time',
@@ -73,6 +77,8 @@ export const API_ENDPOINTS = {
   commissions: {
     /** `-1` (or `000013`) returns every institution; any other code filters to that institution. */
     byInstitution: (institutionCode) => `/commissions/${institutionCode}`,
+    /** POST — count successful txns, apply charges, upsert `tbl_commission_paid`. */
+    generate: '/commissions/generate',
   },
   wallets: {
     list: '/wallets/get',

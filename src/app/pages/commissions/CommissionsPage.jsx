@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Label } from "../../components/ui/label";
+import { Button } from "../../components/ui/button";
 import {
   Select,
   SelectContent,
@@ -11,11 +12,17 @@ import { DashboardDateRangePicker } from "../../components/dashboard/DashboardDa
 import { StatisticsDrilldownLayout } from "../../components/dashboard/StatisticsDrilldownLayout";
 import { useAuth } from "../../context/AuthContext";
 import { APIError } from "../../services/api";
-import { ALL_INSTITUTIONS_CODE, fetchCommissions } from "../../services/commissions";
+import {
+  ALL_INSTITUTIONS_CODE,
+  fetchCommissions,
+  generateCommissions,
+} from "../../services/commissions";
 import { defaultDashboardDateRange } from "../../services/dashboards";
 import { fetchInstitutionsList } from "../../services/financialInstitutions";
 import { formatCountNg, formatNairaFull } from "../../utils/dashboardChartUtils";
 import { formatBackendDateTime } from "../../utils/formatters";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const EMPTY_SUMMARY = {
   rows: [],
@@ -70,6 +77,7 @@ export default function CommissionsPage() {
   const [institutions, setInstitutions] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [isLoading, setIsLoading] = useState(!vendorUnlinked);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const institutionCode = isVendor ? vendorCode : selectedCode;
@@ -105,6 +113,31 @@ export default function CommissionsPage() {
       setErrorMessage(error instanceof APIError ? error.message : "Unable to load commissions.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (vendorUnlinked || isGenerating) return;
+    setIsGenerating(true);
+    setErrorMessage("");
+    try {
+      const data = await generateCommissions({
+        institutionCode,
+        dateRange,
+        requireInstitutionScope: isVendor,
+      });
+      setSummary(data);
+      toast.success(
+        data.totalRecords > 0
+          ? `Generated ${data.totalRecords} commission record${data.totalRecords === 1 ? "" : "s"}.`
+          : "No successful transactions found for this period.",
+      );
+    } catch (error) {
+      const message = error instanceof APIError ? error.message : "Unable to generate commissions.";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -152,6 +185,15 @@ export default function CommissionsPage() {
         onChange={setDateRange}
         className="min-w-0 sm:min-w-[240px]"
       />
+      <Button
+        type="button"
+        onClick={handleGenerate}
+        disabled={vendorUnlinked || isLoading || isGenerating}
+        className="gap-2"
+      >
+        {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {isGenerating ? "Generating…" : "Generate"}
+      </Button>
     </div>
   );
 
@@ -161,7 +203,7 @@ export default function CommissionsPage() {
       subtitle="Paid commission records from settlement runs."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
-      isLoading={isLoading}
+      isLoading={isLoading || isGenerating}
       errorMessage={vendorUnlinked ? "Your account is not linked to an institution." : errorMessage}
       onRefresh={loadPage}
       showBack={false}

@@ -524,6 +524,7 @@ export function getTransgateStats(bankId, date) {
     },
     chartData7d,
     responseCodes: mockResponseCodes,
+    responseCodeVolumes: mockResponseCodes,
     averageTime: { ne: avgNe, ft: avgFt },
   };
 }

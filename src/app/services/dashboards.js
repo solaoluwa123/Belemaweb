@@ -1,4 +1,5 @@
 import { API_ENDPOINTS, apiClient } from "./api";
+import { format } from "date-fns";
 import {
   buildBackendTransactionSearchParams,
   fetchLiveTransactionFeed as fetchLiveFeedFromApi,
@@ -7,18 +8,39 @@ import {
   fetchTransactionsByInstitution,
 } from "./transactions";
 import { parseBackendDate, getBackendDateTime } from "../utils/formatters";
+import { RESPONSE_CODES } from "../constants";
 
 const EMPTY_CHARTS = {
   chartData7d: [],
   responseCodes: [],
   successVolumes7d: [],
   failedTop5Codes: [],
+  responseCodeVolumes: [],
+  tpsSeries: [],
+  tpsMeta: { peakTps: 0, avgTps: 0, bucketSeconds: 0 },
   transactionsByChannel: [],
   failureByInstitution: [],
   averageTime: { ne: 0, ft: 0 },
   successFailurePie: [],
   channelPie: [],
 };
+
+/** Invert RESPONSE_CODES (name → code) to code → human label for chart fallbacks. */
+const RESPONSE_CODE_LABELS = (() => {
+  const labels = {};
+  for (const [name, code] of Object.entries(RESPONSE_CODES || {})) {
+    if (!code) continue;
+    const key = String(code).trim();
+    if (!key) continue;
+    const pretty = String(name)
+      .split("_")
+      .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+      .join(" ");
+    if (!labels[key] || key === "00") labels[key] = pretty;
+  }
+  if (labels["00"]) labels["00"] = "Approved / Successful";
+  return labels;
+})();
 
 function safeJsonParse(value) {
   if (typeof value !== "string") return value;
@@ -171,17 +193,10 @@ export function normalizeDashboardDateRange(range) {
 
 export function formatDashboardRangeLabel(range) {
   const { start, end } = normalizeDashboardDateRange(range);
-  if (start.getTime() === end.getTime()) {
-    return start.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  }
-  const sameYear = start.getFullYear() === end.getFullYear();
-  const startFmt = start.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: sameYear ? undefined : "numeric",
-  });
-  const endFmt = end.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  return `${startFmt} – ${endFmt}`;
+  if (!start || !end) return "Select date range";
+  const startDisplay = startOfLocalDay(start);
+  const endDisplay = endOfLocalDay(end);
+  return `${format(startDisplay, "MMMM d, yyyy h:mm a")} - ${format(endDisplay, "MMMM d, yyyy h:mm a")}`;
 }
 
 /** True when the range includes any part of today (local time). */
@@ -876,11 +891,75 @@ function normalizeSuccessVolumes(successPayload, trendPayload) {
   }));
 }
 
+function fallbackResponseCodeDescription(code, description) {
+  const trimmed = (description || "").trim();
+  if (trimmed && !/^unknown$/i.test(trimmed) && !/^failed$/i.test(trimmed)) {
+    return trimmed;
+  }
+  const key = String(code || "").trim();
+  return RESPONSE_CODE_LABELS[key] || trimmed || "Unknown";
+}
+
 function normalizeResponseCodes(codes) {
   return codes.map((row) => ({
     ...row,
-    description: row.description || "Unknown",
+    description: fallbackResponseCodeDescription(row.code, row.description),
   }));
+}
+
+function formatTpsAxisLabel(label, bucketSeconds) {
+  const raw = String(label || "").trim();
+  if (!raw) return "";
+  const parsed = parseBackendDate(raw) || new Date(raw.includes("T") ? raw : raw.replace(" ", "T"));
+  if (!(parsed instanceof Date) || Number.isNaN(parsed.getTime())) return raw;
+  if (Number(bucketSeconds) >= 3600) {
+    return format(parsed, "MMM d HH:mm");
+  }
+  return format(parsed, "HH:mm");
+}
+
+function normalizeTpsSeries(payload) {
+  const root = getRawResponseObject(payload) ?? asObject(payload) ?? {};
+  let meta = root?.meta;
+  if (typeof meta === "string") meta = safeJsonParse(meta);
+  if (!meta || typeof meta !== "object") meta = {};
+
+  const rows = getChartRowsFromPayload(payload);
+  const bucketFromMeta = Number(meta.bucketSeconds) || 0;
+  const series = rows
+    .map((row) => {
+      const source = row && typeof row === "object" ? row : {};
+      const label = pickString(source, ["label", "bucket_time", "bucketTime", "date", "time"]);
+      const volume = pickNumber(source, ["volume", "count", "total"]);
+      const bucketSeconds =
+        pickNumber(source, ["bucketSeconds", "bucket_seconds"]) || bucketFromMeta || 300;
+      let tps = pickNumber(source, ["tps", "TPS", "throughput"]);
+      if (!(tps > 0) && volume > 0 && bucketSeconds > 0) {
+        tps = volume / bucketSeconds;
+      }
+      return {
+        label,
+        date: formatTpsAxisLabel(label, bucketSeconds) || label,
+        volume,
+        tps: Number.isFinite(tps) ? tps : 0,
+        bucketSeconds,
+      };
+    })
+    .filter((row) => row.label)
+    .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+
+  const peakFromRows = series.reduce((max, row) => Math.max(max, Number(row.tps) || 0), 0);
+  const avgFromRows =
+    series.length > 0 ? series.reduce((sum, row) => sum + (Number(row.tps) || 0), 0) / series.length : 0;
+
+  return {
+    series,
+    meta: {
+      bucketSeconds: bucketFromMeta || series[0]?.bucketSeconds || 0,
+      peakTps: Number(meta.peakTps) > 0 ? Number(meta.peakTps) : peakFromRows,
+      avgTps: Number(meta.avgTps) > 0 ? Number(meta.avgTps) : avgFromRows,
+    },
+  };
 }
 
 function buildSuccessFailurePie(summary) {
@@ -1049,6 +1128,16 @@ function resolveDashboardContext({
       API_ENDPOINTS.dashboards.topFailedResponseCodesByInstitution,
       scope,
     ),
+    responseCodeVolumesEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.responseCodeVolumes,
+      API_ENDPOINTS.dashboards.responseCodeVolumesByInstitution,
+      scope,
+    ),
+    tpsEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.transactionsTps,
+      API_ENDPOINTS.dashboards.transactionsTpsByInstitution,
+      scope,
+    ),
     failingInstitutionsEndpoint: getScopedEndpoint(
       API_ENDPOINTS.dashboards.topFailingInstitutions,
       API_ENDPOINTS.dashboards.topFailingInstitutionsByInstitution,
@@ -1102,6 +1191,8 @@ function dashboardHasChartData(data) {
   return (
     (Array.isArray(data.successVolumes7d) && data.successVolumes7d.length > 0) ||
     (Array.isArray(data.failedTop5Codes) && data.failedTop5Codes.length > 0) ||
+    (Array.isArray(data.responseCodeVolumes) && data.responseCodeVolumes.length > 0) ||
+    (Array.isArray(data.tpsSeries) && data.tpsSeries.length > 0) ||
     (Array.isArray(data.transactionsByChannel) && data.transactionsByChannel.length > 0) ||
     (Array.isArray(data.failureByInstitution) && data.failureByInstitution.length > 0) ||
     (Array.isArray(data.successFailurePie) && data.successFailurePie.length > 0) ||
@@ -1139,6 +1230,8 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     byDateOnlyPayload,
     channelsPayload,
     failedCodesPayload,
+    responseCodeVolumesPayload,
+    tpsPayload,
     failingInstitutionsPayload,
     averageTimePayload,
     successPayload,
@@ -1183,6 +1276,8 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
   chartData7d = shapeHeroTrendRows(chartData7d, ctx);
 
   const responseCodes = normalizeResponseCodes(normalizeFailedCodes(failedCodesPayload));
+  const responseCodeVolumes = normalizeResponseCodes(normalizeFailedCodes(responseCodeVolumesPayload));
+  const { series: tpsSeries, meta: tpsMeta } = normalizeTpsSeries(tpsPayload);
   let successVolumes7d = normalizeSuccessVolumes(successPayload, byDateOnlyPayload);
   const successFromTxn = aggregateSuccessVolumesFromTransactionRows(workingRows);
   if ((!successVolumes7d || successVolumes7d.length < 1) && successFromTxn.length >= 1) {
@@ -1200,6 +1295,9 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     responseCodes,
     successVolumes7d,
     failedTop5Codes: responseCodes,
+    responseCodeVolumes,
+    tpsSeries,
+    tpsMeta,
     transactionsByChannel,
     failureByInstitution,
     averageTime: summary.averageTime,
@@ -1221,6 +1319,9 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     responseCodes: showData ? responseCodes : [],
     successVolumes7d: showData ? successVolumes7d : [],
     failedTop5Codes: showData ? responseCodes : [],
+    responseCodeVolumes: showData ? responseCodeVolumes : [],
+    tpsSeries: showData ? tpsSeries : [],
+    tpsMeta: showData ? tpsMeta : { peakTps: 0, avgTps: 0, bucketSeconds: 0 },
     transactionsByChannel: showData ? transactionsByChannel : [],
     failureByInstitution: showData ? failureByInstitution : [],
     averageTime: showData ? summary.averageTime : { ne: 0, ft: 0 },
@@ -1275,9 +1376,11 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
   const chartRequests = [
     fetchOrNull(ctx.channelsEndpoint, ctx.pagedDateParams),
     fetchOrNull(ctx.failedCodesEndpoint, ctx.pagedDateParams),
+    fetchOrNull(ctx.responseCodeVolumesEndpoint, ctx.pagedDateParams),
     fetchOrNull(ctx.averageTimeEndpoint, ctx.averageTimeParams),
     // Same start/end/isCurrent as other charts (page/limit ignored by this endpoint).
     fetchOrNull(ctx.successEndpoint, ctx.pagedDateParams),
+    fetchOrNull(ctx.tpsEndpoint, ctx.pagedDateParams),
   ];
   if (!ctx.scope) {
     chartRequests.push(fetchOrNull(ctx.failingInstitutionsEndpoint, ctx.pagedDateParams));
@@ -1286,10 +1389,12 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
   const chartResults = await Promise.all(chartRequests);
   ctx.cache.channelsPayload = chartResults[0];
   ctx.cache.failedCodesPayload = chartResults[1];
-  ctx.cache.averageTimePayload = chartResults[2];
-  ctx.cache.successPayload = chartResults[3];
+  ctx.cache.responseCodeVolumesPayload = chartResults[2];
+  ctx.cache.averageTimePayload = chartResults[3];
+  ctx.cache.successPayload = chartResults[4];
+  ctx.cache.tpsPayload = chartResults[5];
   if (!ctx.scope) {
-    ctx.cache.failingInstitutionsPayload = chartResults[4];
+    ctx.cache.failingInstitutionsPayload = chartResults[6];
   }
 
   return buildChartsPayload(ctx, summary, statusSummaryRows);
@@ -1427,8 +1532,16 @@ export function buildChartCardMeta(statsData, resolvedRange, priorStats = null) 
   const heroValue = (statsData?.chartData7d || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const topCode = (statsData?.failedTop5Codes || [])[0];
   const failedTotal = (statsData?.failedTop5Codes || []).reduce((s, r) => s + (Number(r.count) || 0), 0);
+  const topVolumeCode = (statsData?.responseCodeVolumes || [])[0];
+  const responseCodeVolumeTotal = (statsData?.responseCodeVolumes || []).reduce(
+    (s, r) => s + (Number(r.count) || 0),
+    0,
+  );
   const channel = dominantChannel(statsData?.transactionsByChannel);
   const ftAvg = Number(statsData?.averageTime?.ft ?? 0);
+  const peakTps = Number(statsData?.tpsMeta?.peakTps ?? 0);
+  const avgTps = Number(statsData?.tpsMeta?.avgTps ?? 0);
+  const priorPeakTps = Number(priorStats?.tpsMeta?.peakTps ?? 0);
 
   const priorHeroTotal = (priorStats?.chartData7d || []).reduce(
     (s, r) => s + (Number(r.transactions) || 0),
@@ -1439,6 +1552,10 @@ export function buildChartCardMeta(statsData, resolvedRange, priorStats = null) 
   const priorSuccessVal = pickPieValue(priorPie, (n) => n.includes("success"));
   const priorSuccessRate = priorPieTotal > 0 ? (priorSuccessVal / priorPieTotal) * 100 : 0;
   const priorFailedTotal = (priorStats?.failedTop5Codes || []).reduce(
+    (s, r) => s + (Number(r.count) || 0),
+    0,
+  );
+  const priorResponseCodeVolumeTotal = (priorStats?.responseCodeVolumes || []).reduce(
     (s, r) => s + (Number(r.count) || 0),
     0,
   );
@@ -1475,12 +1592,32 @@ export function buildChartCardMeta(statsData, resolvedRange, priorStats = null) 
       subtitle: range,
       kpi: { label: "FT average", value: `${ftAvg.toFixed(1)}s` },
     },
+    tps: {
+      subtitle: range,
+      kpi: {
+        label: "Peak TPS",
+        value: peakTps > 0 ? peakTps.toFixed(2) : "0",
+        delta: delta(peakTps, priorPeakTps),
+      },
+      kpiSecondary: {
+        label: "Avg TPS",
+        value: avgTps > 0 ? avgTps.toFixed(2) : "0",
+      },
+    },
     failedCodes: {
       subtitle: range,
       kpi: {
         label: topCode ? `Top: ${topCode.code}` : "Failures",
         value: formatInsightCount(failedTotal || failedVal),
         delta: delta(failedTotal || failedVal, priorFailedTotal),
+      },
+    },
+    responseCodes: {
+      subtitle: range,
+      kpi: {
+        label: topVolumeCode ? `Top: ${topVolumeCode.code}` : "Codes",
+        value: formatInsightCount(responseCodeVolumeTotal),
+        delta: delta(responseCodeVolumeTotal, priorResponseCodeVolumeTotal),
       },
     },
     channels: {

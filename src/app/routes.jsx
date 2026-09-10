@@ -32,6 +32,8 @@ import StatisticsPage from "./pages/dashboards/statistics/StatisticsPage";
 import SuccessfulTransactionsPage from "./pages/dashboards/statistics/SuccessfulTransactionsPage";
 import AverageTimePage from "./pages/dashboards/statistics/AverageTimePage";
 import FailedCodesPage from "./pages/dashboards/statistics/FailedCodesPage";
+import ResponseCodesPage from "./pages/dashboards/statistics/ResponseCodesPage";
+import TpsPage from "./pages/dashboards/statistics/TpsPage";
 import ByChannelPage from "./pages/dashboards/statistics/ByChannelPage";
 import ByInstitutionPage from "./pages/dashboards/statistics/ByInstitutionPage";
 import InstitutionDetailPage from "./pages/dashboards/statistics/InstitutionDetailPage";
@@ -127,6 +129,8 @@ export const router = createBrowserRouter(
       { path: "dashboard/statistics/successful-transactions", Component: SuccessfulTransactionsPage },
       { path: "dashboard/statistics/average-time", Component: AverageTimePage },
       { path: "dashboard/statistics/failed-codes", Component: FailedCodesPage },
+      { path: "dashboard/statistics/response-codes", Component: ResponseCodesPage },
+      { path: "dashboard/statistics/tps", Component: TpsPage },
       { path: "dashboard/statistics/by-channel", Component: ByChannelPage },
       { path: "dashboard/statistics/by-institution", Component: ByInstitutionPage },
       { path: "dashboard/statistics/institution/:institutionName", Component: InstitutionDetailPage },

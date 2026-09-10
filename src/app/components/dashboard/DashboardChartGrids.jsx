@@ -71,6 +71,48 @@ function FailedCodeTooltip({ active, payload }) {
   );
 }
 
+function ResponseCodeVolumeTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div
+      className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-xs shadow-md"
+      style={CHART_TOOLTIP_STYLE.contentStyle}
+    >
+      <p className="font-semibold text-foreground">
+        {row.code} — {row.description || "Unknown"}
+      </p>
+      <p className="mt-1 text-foreground">{formatCountNg(row.count)} transactions</p>
+    </div>
+  );
+}
+
+function formatTpsValue(value) {
+  const n = Number(value) || 0;
+  if (n >= 100) return n.toFixed(0);
+  if (n >= 10) return n.toFixed(1);
+  return n.toFixed(2);
+}
+
+function TpsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div
+      className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-xs shadow-md"
+      style={CHART_TOOLTIP_STYLE.contentStyle}
+    >
+      <p className="font-semibold text-foreground">{label || row.date}</p>
+      <p className="mt-1 text-foreground">{formatTpsValue(row.tps)} TPS</p>
+      {row.volume != null ? (
+        <p className="text-muted-foreground">{formatCountNg(row.volume)} txns in bucket</p>
+      ) : null}
+    </div>
+  );
+}
+
 function InstitutionTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
@@ -112,6 +154,17 @@ function prepareFailedCodes(rows) {
     ...row,
     codeLabel: row.description ? `${row.code} · ${truncateLabel(row.description, 14)}` : row.code,
   }));
+}
+
+function prepareResponseCodeVolumes(rows) {
+  return (rows || []).slice(0, 12).map((row) => {
+    const description = row.description || "Unknown";
+    return {
+      ...row,
+      description,
+      category: `${row.code} — ${truncateLabel(description, 28)}`,
+    };
+  });
 }
 
 function prepareInstitutionRows(rows, limit) {
@@ -288,6 +341,8 @@ export function ClassicChartGrid(props) {
     successVolumes7d,
     averageTime,
     failedTop5Codes,
+    responseCodeVolumes = [],
+    tpsSeries = [],
     transactionsByChannel,
     failureByInstitution,
     chartColors,
@@ -306,6 +361,8 @@ export function ClassicChartGrid(props) {
     : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4";
 
   const failedRows = prepareFailedCodes(failedTop5Codes);
+  const responseCodeRows = prepareResponseCodeVolumes(responseCodeVolumes);
+  const responseCodeChartHeight = Math.max(chartHeight, Math.min(320, 28 + responseCodeRows.length * 26));
   const instRowsAll = prepareInstitutionRows(failureByInstitution, 10);
   const instRows = instRowsAll;
   const instTotalCount = (failureByInstitution || []).length;
@@ -329,6 +386,109 @@ export function ClassicChartGrid(props) {
   const wrapChart = (content) => (isAnalytics ? <DashboardChartMotion>{content}</DashboardChartMotion> : content);
 
   const meta = chartCardMeta;
+
+  const tpsCard = (
+    <StatisticsCard
+      title="Transactions per second"
+      to="/dashboard/statistics/tps"
+      filterQuery={filterQuery}
+      variant={cardVariant}
+      subtitle={meta.tps?.subtitle}
+      kpi={meta.tps?.kpi}
+    >
+      {tpsSeries.length === 0 ? (
+        <ChartEmptyState message="No TPS data for this period" />
+      ) : (
+        wrapChart(
+          <ResponsiveContainer width="100%" height={isAnalytics ? chartHeight : heroChartHeight}>
+            <ComposedChart data={tpsSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <VolumeValueGradient id="tpsFill" color={chartColors[1] ?? "#CEF445"} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+                minTickGap={24}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                width={40}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickFormatter={formatTpsValue}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<TpsTooltip />} cursor={{ stroke: "#94a3b8", strokeDasharray: "4 4", strokeWidth: 1 }} />
+              <Area
+                type="monotone"
+                dataKey="tps"
+                name="TPS"
+                stroke={chartColors[0] ?? "#00411A"}
+                strokeWidth={2.25}
+                fill="url(#tpsFill)"
+                fillOpacity={1}
+                baseValue={0}
+                dot={false}
+                activeDot={{ r: 4, stroke: "#fff", strokeWidth: 2, fill: chartColors[0] ?? "#00411A" }}
+                {...CHART_ANIMATION}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>,
+        )
+      )}
+    </StatisticsCard>
+  );
+
+  const responseCodesCard = (
+    <StatisticsCard
+      title="Response codes"
+      to="/dashboard/statistics/response-codes"
+      filterQuery={filterQuery}
+      variant={cardVariant}
+      subtitle={meta.responseCodes?.subtitle}
+      kpi={meta.responseCodes?.kpi}
+    >
+      {responseCodeRows.length === 0 ? (
+        <ChartEmptyState message="No response-code data for this period" />
+      ) : (
+        wrapChart(
+          <ResponsiveContainer width="100%" height={responseCodeChartHeight}>
+            <BarChart
+              layout="vertical"
+              data={responseCodeRows}
+              margin={{ top: 5, right: 12, left: 4, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickFormatter={formatCompactCount}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="category"
+                width={128}
+                tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<ResponseCodeVolumeTooltip />} />
+              <Bar
+                dataKey="count"
+                fill={chartColors[0] ?? "#00411A"}
+                radius={[0, 4, 4, 0]}
+                maxBarSize={BAR_MAX}
+                {...CHART_ANIMATION}
+              />
+            </BarChart>
+          </ResponsiveContainer>,
+        )
+      )}
+    </StatisticsCard>
+  );
 
   if (isAnalytics) {
     const analyticsCards = (
@@ -473,6 +633,8 @@ export function ClassicChartGrid(props) {
           </StatisticsCard>,
         )}
 
+        {wrapCard("tps", undefined, tpsCard)}
+
         {wrapCard(
           "failed-codes",
           undefined,
@@ -512,6 +674,8 @@ export function ClassicChartGrid(props) {
             )}
           </StatisticsCard>,
         )}
+
+        {wrapCard("response-codes", undefined, responseCodesCard)}
 
         {wrapCard(
           "by-channel",
@@ -698,6 +862,8 @@ export function ClassicChartGrid(props) {
         </StatisticsCard>,
       )}
 
+      {wrapCard("tps", undefined, tpsCard)}
+
       {wrapCard(
         "failed-codes",
         undefined,
@@ -730,6 +896,8 @@ export function ClassicChartGrid(props) {
           )}
         </StatisticsCard>,
       )}
+
+      {wrapCard("response-codes", undefined, responseCodesCard)}
 
       {wrapCard(
         "by-channel-bar",
