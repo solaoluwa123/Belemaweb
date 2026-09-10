@@ -200,7 +200,7 @@ export default function CommissionsPage() {
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="Paid commission records from settlement runs."
+      subtitle="Use Generate for any date range (including past weeks). Weekly auto-run is Friday 11:30pm Lagos."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading || isGenerating}

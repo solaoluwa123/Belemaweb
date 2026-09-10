@@ -78,9 +78,12 @@ function formatSqlDateTime(d) {
 }
 
 /**
- * `GetCommissions` filters with `generation_date >= startDate AND generation_date < endDate`,
- * so the end bound is exclusive — send midnight of the day after the selected end date,
- * otherwise the final day of the range is dropped.
+ * `GetCommissions` accepts a half-open window `[startDate, endDate)`.
+ * Rows match if `generation_date` falls in that window **or** the settlement
+ * `start_date`/`end_date` overlaps it — so Generate for a past txn week still lists after Refresh.
+ *
+ * End bound is exclusive — send midnight of the day after the selected end date,
+ * otherwise the final day of the range is dropped for generation_date matches.
  */
 export function buildCommissionDateParams(dateRange) {
   const { start, end } = normalizeDashboardDateRange(dateRange);
