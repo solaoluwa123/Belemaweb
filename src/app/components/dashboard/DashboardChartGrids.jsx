@@ -129,6 +129,30 @@ function InstitutionTooltip({ active, payload }) {
   );
 }
 
+function DestinationSuccessTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
+  return (
+    <div
+      className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-xs shadow-md"
+      style={CHART_TOOLTIP_STYLE.contentStyle}
+    >
+      <p className="font-semibold text-foreground">{row.fullName || row.name}</p>
+      {row.institutionCode ? <p className="text-muted-foreground">Code: {row.institutionCode}</p> : null}
+      <p className="mt-1 text-foreground">
+        Success rate: {Number(row.successRate || 0).toFixed(1)}%
+      </p>
+      <p className="text-muted-foreground">
+        {formatCountNg(row.successCount)} / {formatCountNg(row.totalCount)} approved (00)
+      </p>
+      {row.sharePercent != null ? (
+        <p className="text-muted-foreground">Share of volume: {Number(row.sharePercent).toFixed(1)}%</p>
+      ) : null}
+    </div>
+  );
+}
+
 function HeroTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const vol = payload.find((p) => p.dataKey === "transactions" || p.dataKey === "volume");
@@ -178,17 +202,31 @@ function prepareInstitutionRows(rows, limit) {
   return prepareInstitutionTopRows(rows, limit);
 }
 
+function prepareDestinationSuccessRows(rows, limit = 10) {
+  const prepared = (rows || []).map((row) => ({
+    ...row,
+    fullName: row.name,
+    name: truncateLabel(row.name, 22),
+    successRate: Number(row.successRate) || 0,
+    shareLabel: `${Number(row.sharePercent || 0).toFixed(1)}%`,
+  }));
+  if (limit == null) return prepared;
+  return prepared.slice(0, limit);
+}
+
 export function SecondaryChartsGrid({
   lockInstitution = false,
   failedTop5Codes = [],
   transactionsByChannel = [],
   channelPie = [],
   failureByInstitution = [],
+  destinationSuccessRates = [],
   chartColors = [],
   filterQuery = "",
 }) {
   const failedRows = prepareFailedCodes(failedTop5Codes);
   const instRows = prepareInstitutionRows(failureByInstitution);
+  const destRateRows = prepareDestinationSuccessRows(destinationSuccessRates, 8);
   const channelRows = prepareChannelRowsWithShare(transactionsByChannel);
 
   const wrap = (key, className, card) => (
@@ -328,6 +366,49 @@ export function SecondaryChartsGrid({
             </StatisticsCard>,
           )
         : null}
+
+      {wrap(
+        "destination-success-rates",
+        "md:col-span-2 lg:col-span-4",
+        <StatisticsCard
+          title="Success rate by destination bank"
+          to="/dashboard/statistics/destination-success-rates"
+          filterQuery={filterQuery}
+          variant="bento"
+        >
+          {destRateRows.length === 0 ? (
+            <ChartEmptyState message="No destination success-rate data in this period" />
+          ) : (
+            wrapChart(
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={destRateRows} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                    interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis
+                    width={42}
+                    domain={[0, 100]}
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <Tooltip content={<DestinationSuccessTooltip />} />
+                  <Bar dataKey="successRate" name="Success rate" radius={[4, 4, 0, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
+                    {destRateRows.map((entry) => (
+                      <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[1] || chartColors[0]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>,
+            )
+          )}
+        </StatisticsCard>,
+      )}
     </DashboardStagger>
   );
 }
@@ -345,6 +426,7 @@ export function ClassicChartGrid(props) {
     tpsSeries = [],
     transactionsByChannel,
     failureByInstitution,
+    destinationSuccessRates = [],
     chartColors,
     chartCardMeta = {},
     filterQuery = "",
@@ -366,11 +448,20 @@ export function ClassicChartGrid(props) {
   const instRowsAll = prepareInstitutionRows(failureByInstitution, 10);
   const instRows = instRowsAll;
   const instTotalCount = (failureByInstitution || []).length;
+  const destRateRows = prepareDestinationSuccessRows(destinationSuccessRates, 10);
+  const destRateTotalCount = (destinationSuccessRates || []).length;
   const channelRows = prepareChannelRowsWithShare(transactionsByChannel);
   const institutionViewAllPath = appendDashboardFiltersToPath("/dashboard/statistics/by-institution", {
     dateRange,
     institution: institutionFilter,
   });
+  const destinationRatesViewAllPath = appendDashboardFiltersToPath(
+    "/dashboard/statistics/destination-success-rates",
+    {
+      dateRange,
+      institution: institutionFilter,
+    },
+  );
 
   const heroData = alignPriorTrendByIndex(chartData7d, priorChartData7d);
 
@@ -781,6 +872,67 @@ export function ClassicChartGrid(props) {
               </StatisticsCard>,
             )
           : null}
+
+        {wrapCard(
+          "destination-success-rates",
+          "md:col-span-2 lg:col-span-3",
+          <StatisticsCard
+            title="Success rate by destination bank"
+            to="/dashboard/statistics/destination-success-rates"
+            filterQuery={filterQuery}
+            variant={cardVariant}
+            subtitle={meta.destinationRates?.subtitle}
+            kpi={meta.destinationRates?.kpi}
+          >
+            {destRateRows.length === 0 ? (
+              <ChartEmptyState message="No destination success-rate data in this period" />
+            ) : (
+              <div className="space-y-2">
+                {wrapChart(
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={destRateRows} margin={{ top: 16, right: 5, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={70}
+                      />
+                      <YAxis
+                        width={42}
+                        domain={[0, 100]}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        tickFormatter={(v) => `${v}%`}
+                      />
+                      <Tooltip content={<DestinationSuccessTooltip />} />
+                      <Bar dataKey="successRate" name="Success rate" radius={[4, 4, 0, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
+                        {destRateRows.map((entry) => (
+                          <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[1] || chartColors[0]} />
+                        ))}
+                        <LabelList
+                          dataKey="shareLabel"
+                          position="top"
+                          style={{ fontSize: 9, fill: "var(--muted-foreground, #64748b)" }}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>,
+                )}
+                {destRateTotalCount > 10 ? (
+                  <Link
+                    to={destinationRatesViewAllPath}
+                    className="inline-flex text-xs font-medium text-[#00411A] hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    View all {destRateTotalCount} destinations →
+                  </Link>
+                ) : null}
+              </div>
+            )}
+          </StatisticsCard>,
+        )}
       </>
     );
 
@@ -978,6 +1130,54 @@ export function ClassicChartGrid(props) {
             </StatisticsCard>,
           )
         : null}
+
+      {wrapCard(
+        "destination-success-rates",
+        "sm:col-span-2 lg:col-span-4",
+        <StatisticsCard
+          title="Success rate by destination bank"
+          to="/dashboard/statistics/destination-success-rates"
+          filterQuery={filterQuery}
+          variant={cardVariant}
+        >
+          {destRateRows.length === 0 ? (
+            <ChartEmptyState />
+          ) : (
+            wrapChart(
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={destRateRows} margin={{ top: 16, right: 5, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                    interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis
+                    width={42}
+                    domain={[0, 100]}
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <Tooltip content={<DestinationSuccessTooltip />} />
+                  <Bar dataKey="successRate" name="Success rate" radius={[4, 4, 0, 0]} maxBarSize={BAR_MAX} {...CHART_ANIMATION}>
+                    {destRateRows.map((entry) => (
+                      <Cell key={entry.name || entry.institutionCode} fill={entry.fill || chartColors[1] || chartColors[0]} />
+                    ))}
+                    <LabelList
+                      dataKey="shareLabel"
+                      position="top"
+                      style={{ fontSize: 9, fill: "var(--muted-foreground, #64748b)" }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>,
+            )
+          )}
+        </StatisticsCard>,
+      )}
     </>
   );
 

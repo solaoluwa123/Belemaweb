@@ -20,6 +20,7 @@ const EMPTY_CHARTS = {
   tpsMeta: { peakTps: 0, avgTps: 0, bucketSeconds: 0 },
   transactionsByChannel: [],
   failureByInstitution: [],
+  destinationSuccessRates: [],
   averageTime: { ne: 0, ft: 0 },
   successFailurePie: [],
   channelPie: [],
@@ -737,6 +738,63 @@ function normalizeInstitutionRows(payload) {
     .filter((row) => row.name || row.institutionCode);
 }
 
+/** `/destination-success-rates` — per destination bank: total volume, success (00) volume, rate %. */
+function normalizeDestinationSuccessRateRows(payload) {
+  const tnx = getTnxModelFromPayload(payload);
+  const summaryRows = tnx ? asArray(tnx.summary) : [];
+  const sourceRows = summaryRows.length ? summaryRows : asArray(payload);
+  const rows = sourceRows
+    .map((row) => {
+      const source = row && typeof row === "object" ? row : {};
+      const institutionCode = pickString(source, [
+        "destination_institution_code",
+        "destinationInstitutionCode",
+        "institution_code",
+        "institutionCode",
+        "code",
+      ]);
+      const rawName = pickString(source, [
+        "institution_name",
+        "institutionName",
+        "shortName",
+        "label",
+        "name",
+      ]);
+      const name =
+        rawName && institutionCode && rawName === institutionCode
+          ? institutionCode
+          : rawName || institutionCode;
+      const totalCount = pickNumber(source, ["volume", "total", "count", "total_volume", "totalVolume"]);
+      const successCount = pickNumber(source, [
+        "success_volume",
+        "successVolume",
+        "success_count",
+        "successCount",
+      ]);
+      let successRate = pickNumber(source, ["success_rate", "successRate", "rate"]);
+      if (!(successRate > 0) && totalCount > 0) {
+        successRate = (successCount / totalCount) * 100;
+      }
+      return {
+        name,
+        institutionCode,
+        totalCount,
+        successCount,
+        successRate: Number.isFinite(successRate) ? Math.round(successRate * 100) / 100 : 0,
+        // Used by shared bar helpers that expect `count`.
+        count: totalCount,
+        fill: pickString(source, ["fill", "color"]) || undefined,
+      };
+    })
+    .filter((row) => (row.name || row.institutionCode) && row.totalCount > 0);
+
+  const grandTotal = rows.reduce((sum, row) => sum + (Number(row.totalCount) || 0), 0);
+  return rows.map((row) => ({
+    ...row,
+    sharePercent: grandTotal > 0 ? Math.round(((row.totalCount / grandTotal) * 100) * 10) / 10 : 0,
+  }));
+}
+
 /** Backend `NetworkResponse` wraps charts in `tnxModel` (inflows/outflows/summary). */
 function getTnxModelFromPayload(payload) {
   const root = getRawResponseObject(payload);
@@ -1143,6 +1201,11 @@ function resolveDashboardContext({
       API_ENDPOINTS.dashboards.topFailingInstitutionsByInstitution,
       scope,
     ),
+    destinationSuccessRatesEndpoint: getScopedEndpoint(
+      API_ENDPOINTS.dashboards.destinationSuccessRates,
+      API_ENDPOINTS.dashboards.destinationSuccessRatesByInstitution,
+      scope,
+    ),
     averageTimeEndpoint: getScopedEndpoint(
       API_ENDPOINTS.dashboards.ftAverageTime,
       API_ENDPOINTS.dashboards.ftAverageTimeByInstitution,
@@ -1195,6 +1258,7 @@ function dashboardHasChartData(data) {
     (Array.isArray(data.tpsSeries) && data.tpsSeries.length > 0) ||
     (Array.isArray(data.transactionsByChannel) && data.transactionsByChannel.length > 0) ||
     (Array.isArray(data.failureByInstitution) && data.failureByInstitution.length > 0) ||
+    (Array.isArray(data.destinationSuccessRates) && data.destinationSuccessRates.length > 0) ||
     (Array.isArray(data.successFailurePie) && data.successFailurePie.length > 0) ||
     (Array.isArray(data.channelPie) && data.channelPie.length > 0) ||
     (Array.isArray(data.chartData7d) &&
@@ -1290,6 +1354,9 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
 
   const transactionsByChannel = normalizeChannelRows(channelsPayload);
   const failureByInstitution = scope ? [] : normalizeInstitutionRows(failingInstitutionsPayload);
+  const destinationSuccessRates = normalizeDestinationSuccessRateRows(
+    cache.destinationSuccessRatesPayload,
+  );
   const chartPayload = {
     chartData7d,
     responseCodes,
@@ -1300,6 +1367,7 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     tpsMeta,
     transactionsByChannel,
     failureByInstitution,
+    destinationSuccessRates,
     averageTime: summary.averageTime,
     successFailurePie: buildStatusSummaryPie(statusSummaryRows, summary),
     channelPie: buildChannelPieRows(transactionsByChannel),
@@ -1324,6 +1392,7 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     tpsMeta: showData ? tpsMeta : { peakTps: 0, avgTps: 0, bucketSeconds: 0 },
     transactionsByChannel: showData ? transactionsByChannel : [],
     failureByInstitution: showData ? failureByInstitution : [],
+    destinationSuccessRates: showData ? destinationSuccessRates : [],
     averageTime: showData ? summary.averageTime : { ne: 0, ft: 0 },
     successFailurePie: showData ? chartPayload.successFailurePie : [],
     channelPie: showData ? chartPayload.channelPie : [],
@@ -1381,6 +1450,7 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
     // Same start/end/isCurrent as other charts (page/limit ignored by this endpoint).
     fetchOrNull(ctx.successEndpoint, ctx.pagedDateParams),
     fetchOrNull(ctx.tpsEndpoint, ctx.pagedDateParams),
+    fetchOrNull(ctx.destinationSuccessRatesEndpoint, ctx.pagedDateParams),
   ];
   if (!ctx.scope) {
     chartRequests.push(fetchOrNull(ctx.failingInstitutionsEndpoint, ctx.pagedDateParams));
@@ -1393,8 +1463,9 @@ export async function fetchAccountsDashboardCharts(options = {}, metricsContext 
   ctx.cache.averageTimePayload = chartResults[3];
   ctx.cache.successPayload = chartResults[4];
   ctx.cache.tpsPayload = chartResults[5];
+  ctx.cache.destinationSuccessRatesPayload = chartResults[6];
   if (!ctx.scope) {
-    ctx.cache.failingInstitutionsPayload = chartResults[6];
+    ctx.cache.failingInstitutionsPayload = chartResults[7];
   }
 
   return buildChartsPayload(ctx, summary, statusSummaryRows);
@@ -1632,6 +1703,19 @@ export function buildChartCardMeta(statsData, resolvedRange, priorStats = null) 
         label: "Institutions",
         value: formatInsightCount((statsData?.failureByInstitution || []).length),
       },
+    },
+    destinationRates: {
+      subtitle: range,
+      kpi: (() => {
+        const rows = statsData?.destinationSuccessRates || [];
+        if (!rows.length) return { label: "Destinations", value: "—" };
+        const avg =
+          rows.reduce((s, r) => s + (Number(r.successRate) || 0), 0) / rows.length;
+        return {
+          label: `${rows.length} destinations`,
+          value: `${avg.toFixed(1)}% avg`,
+        };
+      })(),
     },
     successLine: {
       subtitle: range,

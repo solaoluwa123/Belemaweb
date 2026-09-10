@@ -64,6 +64,8 @@ export const API_ENDPOINTS = {
     transactionsTpsByInstitution: (code) => `/transactions-tps/institution/${code}`,
     topFailingInstitutions: '/top-failing-institutions',
     topFailingInstitutionsByInstitution: (code) => `/top-failing-institutions/institution/${code}`,
+    destinationSuccessRates: '/destination-success-rates',
+    destinationSuccessRatesByInstitution: (code) => `/destination-success-rates/institution/${code}`,
     ftAverageTime: '/ft-average-time',
     ftAverageTimeByInstitution: (code) => `/ft-average-time/institution/${code}`,
     transactionsTrendByInstitution: (code) => `/transactions-trend/${code}`,

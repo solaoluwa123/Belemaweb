@@ -136,6 +136,7 @@ export function StatisticsSection({
     tpsSeries,
     transactionsByChannel,
     failureByInstitution,
+    destinationSuccessRates,
     averageTime,
     successFailurePie,
     channelPie,
@@ -173,6 +174,7 @@ export function StatisticsSection({
       tpsSeries?.length > 0 ||
       transactionsByChannel.length > 0 ||
       failureByInstitution.length > 0 ||
+      (destinationSuccessRates?.length > 0) ||
       successFailurePie?.length > 0 ||
       channelPie?.length > 0);
 
@@ -299,6 +301,7 @@ export function StatisticsSection({
           transactionsByChannel={transactionsByChannel}
           channelPie={channelPie}
           failureByInstitution={failureByInstitution}
+          destinationSuccessRates={destinationSuccessRates}
           chartColors={chartColors}
           chartCardMeta={chartCardMeta}
           filterQuery={filterQuery}

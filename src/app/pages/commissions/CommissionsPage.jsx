@@ -36,33 +36,59 @@ const EMPTY_SUMMARY = {
 const COMMISSION_TABLE_COLUMNS = [
   {
     header: "Institution",
+    headerTooltip: "Source bank that originated the transfers",
     accessor: (r) => r.institutionName || r.institutionCode || "Unknown",
   },
-  { header: "Total count", accessor: (r) => formatCountNg(r.totalCount) },
+  {
+    header: "Total count",
+    headerTooltip: "Fully approved source transactions in the period (response code 00 only)",
+    accessor: (r) => formatCountNg(r.totalCount),
+  },
   {
     header: "Start date",
+    headerTooltip: "Start of the settlement window used for this commission row",
     accessor: (r) => formatBackendDateTime(r.startDate, { fallback: "—" }),
   },
   {
     header: "End date",
+    headerTooltip: "End of the settlement window used for this commission row",
     accessor: (r) => formatBackendDateTime(r.endDate, { fallback: "—" }),
   },
-  { header: "Charge amount", accessor: (r) => formatNairaFull(r.chargeAmount) },
-  { header: "Total commission", accessor: (r) => formatNairaFull(r.totalCommission) },
-  { header: "Total VAT", accessor: (r) => formatNairaFull(r.totalVat) },
+  {
+    header: "Charge amount",
+    headerTooltip: "Per-transaction charge from tbl_charges for this institution",
+    accessor: (r) => formatNairaFull(r.chargeAmount),
+  },
+  {
+    header: "Total commission",
+    headerTooltip: "Commission + total VAT",
+    accessor: (r) => formatNairaFull(r.totalCommission),
+  },
+  {
+    header: "Total VAT",
+    headerTooltip: "(VAT% / 100) × total count",
+    accessor: (r) => formatNairaFull(r.totalVat),
+  },
   {
     header: "Income account credited",
+    headerTooltip: "Whether the income account has been credited for this row",
     accessor: (r) => (r.incomeAccountCredited ? "Yes" : "No"),
   },
   {
     header: "Generation date",
+    headerTooltip: "When this commission row was generated",
     accessor: (r) => formatBackendDateTime(r.generationDate, { fallback: "—" }),
   },
   {
     header: "Paid date",
+    headerTooltip: "When commission payment was recorded, if any",
     accessor: (r) => formatBackendDateTime(r.paidDate, { fallback: "—" }),
   },
-  { header: "Commission", accessor: (r) => formatNairaFull(r.commission) },
+  {
+    header: "Commission",
+    headerTooltip: "Charge amount × total count",
+    accessor: (r) => formatNairaFull(r.commission),
+  },
 ];
 
 export default function CommissionsPage() {
@@ -127,10 +153,11 @@ export default function CommissionsPage() {
         requireInstitutionScope: isVendor,
       });
       setSummary(data);
+      const counted = data.sourceInstitutionsCounted ?? data.totalRecords;
       toast.success(
         data.totalRecords > 0
-          ? `Generated ${data.totalRecords} commission record${data.totalRecords === 1 ? "" : "s"}.`
-          : "No successful transactions found for this period.",
+          ? `Generated ${data.totalRecords} commission record${data.totalRecords === 1 ? "" : "s"} from ${counted} source institution${counted === 1 ? "" : "s"}.`
+          : "No fully approved (00) source transactions found for this period.",
       );
     } catch (error) {
       const message = error instanceof APIError ? error.message : "Unable to generate commissions.";

@@ -36,6 +36,7 @@ import ResponseCodesPage from "./pages/dashboards/statistics/ResponseCodesPage";
 import TpsPage from "./pages/dashboards/statistics/TpsPage";
 import ByChannelPage from "./pages/dashboards/statistics/ByChannelPage";
 import ByInstitutionPage from "./pages/dashboards/statistics/ByInstitutionPage";
+import DestinationSuccessRatesPage from "./pages/dashboards/statistics/DestinationSuccessRatesPage";
 import InstitutionDetailPage from "./pages/dashboards/statistics/InstitutionDetailPage";
 
 import CommissionsPage from "./pages/commissions/CommissionsPage";
@@ -133,6 +134,7 @@ export const router = createBrowserRouter(
       { path: "dashboard/statistics/tps", Component: TpsPage },
       { path: "dashboard/statistics/by-channel", Component: ByChannelPage },
       { path: "dashboard/statistics/by-institution", Component: ByInstitutionPage },
+      { path: "dashboard/statistics/destination-success-rates", Component: DestinationSuccessRatesPage },
       { path: "dashboard/statistics/institution/:institutionName", Component: InstitutionDetailPage },
 
       { path: "commissions", Component: CommissionsPage },

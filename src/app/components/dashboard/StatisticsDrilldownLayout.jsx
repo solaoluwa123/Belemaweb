@@ -14,6 +14,7 @@ import {
 } from "../../components/ui/table";
 import { ArrowLeft, Download, ExternalLink, Loader2, RefreshCcw } from "lucide-react";
 import { cn } from "../ui/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { formatDashboardRangeLabel } from "../../services/dashboards";
 import { TRANSGATE_BANKS } from "../../data/mockData";
 import { buildTransactionListLink } from "../../utils/dashboardFilterParams";
@@ -154,7 +155,22 @@ export function StatisticsDrilldownLayout({
                     <TableHeader>
                       <TableRow>
                         {tableColumns.map((col) => (
-                          <TableHead key={col.header}>{col.header}</TableHead>
+                          <TableHead key={col.header}>
+                            {col.headerTooltip ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help border-b border-dotted border-muted-foreground/50">
+                                    {col.header}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  {col.headerTooltip}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              col.header
+                            )}
+                          </TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>

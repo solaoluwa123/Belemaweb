@@ -55,7 +55,7 @@ function commissionRowsFromPayload(payload) {
   return [];
 }
 
-/** `NetworkResponse.meta` arrives as a JSON string: `{"totalValue": n, "totalRecords": n}`. */
+/** `NetworkResponse.meta` arrives as a JSON string (totals + generate extras). */
 function metaFromPayload(payload) {
   const root = typeof payload === "string" ? safeJsonParse(payload) : payload;
   if (!root || typeof root !== "object" || Array.isArray(root)) return null;
@@ -64,6 +64,8 @@ function metaFromPayload(payload) {
   return {
     totalRecords: toNumber(meta.totalRecords ?? meta.total),
     totalValue: toNumber(meta.totalValue ?? meta.totalAmount),
+    sourceInstitutionsCounted: toNumber(meta.sourceInstitutionsCounted),
+    rowsInserted: toNumber(meta.rowsInserted),
   };
 }
 
@@ -200,5 +202,7 @@ export async function generateCommissions({
     totalCommission: meta?.totalValue || summedCommission,
     totalVat: rows.reduce((sum, row) => sum + row.totalVat, 0),
     totalChargeAmount: rows.reduce((sum, row) => sum + row.chargeAmount, 0),
+    sourceInstitutionsCounted: meta?.sourceInstitutionsCounted ?? rows.length,
+    rowsInserted: meta?.rowsInserted ?? rows.length,
   };
 }
