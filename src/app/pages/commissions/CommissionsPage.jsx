@@ -60,9 +60,9 @@ const COMMISSION_TABLE_COLUMNS = [
     accessor: (r) => formatNairaFull(r.chargeAmount),
   },
   {
-    header: "Total commission",
-    headerTooltip: "Commission + total VAT",
-    accessor: (r) => formatNairaFull(r.totalCommission),
+    header: "Commission",
+    headerTooltip: "Charge amount × total count",
+    accessor: (r) => formatNairaFull(r.commission),
   },
   {
     header: "Total VAT",
@@ -70,24 +70,14 @@ const COMMISSION_TABLE_COLUMNS = [
     accessor: (r) => formatNairaFull(r.totalVat),
   },
   {
-    header: "Income account credited",
-    headerTooltip: "Whether the income account has been credited for this row",
-    accessor: (r) => (r.incomeAccountCredited ? "Yes" : "No"),
-  },
-  {
     header: "Generation date",
     headerTooltip: "When this commission row was generated",
     accessor: (r) => formatBackendDateTime(r.generationDate, { fallback: "—" }),
   },
   {
-    header: "Paid date",
-    headerTooltip: "When commission payment was recorded, if any",
-    accessor: (r) => formatBackendDateTime(r.paidDate, { fallback: "—" }),
-  },
-  {
-    header: "Commission",
-    headerTooltip: "Charge amount × total count",
-    accessor: (r) => formatNairaFull(r.commission),
+    header: "Total commission",
+    headerTooltip: "Commission + total VAT",
+    accessor: (r) => formatNairaFull(r.totalCommission),
   },
 ];
 
