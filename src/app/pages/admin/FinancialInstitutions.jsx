@@ -47,6 +47,7 @@ const EMPTY_FORM = {
   businessName: "",
   shortName: "",
   businessAddress: "",
+  email: "",
   portNumber: "",
   businessType: "",
   chargeAmount: "",
@@ -78,6 +79,12 @@ const EMPTY_FORM = {
   color: "",
 };
 
+function isValidInstitutionEmail(value) {
+  const email = String(value || "").trim();
+  if (!email) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function typeIdOf(typeRow) {
   if (typeRow == null || typeof typeRow !== "object") return "";
   const id = typeRow.id ?? typeRow.typeId;
@@ -102,6 +109,9 @@ function validateInstitutionForm(form, { requireSecrets, isCreate, requireHashKe
   if (!form.shortName.trim()) return "Short name is required.";
   if (!form.businessType) return "Institution type is required.";
   if (!form.businessAddress.trim()) return "Business address is required.";
+  const email = String(form.email || "").trim();
+  if (!email) return "Email is required.";
+  if (!isValidInstitutionEmail(email)) return "Enter a valid email address.";
   if (!isFiniteNumber(form.portNumber)) return "Port number is required.";
   if (!form.publickeylocation.trim()) return "Public key location is required.";
   if (!isFiniteNumber(form.chargeAmount)) return "Charge amount is required.";
@@ -142,6 +152,7 @@ function formToApiPayload(form, extras = {}) {
     name: form.businessName.trim(),
     shortName: form.shortName.trim(),
     business_address: form.businessAddress.trim(),
+    email: String(form.email || "").trim().toLowerCase(),
     port_number: Number(form.portNumber),
     businessType: Number(form.businessType),
     charge_amount: Number(form.chargeAmount),
@@ -268,6 +279,17 @@ function InstitutionFormFields({
           placeholder="Address"
         />
       </div>
+      <div className="sm:col-span-2 space-y-1.5">
+        <Label htmlFor={`${idPrefix}-email`}>Email *</Label>
+        <Input
+          id={`${idPrefix}-email`}
+          type="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+          placeholder="institution@example.com"
+        />
+      </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-port`}>Port Number *</Label>
         <Input
@@ -340,7 +362,7 @@ function InstitutionFormFields({
               className="shrink-0"
               onClick={() => setForm((p) => ({ ...p, hashKey: generateInstitutionHashKey() }))}
             >
-              Regenerate
+              {String(form.hashKey || "").trim() ? "Regenerate" : "Generate"}
             </Button>
           </div>
         </div>
@@ -654,12 +676,13 @@ export default function FinancialInstitutions() {
       businessName: row.businessName ?? "",
       shortName: row.shortName ?? "",
       businessAddress: row.businessAddress === "-" ? "" : row.businessAddress ?? "",
+      email: String(raw.email ?? raw.email_address ?? "").trim(),
       portNumber,
       businessType: raw.businessType != null && raw.businessType !== "" ? String(raw.businessType) : "",
       chargeAmount: raw.charge_amount ?? raw.chargeAmount ?? "",
       vat: raw.vat ?? "",
       cbnBankAccount: raw.cbn_bank_account ?? raw.cbnBankAccount ?? "",
-      hashKey: existingHashKey || generateInstitutionHashKey(),
+      hashKey: existingHashKey,
       publickeylocation: raw.publickeylocation ?? "",
       isProcessTSQ: Number(raw.isProcessTSQ) === 1,
       isSettlementBank: Number(raw.issettlementbank ?? raw.isSettlementBank) === 1,
@@ -803,7 +826,7 @@ export default function FinancialInstitutions() {
           <Button
             className="gap-2"
             onClick={() => {
-              setForm({ ...EMPTY_FORM, hashKey: generateInstitutionHashKey() });
+              setForm({ ...EMPTY_FORM });
               setFormError("");
               setOpen(true);
             }}

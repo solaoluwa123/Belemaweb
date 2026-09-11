@@ -362,6 +362,9 @@ function buildInstitutionWritePayload(payload, requestedBy, actionType) {
     ),
     password: toStringOr(p.password ?? raw.password),
     hashKey: toStringOr(p.hashKey ?? raw.hashKey ?? raw.hashkey),
+    email: toStringOr(p.email ?? p.email_address ?? raw.email ?? raw.email_address)
+      .trim()
+      .toLowerCase(),
     serverIP: toStringOr(p.serverIP ?? raw.serverIP, "localhost"),
     url: toStringOr(p.url ?? raw.url),
     urlTSQ: toStringOr(p.urlTSQ ?? raw.urlTSQ),
