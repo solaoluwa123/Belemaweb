@@ -79,7 +79,11 @@ function mergeFeedRows(existing, incoming, { prepend = false } = {}) {
   return deduped.slice(0, MAX_ROWS);
 }
 
-export function LiveTransactionFeed({ institutionCode: institutionCodeProp = null, showInstitutionFilter = true }) {
+export function LiveTransactionFeed({
+  institutionCode: institutionCodeProp = null,
+  showInstitutionFilter = true,
+  compact = false,
+}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userRoleId = user?.roleId;
@@ -258,25 +262,42 @@ export function LiveTransactionFeed({ institutionCode: institutionCodeProp = nul
   }, [effectiveInstitution, isVendor, userInstitutionCode, user?.institutionName]);
 
   return (
-    <div className="space-y-6">
+    <div className={compact ? "space-y-4" : "space-y-6"}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Live Transaction Monitoring
-            </h1>
-            {!isPaused && !errorMessage ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-2.5 py-1 text-xs font-medium text-[#00411A]">
-                <Radio className={`h-3 w-3 ${streamConnected && !usePollingFallback ? "animate-pulse" : ""}`} aria-hidden />
-                {usePollingFallback ? "Polling" : "Live stream"}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Transactions as they arrive in the switch
-            {usePollingFallback ? ` — polling every ${LIVE_FEED_POLL_MS / 1000}s (stream unavailable)` : " — pushed from server"}
-            {isPaused ? " (paused)" : ""}.
-          </p>
+          {compact ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {!isPaused && !errorMessage ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-2.5 py-1 text-xs font-medium text-[#00411A]">
+                  <Radio className={`h-3 w-3 ${streamConnected && !usePollingFallback ? "animate-pulse" : ""}`} aria-hidden />
+                  {usePollingFallback ? "Polling" : "Live stream"}
+                </span>
+              ) : null}
+              <p className="text-sm text-muted-foreground">
+                {institutionLabel}
+                {isPaused ? " (paused)" : ""}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  Live Transaction Monitoring
+                </h1>
+                {!isPaused && !errorMessage ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#CEF445]/40 bg-[#eef8c8] px-2.5 py-1 text-xs font-medium text-[#00411A]">
+                    <Radio className={`h-3 w-3 ${streamConnected && !usePollingFallback ? "animate-pulse" : ""}`} aria-hidden />
+                    {usePollingFallback ? "Polling" : "Live stream"}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Transactions as they arrive in the switch
+                {usePollingFallback ? ` — polling every ${LIVE_FEED_POLL_MS / 1000}s (stream unavailable)` : " — pushed from server"}
+                {isPaused ? " (paused)" : ""}.
+              </p>
+            </>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {lastUpdatedAt ? (

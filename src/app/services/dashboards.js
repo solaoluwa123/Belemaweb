@@ -1547,6 +1547,124 @@ export async function fetchStatusSummary({ institutionCode, dateRange, isCurrent
 
 export const LIVE_FEED_POLL_MS = 5000;
 
+/** Poll interval for institution inflow/outflow monitoring aggregates. */
+export const LIVE_MONITORING_POLL_MS = 15_000;
+
+/** Default lookback window for live monitoring (matches API meta windowMinutes). */
+export const LIVE_MONITORING_WINDOW_MINUTES = 90;
+
+export function liveMonitoringWindowRange(
+  now = new Date(),
+  windowMinutes = LIVE_MONITORING_WINDOW_MINUTES,
+) {
+  const end = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const start = new Date(end.getTime() - Math.max(1, Number(windowMinutes) || 90) * 60_000);
+  return { start, end };
+}
+
+function normalizeLiveMonitoringTimePoint(row) {
+  const source = row && typeof row === "object" ? row : {};
+  return {
+    time: pickString(source, ["time", "label", "bucket"]) || "",
+    inflow: pickNumber(source, ["inflow", "inflowSuccessRate", "inflowRate"]),
+    outflow: pickNumber(source, ["outflow", "outflowSuccessRate", "outflowRate"]),
+    inflowTotal: pickNumber(source, ["inflowTotal", "inflow_total"]),
+    inflowSuccessCount: pickNumber(source, ["inflowSuccessCount", "inflow_success_count"]),
+    outflowTotal: pickNumber(source, ["outflowTotal", "outflow_total"]),
+    outflowSuccessCount: pickNumber(source, ["outflowSuccessCount", "outflow_success_count"]),
+  };
+}
+
+function normalizeLiveMonitoringInstitution(row) {
+  const source = row && typeof row === "object" ? row : {};
+  const institutionCode = pickString(source, ["institutionCode", "institution_code", "code"]);
+  const inflowTotal = pickNumber(source, ["inflowTotal", "inflow_total"]);
+  const inflowSuccessCount = pickNumber(source, ["inflowSuccessCount", "inflow_success_count"]);
+  const outflowTotal = pickNumber(source, ["outflowTotal", "outflow_total"]);
+  const outflowSuccessCount = pickNumber(source, ["outflowSuccessCount", "outflow_success_count"]);
+  const inflowSuccess =
+    pickNumber(source, ["inflowSuccess", "inflow_success"]) ||
+    (inflowTotal > 0 ? Math.round((inflowSuccessCount * 100) / inflowTotal) : 0);
+  const outflowSuccess =
+    pickNumber(source, ["outflowSuccess", "outflow_success"]) ||
+    (outflowTotal > 0 ? Math.round((outflowSuccessCount * 100) / outflowTotal) : 0);
+  const inflowFailure =
+    pickNumber(source, ["inflowFailure", "inflow_failure"]) ||
+    (inflowTotal > 0 ? Math.max(0, 100 - inflowSuccess) : 0);
+  const outflowFailure =
+    pickNumber(source, ["outflowFailure", "outflow_failure"]) ||
+    (outflowTotal > 0 ? Math.max(0, 100 - outflowSuccess) : 0);
+
+  return {
+    name: pickString(source, ["name", "institutionName", "institution_name"]) || institutionCode,
+    institutionCode,
+    shortName: pickString(source, ["shortName", "short_name"]),
+    inflowSuccess,
+    inflowFailure,
+    outflowSuccess,
+    outflowFailure,
+    inflowTotal,
+    inflowSuccessCount,
+    outflowTotal,
+    outflowSuccessCount,
+    inflowFailCount: Math.max(0, inflowTotal - inflowSuccessCount),
+    outflowFailCount: Math.max(0, outflowTotal - outflowSuccessCount),
+    timeSeries: asArray(source.timeSeries ?? source.time_series).map(normalizeLiveMonitoringTimePoint),
+  };
+}
+
+/**
+ * Institution inflow/outflow volumes and success rates for the live monitoring window.
+ */
+export async function fetchLiveInstitutionMonitoring({
+  institutionCode,
+  startDate,
+  endDate,
+  bucketMinutes = 10,
+  limit = 8,
+  windowMinutes = LIVE_MONITORING_WINDOW_MINUTES,
+} = {}) {
+  const range =
+    startDate && endDate
+      ? {
+          start: startDate instanceof Date ? startDate : new Date(startDate),
+          end: endDate instanceof Date ? endDate : new Date(endDate),
+        }
+      : liveMonitoringWindowRange(new Date(), windowMinutes);
+
+  const params = {
+    startDate: formatDashboardRangeDateParam(range.start),
+    endDate: formatDashboardRangeDateParam(range.end),
+    bucketMinutes,
+    limit,
+  };
+  const scope = institutionCodeForDashboardScope(institutionCode);
+  if (scope) params.institution = scope;
+
+  const payload = await apiClient.get(API_ENDPOINTS.dashboards.liveMonitoring, params);
+  const root = getRawResponseObject(payload) ?? asObject(payload) ?? {};
+  const rows = asArray(root?.data ?? payload).map(normalizeLiveMonitoringInstitution);
+
+  let meta = {};
+  if (root?.meta != null) {
+    try {
+      meta = typeof root.meta === "string" ? JSON.parse(root.meta) : root.meta;
+    } catch {
+      meta = {};
+    }
+  }
+
+  return {
+    institutions: rows,
+    meta: {
+      windowMinutes: Number(meta.windowMinutes) || windowMinutes,
+      bucketMinutes: Number(meta.bucketMinutes) || bucketMinutes,
+      generatedAt: meta.generatedAt || null,
+    },
+    range,
+  };
+}
+
 export async function fetchLiveTransactionFeed(options = {}) {
   return fetchLiveFeedFromApi(options);
 }

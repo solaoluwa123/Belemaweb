@@ -1,5 +1,5 @@
 import { useAuth } from "../../context/AuthContext";
-import { LiveTransactionFeed } from "../../components/dashboard/LiveTransactionFeed";
+import { LiveInstitutionFlowMonitor } from "../../components/dashboard/LiveInstitutionFlowMonitor";
 
 export default function LiveMonitoring() {
   const { isThirdPartyVendor, user } = useAuth();
@@ -7,7 +7,7 @@ export default function LiveMonitoring() {
   const institutionCode = isThirdPartyVendor() ? user?.institutionCode || null : null;
 
   return (
-    <LiveTransactionFeed
+    <LiveInstitutionFlowMonitor
       institutionCode={institutionCode}
       showInstitutionFilter={!isThirdPartyVendor()}
     />
