@@ -102,9 +102,9 @@ const EMPTY_COMMISSION_SUMMARY = {
 
 /**
  * `GetCommissions` accepts a half-open window `[startDate, endDate)`.
- * Weekly settlement rows whose `start_date`/`end_date` overlap that window are
- * aggregated to one row per institution (sums of count/commission/VAT).
- * Filtering is by settlement window, not `generation_date`.
+ * Only weekly Sun–Fri batches fully contained in that window are included,
+ * then summed to one row per institution. Filtering uses settlement
+ * `start_date`/`end_date`, not `generation_date`.
  * Ranges shorter than 7 calendar days return no rows.
  *
  * End bound is exclusive — send midnight of the day after the selected end date.

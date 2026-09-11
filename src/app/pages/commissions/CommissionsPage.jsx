@@ -38,17 +38,17 @@ const COMMISSION_TABLE_COLUMNS = [
   },
   {
     header: "Total count",
-    headerTooltip: "Fully approved source transactions in the selected range (response code 00 only)",
+    headerTooltip: "Successful source txns across complete weekly batches inside the range (response code 00 only)",
     accessor: (r) => formatCountNg(r.totalCount),
   },
   {
     header: "Start date",
-    headerTooltip: "Earliest weekly settlement start included in this range",
+    headerTooltip: "Start of the earliest fully included Sun–Fri batch",
     accessor: (r) => formatBackendDateTime(r.startDate, { fallback: "—" }),
   },
   {
     header: "End date",
-    headerTooltip: "Latest weekly settlement end included in this range",
+    headerTooltip: "End of the latest fully included Sun–Fri batch",
     accessor: (r) => formatBackendDateTime(r.endDate, { fallback: "—" }),
   },
   {
@@ -58,22 +58,22 @@ const COMMISSION_TABLE_COLUMNS = [
   },
   {
     header: "Commission",
-    headerTooltip: "Sum of weekly commissions (charge × count) in the selected range",
+    headerTooltip: "Sum of commissions from complete weekly batches inside the range",
     accessor: (r) => formatNairaFull(r.commission),
   },
   {
     header: "Total VAT",
-    headerTooltip: "Sum of weekly VAT amounts in the selected range",
+    headerTooltip: "Sum of VAT from complete weekly batches inside the range",
     accessor: (r) => formatNairaFull(r.totalVat),
   },
   {
     header: "Generation date",
-    headerTooltip: "Most recent weekly generation time for this institution in the range",
+    headerTooltip: "Most recent generation time among included weekly batches",
     accessor: (r) => formatBackendDateTime(r.generationDate, { fallback: "—" }),
   },
   {
     header: "Total commission",
-    headerTooltip: "Sum of commission + VAT across weeks in the selected range",
+    headerTooltip: "Sum of commission + VAT from complete weekly batches inside the range",
     accessor: (r) => formatNairaFull(r.totalCommission),
   },
 ];
@@ -180,7 +180,7 @@ export default function CommissionsPage() {
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="Weekly Sun–Fri batches; select at least 7 days. One row per institution (weeks in range summed). Auto-generated Friday 11:30pm Lagos."
+      subtitle="Only complete Sun–Fri weekly batches inside the range are summed into one row per institution. Select at least 7 days. Auto-generated Friday 11:30pm Lagos."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading}
@@ -196,7 +196,7 @@ export default function CommissionsPage() {
           ? "Commissions become available once your account is linked to an institution."
           : rangeTooShort
             ? "Select at least 7 days to view commissions."
-            : "No commissions were generated for this period."
+            : "No complete weekly commission batches fall fully inside this date range."
       }
     />
   );
