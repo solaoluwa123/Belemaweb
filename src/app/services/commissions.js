@@ -79,11 +79,33 @@ function formatSqlDateTime(d) {
   )}:${pad(d.getSeconds())}`;
 }
 
+/** Inclusive calendar days in the picker range (Aug 10–Aug 16 → 7). */
+export function commissionRangeDaySpan(dateRange) {
+  const { start, end } = normalizeDashboardDateRange(dateRange);
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.floor((endUtc - startUtc) / 86400000) + 1;
+}
+
+/** Commissions are weekly batches — ranges shorter than 7 days show nothing. */
+export function isCommissionRangeTooShort(dateRange) {
+  return commissionRangeDaySpan(dateRange) < 7;
+}
+
+const EMPTY_COMMISSION_SUMMARY = {
+  rows: [],
+  totalRecords: 0,
+  totalCommission: 0,
+  totalVat: 0,
+  totalChargeAmount: 0,
+};
+
 /**
  * `GetCommissions` accepts a half-open window `[startDate, endDate)`.
  * Weekly settlement rows whose `start_date`/`end_date` overlap that window are
  * aggregated to one row per institution (sums of count/commission/VAT).
  * Filtering is by settlement window, not `generation_date`.
+ * Ranges shorter than 7 calendar days return no rows.
  *
  * End bound is exclusive — send midnight of the day after the selected end date.
  */
@@ -150,6 +172,10 @@ export async function fetchCommissions({
     throw new APIError("Institution code is required for this role.", 400, null);
   }
 
+  if (isCommissionRangeTooShort(dateRange)) {
+    return { ...EMPTY_COMMISSION_SUMMARY };
+  }
+
   const resolvedCode = code || ALL_INSTITUTIONS_CODE;
   const payload = await apiClient.get(
     API_ENDPOINTS.commissions.byInstitution(encodeURIComponent(resolvedCode)),
@@ -181,6 +207,14 @@ export async function generateCommissions({
   const code = String(institutionCode ?? "").trim();
   if (requireInstitutionScope && (!code || code === ALL_INSTITUTIONS_CODE)) {
     throw new APIError("Institution code is required for this role.", 400, null);
+  }
+
+  if (isCommissionRangeTooShort(dateRange)) {
+    return {
+      ...EMPTY_COMMISSION_SUMMARY,
+      sourceInstitutionsCounted: 0,
+      rowsInserted: 0,
+    };
   }
 
   const resolvedCode = code || ALL_INSTITUTIONS_CODE;

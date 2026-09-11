@@ -14,6 +14,7 @@ import { APIError } from "../../services/api";
 import {
   ALL_INSTITUTIONS_CODE,
   fetchCommissions,
+  isCommissionRangeTooShort,
 } from "../../services/commissions";
 import { defaultDashboardDateRange } from "../../services/dashboards";
 import { fetchInstitutionsList } from "../../services/financialInstitutions";
@@ -137,6 +138,8 @@ export default function CommissionsPage() {
     return institutions.find((item) => item.code === institutionCode)?.name ?? institutionCode;
   }, [isVendor, vendorLabel, institutionCode, institutions]);
 
+  const rangeTooShort = isCommissionRangeTooShort(dateRange);
+
   const controls = (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
       {isVendor ? (
@@ -177,7 +180,7 @@ export default function CommissionsPage() {
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="One row per institution for the selected range (weekly Sun–Fri settlements summed). Auto-generated Friday 11:30pm Lagos."
+      subtitle="Weekly Sun–Fri batches; select at least 7 days. One row per institution (weeks in range summed). Auto-generated Friday 11:30pm Lagos."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading}
@@ -191,7 +194,9 @@ export default function CommissionsPage() {
       emptyMessage={
         vendorUnlinked
           ? "Commissions become available once your account is linked to an institution."
-          : "No commissions were generated for this period."
+          : rangeTooShort
+            ? "Select at least 7 days to view commissions."
+            : "No commissions were generated for this period."
       }
     />
   );
