@@ -1,0 +1,31 @@
+name: Truncate commission paid (ops)
+
+# Manual only — empties ajiswitch_db.tbl_commission_paid via the API on the Belema host.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  truncate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BELEMA_SSH_KEY }}
+
+      - name: Truncate tbl_commission_paid
+        env:
+          BELEMA_HOST: ${{ secrets.BELEMA_SSH_HOST }}
+          BELEMA_USER: ${{ secrets.BELEMA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" '
+            set -e
+            echo "Calling truncate-commission-paid..."
+            curl -sS -m 120 -w "\nHTTP %{http_code}\n" \
+              -H "Accept: application/json" \
+              "http://127.0.0.1:8077/sparkpayapi/app/crons/truncate-commission-paid"
+          '
