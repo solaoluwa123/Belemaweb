@@ -1,0 +1,32 @@
+name: Backfill commissions (one-time)
+
+# Manual only — do not schedule. Hits GET /app/crons/backfill-commissions on the Belema host
+# after the API with that endpoint has been deployed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  invoke-backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BELEMA_SSH_KEY }}
+
+      - name: Run 4-month commission backfill
+        env:
+          BELEMA_HOST: ${{ secrets.BELEMA_SSH_HOST }}
+          BELEMA_USER: ${{ secrets.BELEMA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" '
+            set -e
+            echo "Calling backfill-commissions (may take several minutes)..."
+            curl -sS -m 1800 -w "\nHTTP %{http_code}\n" \
+              -H "Accept: application/json" \
+              "http://127.0.0.1:8077/sparkpayapi/app/crons/backfill-commissions"
+          '
