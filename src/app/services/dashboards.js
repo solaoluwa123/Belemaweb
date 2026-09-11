@@ -874,9 +874,9 @@ function normalizeAverageTime(payload) {
   const volume = pickNumber(first, ["volume", "count"]);
   const totalDur = pickNumber(first, ["totalduration", "totalDuration", "total_duration"]);
   if (volume > 0 && totalDur >= 0) {
-    let secs = totalDur / volume;
-    if (secs > 500) secs /= 1000;
-    return { ne: 0, ft: secs };
+    // txn_duration is milliseconds (same as transaction list ftDurationMs).
+    const ftSeconds = totalDur / volume / 1000;
+    return { ne: 0, ft: ftSeconds };
   }
   return { ne: flatNe, ft: flatFt };
 }
