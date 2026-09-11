@@ -37,17 +37,17 @@ const COMMISSION_TABLE_COLUMNS = [
   },
   {
     header: "Total count",
-    headerTooltip: "Fully approved source transactions in the period (response code 00 only)",
+    headerTooltip: "Fully approved source transactions in the selected range (response code 00 only)",
     accessor: (r) => formatCountNg(r.totalCount),
   },
   {
     header: "Start date",
-    headerTooltip: "Start of the settlement window used for this commission row",
+    headerTooltip: "Earliest weekly settlement start included in this range",
     accessor: (r) => formatBackendDateTime(r.startDate, { fallback: "—" }),
   },
   {
     header: "End date",
-    headerTooltip: "End of the settlement window used for this commission row",
+    headerTooltip: "Latest weekly settlement end included in this range",
     accessor: (r) => formatBackendDateTime(r.endDate, { fallback: "—" }),
   },
   {
@@ -57,22 +57,22 @@ const COMMISSION_TABLE_COLUMNS = [
   },
   {
     header: "Commission",
-    headerTooltip: "Charge amount × total count",
+    headerTooltip: "Sum of weekly commissions (charge × count) in the selected range",
     accessor: (r) => formatNairaFull(r.commission),
   },
   {
     header: "Total VAT",
-    headerTooltip: "(VAT% / 100) × total count",
+    headerTooltip: "Sum of weekly VAT amounts in the selected range",
     accessor: (r) => formatNairaFull(r.totalVat),
   },
   {
     header: "Generation date",
-    headerTooltip: "When this commission row was generated",
+    headerTooltip: "Most recent weekly generation time for this institution in the range",
     accessor: (r) => formatBackendDateTime(r.generationDate, { fallback: "—" }),
   },
   {
     header: "Total commission",
-    headerTooltip: "Commission + total VAT",
+    headerTooltip: "Sum of commission + VAT across weeks in the selected range",
     accessor: (r) => formatNairaFull(r.totalCommission),
   },
 ];
@@ -177,7 +177,7 @@ export default function CommissionsPage() {
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="View by institution and transaction settlement period (Sun–Fri). Auto-generated weekly Friday 11:30pm Lagos."
+      subtitle="One row per institution for the selected range (weekly Sun–Fri settlements summed). Auto-generated Friday 11:30pm Lagos."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading}

@@ -81,8 +81,9 @@ function formatSqlDateTime(d) {
 
 /**
  * `GetCommissions` accepts a half-open window `[startDate, endDate)`.
- * Rows match when their settlement `start_date`/`end_date` overlaps that window
- * (not `generation_date` — that is when the cron wrote the row).
+ * Weekly settlement rows whose `start_date`/`end_date` overlap that window are
+ * aggregated to one row per institution (sums of count/commission/VAT).
+ * Filtering is by settlement window, not `generation_date`.
  *
  * End bound is exclusive — send midnight of the day after the selected end date.
  */
