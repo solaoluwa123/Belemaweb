@@ -1249,18 +1249,39 @@ function sumStatusSummaryRows(rows) {
   return rows.reduce((sum, row) => sum + (Number(row?.value) || 0), 0);
 }
 
+function rowHasPositiveMetric(row, keys) {
+  if (!row || typeof row !== "object") return false;
+  return keys.some((key) => Number(row[key]) > 0);
+}
+
+/**
+ * True only when chart payloads contain real non-zero activity.
+ * Zero-filled buckets / placeholder rows must not count — otherwise the empty
+ * state flashes from metrics then disappears when charts resolve.
+ */
 function dashboardHasChartData(data) {
   if (!data || typeof data !== "object") return false;
   return (
-    (Array.isArray(data.successVolumes7d) && data.successVolumes7d.length > 0) ||
-    (Array.isArray(data.failedTop5Codes) && data.failedTop5Codes.length > 0) ||
-    (Array.isArray(data.responseCodeVolumes) && data.responseCodeVolumes.length > 0) ||
-    (Array.isArray(data.tpsSeries) && data.tpsSeries.length > 0) ||
-    (Array.isArray(data.transactionsByChannel) && data.transactionsByChannel.length > 0) ||
-    (Array.isArray(data.failureByInstitution) && data.failureByInstitution.length > 0) ||
-    (Array.isArray(data.destinationSuccessRates) && data.destinationSuccessRates.length > 0) ||
-    (Array.isArray(data.successFailurePie) && data.successFailurePie.length > 0) ||
-    (Array.isArray(data.channelPie) && data.channelPie.length > 0) ||
+    (Array.isArray(data.successVolumes7d) &&
+      data.successVolumes7d.some((row) => rowHasPositiveMetric(row, ["volume", "value", "count"]))) ||
+    (Array.isArray(data.failedTop5Codes) &&
+      data.failedTop5Codes.some((row) => rowHasPositiveMetric(row, ["count", "volume", "value"]))) ||
+    (Array.isArray(data.responseCodeVolumes) &&
+      data.responseCodeVolumes.some((row) => rowHasPositiveMetric(row, ["count", "volume", "value"]))) ||
+    (Array.isArray(data.tpsSeries) &&
+      data.tpsSeries.some((row) => rowHasPositiveMetric(row, ["volume", "tps", "count"]))) ||
+    (Array.isArray(data.transactionsByChannel) &&
+      data.transactionsByChannel.some((row) => rowHasPositiveMetric(row, ["count", "volume", "value"]))) ||
+    (Array.isArray(data.failureByInstitution) &&
+      data.failureByInstitution.some((row) => rowHasPositiveMetric(row, ["count", "volume", "value"]))) ||
+    (Array.isArray(data.destinationSuccessRates) &&
+      data.destinationSuccessRates.some((row) =>
+        rowHasPositiveMetric(row, ["totalCount", "count", "volume", "value"]),
+      )) ||
+    (Array.isArray(data.successFailurePie) &&
+      data.successFailurePie.some((row) => rowHasPositiveMetric(row, ["value", "volume", "count"]))) ||
+    (Array.isArray(data.channelPie) &&
+      data.channelPie.some((row) => rowHasPositiveMetric(row, ["value", "volume", "count"]))) ||
     (Array.isArray(data.chartData7d) &&
       data.chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0))
   );
@@ -1373,13 +1394,14 @@ function buildChartsPayload(ctx, summary, statusSummaryRows) {
     channelPie: buildChannelPieRows(transactionsByChannel),
   };
   const hasChartData = dashboardHasChartData(chartPayload);
+  // Volume signals only — do not treat empty chart scaffolding as activity.
   const hasTransactions =
     Number(summary.totalTransactions) > 0 ||
     workingRows.length > 0 ||
     chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0) ||
     sumStatusSummaryRows(statusSummaryRows) > 0 ||
     hasChartData;
-  const showData = hasTransactions || hasChartData;
+  const showData = hasTransactions;
 
   return {
     hasTransactions,
@@ -1772,9 +1794,9 @@ function normalizeDashboardCompareSlice(slice) {
     successFailurePie,
     failedTop5Codes,
     hasTransactions:
-      chartData7d.some((row) => Number(row.transactions) > 0) ||
-      successFailurePie.length > 0 ||
-      failedTop5Codes.length > 0,
+      chartData7d.some((row) => Number(row.transactions) > 0 || Number(row.amount) > 0) ||
+      successFailurePie.some((row) => Number(row?.value) > 0) ||
+      failedTop5Codes.some((row) => Number(row?.count) > 0),
   };
 }
 
