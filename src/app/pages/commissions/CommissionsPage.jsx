@@ -177,7 +177,7 @@ export default function CommissionsPage() {
   return (
     <StatisticsDrilldownLayout
       title="Commissions"
-      subtitle="View commissions by institution and date. Generated weekly Friday 11:30pm Lagos (Sun–Fri settlement window)."
+      subtitle="View commissions by institution and settlement date. Generated weekly Friday 11:30pm Lagos (Sun–Fri window)."
       dateRange={dateRange}
       institutionLabel={institutionLabel}
       isLoading={isLoading}

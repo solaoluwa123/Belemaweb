@@ -81,11 +81,10 @@ function formatSqlDateTime(d) {
 
 /**
  * `GetCommissions` accepts a half-open window `[startDate, endDate)`.
- * Rows match if `generation_date` falls in that window **or** the settlement
- * `start_date`/`end_date` overlaps it — so Generate for a past txn week still lists after Refresh.
+ * Rows match when their settlement `start_date`/`end_date` overlaps that window
+ * (not `generation_date` — that is when the cron wrote the row).
  *
- * End bound is exclusive — send midnight of the day after the selected end date,
- * otherwise the final day of the range is dropped for generation_date matches.
+ * End bound is exclusive — send midnight of the day after the selected end date.
  */
 export function buildCommissionDateParams(dateRange) {
   const { start, end } = normalizeDashboardDateRange(dateRange);
