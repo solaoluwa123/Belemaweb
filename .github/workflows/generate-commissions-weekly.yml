@@ -1,0 +1,32 @@
+name: Generate commissions (weekly cron)
+
+# Manual only — do not schedule. Hits the same endpoint the Friday 23:30 Africa/Lagos
+# Spring @Scheduled job calls. Auto scheduler in the API is unchanged.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  invoke-weekly-generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BELEMA_SSH_KEY }}
+
+      - name: Run weekly generate-commissions
+        env:
+          BELEMA_HOST: ${{ secrets.BELEMA_SSH_HOST }}
+          BELEMA_USER: ${{ secrets.BELEMA_SSH_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=no "$BELEMA_USER@$BELEMA_HOST" '
+            set -e
+            echo "Calling generate-commissions (same path as Friday 23:30 Lagos cron)..."
+            curl -sS -m 600 -w "\nHTTP %{http_code}\n" \
+              -H "Accept: application/json" \
+              "http://127.0.0.1:8077/sparkpayapi/app/crons/generate-commissions"
+          '
