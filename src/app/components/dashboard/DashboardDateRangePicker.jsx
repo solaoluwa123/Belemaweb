@@ -81,12 +81,16 @@ export function DashboardDateRangePicker({
 
   const maxDate = disableFuture ? endOfDay(new Date()) : undefined;
 
+  // Only reset to presets when the popover opens. Do not depend on applied.start/end —
+  // normalizeDashboardDateRange returns new Date instances every render, which would
+  // immediately kick the user out of the Custom calendar view.
   useEffect(() => {
     if (!open) return;
     setView("presets");
     setCustomStart(startOfDay(applied.start));
     setCustomEnd(endOfDay(applied.end));
-  }, [open, applied.start, applied.end]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open transition only
+  }, [open]);
 
   const commitRange = (start, end) => {
     let nextStart = startOfDay(start);
@@ -140,7 +144,11 @@ export function DashboardDateRangePicker({
             <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[min(100vw-2rem,42rem)] max-w-full p-0 sm:min-w-[320px]" align="end">
+        <PopoverContent
+          className="z-[100] w-[min(100vw-2rem,42rem)] max-w-full max-h-[min(85vh,40rem)] overflow-y-auto p-0 sm:min-w-[320px]"
+          align="end"
+          collisionPadding={16}
+        >
           {view === "custom" ? (
             <div className="space-y-4 p-3">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
