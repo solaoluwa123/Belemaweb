@@ -90,7 +90,7 @@ function RateTooltip({ active, payload, label }) {
 }
 
 /**
- * Institution inflow/outflow health monitor with KPI strip, paired stacked bars,
+ * Institution inflow/outflow health monitor with KPI strip, grouped horizontal bars,
  * selected-FI success-rate time series, and a collapsible live feed.
  */
 export function LiveInstitutionFlowMonitor({
@@ -200,7 +200,7 @@ export function LiveInstitutionFlowMonitor({
   }, [institutions]);
 
   const seriesRows = selected?.timeSeries ?? [];
-  const barHeight = Math.max(280, chartRows.length * 44 + 48);
+  const barHeight = Math.max(320, chartRows.length * 72 + 56);
   const windowLabel = `${meta.windowMinutes || LIVE_MONITORING_WINDOW_MINUTES} min`;
 
   return (
@@ -331,7 +331,7 @@ export function LiveInstitutionFlowMonitor({
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Inflow / outflow by institution</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Paired stacks: inflow (dark green / orange) and outflow (lime / amber). Click a bar to focus the trend.
+                  Separate horizontal bars for in/out success and fail. Click a bar to focus the trend.
                 </p>
               </CardHeader>
               <CardContent>
@@ -341,8 +341,8 @@ export function LiveInstitutionFlowMonitor({
                       layout="vertical"
                       data={chartRows}
                       margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
-                      barCategoryGap="18%"
-                      barGap={4}
+                      barCategoryGap="22%"
+                      barGap={2}
                       onClick={(state) => {
                         const code = state?.activePayload?.[0]?.payload?.institutionCode;
                         if (code) setSelectedCode(code);
@@ -361,15 +361,13 @@ export function LiveInstitutionFlowMonitor({
                       <Bar
                         dataKey="inSuccessCount"
                         name="In success"
-                        stackId="in"
                         fill={FLOW_COLORS.inSuccess}
                         cursor="pointer"
-                        radius={[0, 0, 0, 0]}
+                        radius={[0, 4, 4, 0]}
                       />
                       <Bar
                         dataKey="inFailCount"
                         name="In fail"
-                        stackId="in"
                         fill={FLOW_COLORS.inFail}
                         cursor="pointer"
                         radius={[0, 4, 4, 0]}
@@ -377,14 +375,13 @@ export function LiveInstitutionFlowMonitor({
                       <Bar
                         dataKey="outSuccessCount"
                         name="Out success"
-                        stackId="out"
                         fill={FLOW_COLORS.outSuccess}
                         cursor="pointer"
+                        radius={[0, 4, 4, 0]}
                       />
                       <Bar
                         dataKey="outFailCount"
                         name="Out fail"
-                        stackId="out"
                         fill={FLOW_COLORS.outFail}
                         cursor="pointer"
                         radius={[0, 4, 4, 0]}

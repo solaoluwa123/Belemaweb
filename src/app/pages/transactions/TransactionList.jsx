@@ -205,7 +205,7 @@ export default function TransactionList() {
   const [customEnd, setCustomEnd] = useState(initialRange.end);
   /** Values that drive the transaction list (updated when user clicks Filter). */
   const [advancedFiltersApplied, setAdvancedFiltersApplied] = useState(ADVANCED_FILTERS_INITIAL);
-  /** Editable fields in the overlay (updated on Clear / when opening panel). */
+  /** Editable fields in the overlay (synced from applied when opening; Clear resets both). */
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState(ADVANCED_FILTERS_INITIAL);
   const [liveHighlightIds, setLiveHighlightIds] = useState(() => new Set());
   const [institutionOptions, setInstitutionOptions] = useState([]);
@@ -1005,14 +1005,19 @@ export default function TransactionList() {
           </div>
           <p className="mt-3 shrink-0 text-sm leading-5 text-slate-700">
             Set the fields above, then click <strong className="font-semibold text-slate-900">Filter</strong> to update
-            the list. Date range and quick search still apply immediately. Text fields use &quot;contains&quot; matching.
+            the list. <strong className="font-semibold text-slate-900">Clear</strong> restores the default list
+            immediately. Date range and quick search still apply immediately. Text fields use &quot;contains&quot; matching.
           </p>
           <div className="mt-4 flex shrink-0 flex-col gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:flex-nowrap sm:justify-end sm:gap-2">
             <Button
               type="button"
               variant="outline"
               className="h-10 w-full font-semibold uppercase tracking-wide sm:order-1 sm:w-auto"
-              onClick={() => setAdvancedFiltersDraft({ ...ADVANCED_FILTERS_INITIAL })}
+              onClick={() => {
+                setAdvancedFiltersDraft({ ...ADVANCED_FILTERS_INITIAL });
+                setAdvancedFiltersApplied({ ...ADVANCED_FILTERS_INITIAL });
+                setPage(1);
+              }}
             >
               Clear
             </Button>
