@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCcw } from "lucide-react";
 import { APIError } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { fetchWalletActivity } from "../../services/wallets";
-import { formatBackendDate, formatBackendTime, formatEmptyCell, formatJoinedCell, formatLocalYmd, getBackendDateTime } from "../../utils/formatters";
+import { formatBackendDate, formatBackendTime, formatEmptyCell, formatJoinedCell, getBackendDateTime } from "../../utils/formatters";
 
 export default function WalletActivity() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, requiresInstitutionScope } = useAuth();
   const [walletState, setWalletState] = useState({
     wallet: null,
@@ -74,15 +75,6 @@ export default function WalletActivity() {
     loadActivity();
   }, [loadActivity]);
 
-  const todayYmd = formatLocalYmd();
-  const todaysActivities = walletState.activities.filter((row) => {
-    const t = getBackendDateTime(row.dateSort || row.date);
-    if (!t) return false;
-    const start = new Date(`${todayYmd}T00:00:00`).getTime();
-    const end = new Date(`${todayYmd}T23:59:59.999`).getTime();
-    return t >= start && t <= end;
-  });
-
   const columns = [
     {
       key: "date",
@@ -120,13 +112,33 @@ export default function WalletActivity() {
     },
     {
       key: "amount",
-      label: "Amount",
+      label: "Total amount",
       sortable: true,
       render: (value, row) => (
         <span className={row.isCredit ? "text-emerald-700" : "text-rose-700"}>
           {row.isCredit ? "+" : "−"}NGN {Number(value ?? 0).toLocaleString()}
         </span>
       ),
+    },
+    {
+      key: "transactionAmount",
+      label: "Transaction amount",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "fee",
+      label: "Fee",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "charge",
+      label: "Charge",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "totalFee",
+      label: "Total fee",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
     },
     {
       key: "status",
@@ -140,8 +152,12 @@ export default function WalletActivity() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Wallet activity</h1>
+        <div className="flex items-start gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate("/wallets")} aria-label="Back to wallets">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Wallet activity</h1>
           <p className="text-gray-500 mt-1">
             {w ? (
               <>
@@ -166,6 +182,7 @@ export default function WalletActivity() {
             <Link to="/wallets" className="text-primary underline-offset-2 hover:underline">
               Wallets
             </Link>
+          </div>
           </div>
         </div>
         <Button variant="outline" onClick={loadActivity} disabled={isLoading} className="gap-2 shrink-0">
@@ -206,10 +223,10 @@ export default function WalletActivity() {
       </div>
 
       <DataTable
-        data={todaysActivities}
+        data={walletState.activities}
         columns={columns}
         isLoading={isLoading}
-        emptyMessage="No wallet activity for today."
+        emptyMessage="No wallet activity in this period."
         initialPageSize={25}
       />
     </div>

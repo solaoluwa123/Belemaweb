@@ -127,6 +127,17 @@ function asObject(value) {
   return {};
 }
 
+/** Wallet detail endpoints return `data` as a one-item list. */
+function asFirstObject(value) {
+  const unwrapped = unwrapPayload(value);
+  if (Array.isArray(unwrapped)) {
+    const first = unwrapped.find((entry) => entry && typeof entry === "object" && !Array.isArray(entry));
+    return first || {};
+  }
+  if (unwrapped && typeof unwrapped === "object") return unwrapped;
+  return {};
+}
+
 function firstDefined(...values) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
 }
@@ -145,6 +156,14 @@ function toNumber(value) {
   const normalized = typeof value === "string" ? value.replace(/,/g, "").trim() : value;
   const numeric = Number(normalized);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function optionalMoney(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (value !== undefined && value !== null && value !== "") return toNumber(value);
+  }
+  return null;
 }
 
 /**
@@ -247,7 +266,10 @@ function buildWalletActivityQuery(options = {}) {
  */
 function normalizeActivity(row, index = 0) {
   const source = row && typeof row === "object" ? row : {};
-  const amount = toNumber(firstDefined(source.amount, source.transactionAmount, source.value));
+  const amount = toNumber(firstDefined(source.amount, source.value));
+  const transactionAmount = optionalMoney(source, ["transaction_amount", "transactionAmount"]);
+  const fee = optionalMoney(source, ["fee"]);
+  const charge = optionalMoney(source, ["charge"]);
   // `credit_or_debit` is the table's own flag (values e.g. "credit"/"debit").
   const creditOrDebitRaw = safeString(
     firstDefined(source.credit_or_debit, source.creditOrDebit, source.creditordebit)
@@ -305,6 +327,10 @@ function normalizeActivity(row, index = 0) {
     type,
     flow,
     amount,
+    transactionAmount,
+    fee,
+    charge,
+    totalFee: fee == null && charge == null ? null : Number(fee ?? 0) + Number(charge ?? 0),
     status: safeString(firstDefined(source.status, source.responseCodeDefinition), "Successful"),
     isCredit,
     details: safeString(
@@ -418,7 +444,7 @@ export async function fetchWalletDetails(walletNumber) {
     throw new APIError("A wallet number is required.", 400, null);
   }
   const payload = await apiClient.get(API_ENDPOINTS.wallets.details(walletNumber));
-  return normalizeWallet(asObject(payload));
+  return normalizeWallet(asFirstObject(payload));
 }
 
 /**
@@ -471,7 +497,7 @@ export async function fetchWalletActivity(walletNumber, activityOptions = {}) {
     apiClient.get(API_ENDPOINTS.wallets.activity(walletNumber), activityQuery),
   ]);
 
-  const wallet = normalizeWallet(asObject(walletPayload));
+  const wallet = normalizeWallet(asFirstObject(walletPayload));
   let activities = asArray(activityPayload)
     .map(normalizeActivity)
     .map((row) => attachWalletInstitution(row, wallet));

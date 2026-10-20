@@ -127,13 +127,33 @@ export default function WalletActivitiesAll() {
     },
     {
       key: "amount",
-      label: "Amount",
+      label: "Total amount",
       sortable: true,
       render: (value, row) => (
         <span className={row.isCredit ? "text-emerald-700" : "text-rose-700"}>
           {row.isCredit ? "+" : "−"}NGN {Number(value ?? 0).toLocaleString()}
         </span>
       ),
+    },
+    {
+      key: "transactionAmount",
+      label: "Transaction amount",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "fee",
+      label: "Fee",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "charge",
+      label: "Charge",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
+    },
+    {
+      key: "totalFee",
+      label: "Total fee",
+      render: (value) => (value == null ? "—" : `NGN ${Number(value).toLocaleString()}`),
     },
     {
       key: "walletNumber",

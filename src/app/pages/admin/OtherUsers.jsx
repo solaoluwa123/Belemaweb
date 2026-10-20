@@ -171,8 +171,8 @@ export default function OtherUsers() {
 
   const columns = [
     {
-      key: "fullName",
-      label: "Full Name",
+      key: "username",
+      label: "Username",
       sortable: true,
       render: (value) => titleCaseName(value) || "—",
     },
@@ -195,7 +195,7 @@ export default function OtherUsers() {
     if (row?.isPendingCreate || row?.pendingAction) return;
     setEditingUser(row);
     setForm({
-      username: titleCaseName(row.fullName || row.username),
+      username: titleCaseName(row.username),
       email: row.email,
       phone: toLocalPhoneDigits(row.phone),
       roleName: row.roleName,
@@ -209,7 +209,7 @@ export default function OtherUsers() {
     if (!editingUser) return;
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Full name is required.");
+      setFormError("Username is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -331,7 +331,7 @@ export default function OtherUsers() {
   const createUser = async () => {
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Full name is required.");
+      setFormError("Username is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -420,7 +420,7 @@ export default function OtherUsers() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by full name, email, role or institution..."
+            placeholder="Search by username, email, role or institution..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -457,12 +457,12 @@ export default function OtherUsers() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="other-username">Full Name</Label>
+                <Label htmlFor="other-username">Username</Label>
                 <Input
                   id="other-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter full name"
+                  placeholder="Enter username"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
@@ -557,12 +557,12 @@ export default function OtherUsers() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="edit-other-username">Full Name</Label>
+                <Label htmlFor="edit-other-username">Username</Label>
                 <Input
                   id="edit-other-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter full name"
+                  placeholder="Enter username"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">

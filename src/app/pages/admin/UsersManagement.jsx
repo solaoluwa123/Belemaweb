@@ -187,8 +187,8 @@ export default function UsersManagement() {
 
   const columns = [
     {
-      key: "fullName",
-      label: "Full Name",
+      key: "username",
+      label: "Username",
       sortable: true,
       render: (value) => titleCaseName(value) || "—",
     },
@@ -210,7 +210,7 @@ export default function UsersManagement() {
     if (user?.isPendingCreate || user?.pendingAction) return;
     setEditingUser(user);
     setForm({
-      username: titleCaseName(user.fullName || user.username),
+      username: titleCaseName(user.username),
       email: user.email,
       phone: toLocalPhoneDigits(user.phone),
       roleName: user.roleName,
@@ -223,7 +223,7 @@ export default function UsersManagement() {
     if (!editingUser) return;
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Full name is required.");
+      setFormError("Username is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -378,7 +378,7 @@ export default function UsersManagement() {
   const createUser = async () => {
     setFormError("");
     if (!form.username.trim()) {
-      setFormError("Full name is required.");
+      setFormError("Username is required.");
       return;
     }
     if (!form.email.trim()) {
@@ -480,7 +480,7 @@ export default function UsersManagement() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by full name, email, phone, role or status..."
+            placeholder="Search by username, email, phone, role or status..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -517,12 +517,12 @@ export default function UsersManagement() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="new-username">Full Name</Label>
+                <Label htmlFor="new-username">Username</Label>
                 <Input
                   id="new-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter full name"
+                  placeholder="Enter username"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
@@ -617,12 +617,12 @@ export default function UsersManagement() {
             )}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[140px] space-y-1.5">
-                <Label htmlFor="edit-username">Full Name</Label>
+                <Label htmlFor="edit-username">Username</Label>
                 <Input
                   id="edit-username"
                   value={form.username}
                   onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
-                  placeholder="Enter full name"
+                  placeholder="Enter username"
                 />
               </div>
               <div className="flex-1 min-w-[140px] space-y-1.5">
