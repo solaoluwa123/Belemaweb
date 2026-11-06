@@ -311,7 +311,7 @@ function toStringOr(value, fallback = "") {
  *   - overlay the canonical column names the backend expects (`name`, `business_address`,
  *     `port_number`, …) from any of the camelCase variants the form may pass,
  *   - stamp the caller identity into `created_by` / `createdBy`,
- *   - coerce numeric fields (do not treat a "7.5%" display string as vat).
+ *   - coerce numeric fields (vat is an absolute amount, not a percentage).
  */
 function buildInstitutionWritePayload(payload, requestedBy, actionType) {
   const raw =

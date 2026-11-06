@@ -321,14 +321,14 @@ function InstitutionFormFields({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-vat`}>Value Added Tax *</Label>
+        <Label htmlFor={`${idPrefix}-vat`}>Value Added Tax (amount) *</Label>
         <Input
           id={`${idPrefix}-vat`}
           type="number"
           step="0.01"
           value={form.vat}
           onChange={(e) => setForm((p) => ({ ...p, vat: e.target.value }))}
-          placeholder="e.g. 7.5"
+          placeholder="e.g. 5.00"
         />
       </div>
       {includeSecrets ? (

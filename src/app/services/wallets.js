@@ -270,6 +270,7 @@ function normalizeActivity(row, index = 0) {
   const transactionAmount = optionalMoney(source, ["transaction_amount", "transactionAmount"]);
   const fee = optionalMoney(source, ["fee"]);
   const charge = optionalMoney(source, ["charge"]);
+  const totalFeeFromRow = optionalMoney(source, ["total_fee", "totalFee"]);
   // `credit_or_debit` is the table's own flag (values e.g. "credit"/"debit").
   const creditOrDebitRaw = safeString(
     firstDefined(source.credit_or_debit, source.creditOrDebit, source.creditordebit)
@@ -330,7 +331,12 @@ function normalizeActivity(row, index = 0) {
     transactionAmount,
     fee,
     charge,
-    totalFee: fee == null && charge == null ? null : Number(fee ?? 0) + Number(charge ?? 0),
+    totalFee:
+      totalFeeFromRow != null
+        ? totalFeeFromRow
+        : fee == null && charge == null
+          ? null
+          : Number(fee ?? 0) + Number(charge ?? 0),
     status: safeString(firstDefined(source.status, source.responseCodeDefinition), "Successful"),
     isCredit,
     details: safeString(
